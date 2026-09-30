@@ -11,8 +11,8 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 
 <br />
 
-![Fase](https://img.shields.io/badge/fases_1_y_2-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-124_pasando-6A35E6?style=flat-square)
+![Fase](https://img.shields.io/badge/fases_1_a_4-listas-0A7A4C?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-263_pasando-6A35E6?style=flat-square)
 ![Demo](https://img.shields.io/badge/demo-lucas--tau--black.vercel.app-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
@@ -52,14 +52,14 @@ Hay dos tipos de cuenta:
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/1-selector-cuentas-noche.png" />
         <img src="lucas-design-kit/capturas/1-selector-cuentas-dia.png" alt="Selector de cuentas" />
       </picture>
-      <p align="center"><b>Selector de cuentas</b> · fase 1 ✓</p>
+      <p align="center"><b>Selector de cuentas</b> · fase 2 ✓</p>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/6-entrar-con-codigo-noche.png" />
         <img src="lucas-design-kit/capturas/6-entrar-con-codigo-dia.png" alt="Entrar con código" />
       </picture>
-      <p align="center"><b>Entrar con código</b> · fase 1 ✓</p>
+      <p align="center"><b>Entrar con código</b> · fase 2 ✓</p>
     </td>
   </tr>
   <tr>
@@ -68,14 +68,14 @@ Hay dos tipos de cuenta:
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/8-personas-noche.png" />
         <img src="lucas-design-kit/capturas/8-personas-dia.png" alt="Personas, roles e invitaciones" />
       </picture>
-      <p align="center"><b>Personas, roles e invitaciones</b> · fase 1 ✓</p>
+      <p align="center"><b>Personas, roles e invitaciones</b> · fase 2 ✓</p>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/2-bandeja-revision-noche.png" />
         <img src="lucas-design-kit/capturas/2-bandeja-revision-dia.png" alt="Bandeja de revisión" />
       </picture>
-      <p align="center"><b>Bandeja de revisión</b> · fase 2 ✓</p>
+      <p align="center"><b>Bandeja de revisión</b> · fase 3 ✓</p>
     </td>
   </tr>
   <tr>
@@ -84,14 +84,14 @@ Hay dos tipos de cuenta:
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/4-resumen-evento-noche.png" />
         <img src="lucas-design-kit/capturas/4-resumen-evento-dia.png" alt="Resumen de un evento" />
       </picture>
-      <p align="center"><b>Resumen del paseo</b> · fase 2 ✓</p>
+      <p align="center"><b>Resumen del paseo</b> · fase 3 ✓</p>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/5-liquidacion-noche.png" />
         <img src="lucas-design-kit/capturas/5-liquidacion-dia.png" alt="Liquidación: quién le paga a quién" />
       </picture>
-      <p align="center"><b>Liquidación</b> · fase 5</p>
+      <p align="center"><b>Liquidación</b> · fase 6</p>
     </td>
   </tr>
 </table>
@@ -123,23 +123,24 @@ flowchart LR
 
 ## Estado del proyecto
 
-- [x] **Fase 1 · Base.** Monorepo, esquema completo con RLS y RPC, entrada con correo y contraseña (con recuperación), enlace mágico o Google, selector de cuentas, crear cuenta de hogar o evento, unirse con código o link («¿Eres alguna de estas personas?»), personas, roles e invitaciones. Modo Día y Noche.
-- [x] **Fase 2 · Subir, revisar y ver.** Subida de fotos (con la cámara del celular), PDFs o texto con compresión en el navegador; procesador simulado; bandeja de revisión con evidencia y zoom, confianza por campo, correcciones y tiempo real; memoria de comercios y ejemplos de entrenamiento; resúmenes de hogar (categorías, 6 meses, presupuestos) y de evento (quién puso más); lista de gastos; PWA instalable; animaciones Lottie.
-- [ ] **Fase 3 · Worker.** QR DIAN, OCR, LLM local, validación y clasificación con Laya (reemplaza al procesador simulado).
-- [ ] **Fase 4 · WhatsApp.** Connector con Baileys y «Conectar WhatsApp».
-- [ ] **Fase 5 · Números.** Liquidación (quién le paga a quién), edición de presupuestos y exportes (Excel, CSV, PDF).
-- [ ] **Fase 6 · Producción.** Consentimiento y borrado de datos (Ley 1581), retención de evidencias y observabilidad.
+- [x] **Fase 1 · Base de datos.** Monorepo, esquema completo con RLS y RPC, semilla y pruebas de permisos; borrar un usuario pasa sus cuentas a un admin.
+- [x] **Fase 2 · Web.** Entrada con correo y contraseña (con recuperación), enlace mágico o Google, selector de cuentas, crear cuenta de hogar o evento, unirse con código o link («¿Eres alguna de estas personas?»), personas, roles e invitaciones. Modo Día y Noche.
+- [x] **Fase 3 · Subir, revisar y ver.** Subida de fotos (con la cámara del celular), PDFs o texto con compresión en el navegador; bandeja de revisión con evidencia y zoom, confianza por campo, correcciones y tiempo real; memoria de comercios y ejemplos de entrenamiento; resúmenes de hogar (categorías, 6 meses, presupuestos) y de evento (quién puso más); lista de gastos; PWA instalable; animaciones Lottie.
+- [x] **Fase 4 · Worker.** [`services/worker`](services/worker/README.md) en Python reemplaza al procesador simulado: cola con reintentos y registro de errores, QR DIAN, pdfplumber, OpenCV + RapidOCR, Qwen 2.5 con JSON validado por Pydantic, confianza por campo, pagador según el mensaje, memoria de comercios con RapidFuzz, Laya sobre ONNX Runtime (multilingüe o inglés), duplicados por huella y CUFE, export y notebook para ajustar Laya, Docker para Oracle ARM y Sentry.
+- [ ] **Fase 5 · WhatsApp.** Connector con Baileys y «Conectar WhatsApp».
+- [ ] **Fase 6 · Números.** Liquidación (quién le paga a quién), edición de presupuestos y exportes (Excel, CSV, PDF).
+- [ ] **Fase 7 · Producción.** Consentimiento y borrado de datos (Ley 1581) y retención de evidencias.
 
-## Cómo llegan los gastos hoy (fase 2)
+## Cómo llegan los gastos hoy
 
-Mientras no existen el connector ni el worker, todo entra por la web:
+Mientras no existe el connector de WhatsApp, todo entra por la web:
 
 1. **Subir** (`/c/[cuenta]/subir` o el atajo «Subir un recibo» de la PWA): la foto se comprime en el navegador (1600 px, WebP o JPEG) y va al bucket privado `evidencias`, en la carpeta de la cuenta. También sirven PDFs o un mensaje como «taxis al aeropuerto 100 lucas, la pagó Santi».
 2. `submit_upload` verifica que el archivo exista y que la persona sea de la cuenta, y crea el **mensaje** y el **trabajo** en la cola (`jobs`).
-3. El **procesador simulado** (`run_simulated_worker`, con pg_cron cada 10 s) lee los montos colombianos del texto, detecta quién pagó, clasifica con la memoria de comercios de la cuenta y deja el gasto con confianza por campo. Si la conoce bien, lo confirma solo; si no, va a **Revisar**.
+3. El **worker** ([`services/worker`](services/worker/README.md), en el servidor ARM) toma el trabajo, lee la foto, el PDF o el texto (QR DIAN, OCR, reglas y Qwen), valida, decide quién pagó, clasifica (memoria de comercios → Laya) y deja el gasto con confianza por campo. Si la cuenta ya conoce el comercio y todo se leyó seguro, lo confirma solo; si no, va a **Revisar**. Si es la misma foto o la misma factura (CUFE), el mensaje queda como «Ya estaba registrado».
 4. En **Revisar**, un admin corrige y confirma con Enter. Cada corrección alimenta la memoria de comercios y, si cambió la categoría, queda como ejemplo para reentrenar a Laya. Todo se actualiza en vivo con Supabase Realtime.
 
-Cuando llegue el worker de Python (fase 3) basta con `select cron.unschedule('lucas-procesador-simulado');` y que el worker tome los trabajos de la misma cola.
+La migración 70 apaga el **procesador simulado** de la fase 3. Sus funciones siguen en la base para probar en local sin el worker: `select public.run_simulated_worker();` procesa la cola a mano.
 
 ## Stack
 
@@ -149,8 +150,8 @@ Cuando llegue el worker de Python (fase 3) basta con `select cron.unschedule('lu
 | Diseño | Sistema propio: `tokens.css` + `lucas.css`, Bricolage Grotesque y Figtree, sin Tailwind |
 | Datos | Supabase: Postgres, Auth, Storage privado, Realtime, RLS, RPC, pg_cron |
 | WhatsApp | Baileys detrás de una interfaz, listo para migrar a WhatsApp Cloud API |
-| Worker | Python 3.12 · Pydantic · zxing-cpp · pdfplumber · OpenCV · RapidOCR · imagehash · RapidFuzz |
-| IA local | Ollama (Qwen 2.5) y Laya sobre ONNX Runtime |
+| Worker | Python 3.12 · uv · Pydantic · httpx · zxing-cpp · pdfplumber · OpenCV · RapidOCR · imagehash · RapidFuzz · Sentry |
+| IA local | Ollama (Qwen 2.5, JSON con esquema) y Laya sobre ONNX Runtime (multilingüe o inglés), ajustado en Colab o Kaggle |
 | Calidad | Biome · Vitest · PGlite (Postgres en WASM para probar RLS sin Docker) · Ruff · pytest · Playwright |
 | PWA | Serwist (service worker con Turbopack), manifest con atajo a la cámara, página sin conexión |
 | Infra | Vercel Hobby (web) · Supabase Free · Oracle Cloud Always Free ARM (connector, worker, Ollama) |
@@ -168,11 +169,11 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             104 pruebas de permisos, fase 2 y semilla (PGlite)
+│   ├── tests/             125 pruebas de permisos, subidas, worker y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
-│   ├── connector/         Node + Baileys (fase 4)
-│   └── worker/            Python (fase 3)
+│   ├── connector/         Node + Baileys (fase 5)
+│   └── worker/            Python: OCR, QR DIAN, Ollama, Laya (fase 4)
 └── lucas-design-kit/      sistema de diseño: manual, CSS, componentes y capturas
 ```
 
@@ -189,8 +190,9 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 104 pruebas de RLS, RPC, Storage, procesador y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 125 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las pruebas de apps/web/lib)
+pnpm worker:test  # 118 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm typecheck    # tipos de rutas de Next + tsc
 pnpm lint         # Biome
 ```
@@ -279,7 +281,7 @@ Todas las tablas tienen RLS forzado. Lo delicado (unirse, cambiar roles, sacar g
 
 Nadie cambia su propio rol, nadie se vuelve titular y al titular no lo toca nadie. Cada regla tiene su prueba en [`supabase/tests/permissions.test.ts`](supabase/tests/permissions.test.ts).
 
-**Datos personales (Ley 1581 de 2012):** el esquema ya guarda el consentimiento (`profiles.privacy_accepted_at`, `people.consent_at`) y los días de retención de evidencias por cuenta (`accounts.evidence_retention_days`). El flujo de aceptación y el borrado por persona llegan en la fase 6.
+**Datos personales (Ley 1581 de 2012):** el esquema ya guarda el consentimiento (`profiles.privacy_accepted_at`, `people.consent_at`) y los días de retención de evidencias por cuenta (`accounts.evidence_retention_days`). El flujo de aceptación y el borrado por persona llegan en la fase 7.
 
 ## Diseño
 

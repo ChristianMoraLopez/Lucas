@@ -115,7 +115,15 @@ export interface ReviewExpense {
   status: 'pending_review' | 'confirmed';
   confidence: number | null;
   field_confidence: Partial<Record<FieldKey, number>> | null;
-  ai_snapshot: { merchant?: string; expense_date?: string; total_cop?: number; category_id?: string | null; payer_person_id?: string | null } | null;
+  ai_snapshot: {
+    merchant?: string;
+    expense_date?: string;
+    total_cop?: number;
+    category_id?: string | null;
+    payer_person_id?: string | null;
+    /** El worker encontró otro gasto con el mismo comercio, día y valor */
+    possible_duplicate_of?: string;
+  } | null;
   split_note: string | null;
   corrected_by: string | null;
   evidence_path: string | null;
