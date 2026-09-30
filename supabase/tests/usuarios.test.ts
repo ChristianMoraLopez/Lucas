@@ -21,9 +21,7 @@ describe('borrar un usuario', () => {
   it('sus cuentas pasan a un admin y lo que creó queda sin autor', async () => {
     await enTransaccion(async (q) => {
       await q('delete from auth.users where id = $1', [U.valeria]);
-      const { rows } = await q<{ id: string; owner_id: string }>('select id, owner_id from public.accounts where id = any($1) order by name', [
-        [CASA, PASEO],
-      ]);
+      const { rows } = await q<{ id: string; owner_id: string }>('select id, owner_id from public.accounts where id = any($1) order by name', [[CASA, PASEO]]);
       expect(rows).toEqual([
         { id: CASA, owner_id: U.andres },
         { id: PASEO, owner_id: U.laura },
