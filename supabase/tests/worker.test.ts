@@ -318,6 +318,7 @@ describe('permisos', () => {
       `select public.worker_fail_job('e0000000-0000-4000-8000-000000000017', 'x')`,
       `select public.worker_training_export()`,
       `select public.worker_find_duplicate('${PASEO}', null, null)`,
+      'select public.worker_take_over()',
     ]) {
       await expect(as(db, U.valeria, (tx) => tx.query(sql))).rejects.toThrow(DENIED);
       await expect(as(db, null, (tx) => tx.query(sql))).rejects.toThrow(DENIED);
@@ -326,5 +327,14 @@ describe('permisos', () => {
 
   it('el registro de errores no se ve desde el API', async () => {
     await expect(as(db, U.valeria, (tx) => tx.query('select * from public.job_errors'))).rejects.toThrow(DENIED);
+  });
+});
+
+describe('relevo del procesador simulado', () => {
+  it('el worker lo apaga al arrancar; sin pg_cron (como en PGlite) no hay nada que apagar', async () => {
+    await as(db, U.valeria, async (tx) => {
+      await comoWorker(tx);
+      expect(await one(tx, 'select public.worker_take_over() as apagado')).toEqual({ apagado: false });
+    });
   });
 });

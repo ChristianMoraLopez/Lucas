@@ -59,6 +59,7 @@ def cmd_run(once: bool) -> int:
     worker, ocr, _llm, _cls = _componentes(settings)
     ocr.warmup()
     worker.install_signal_handlers()
+    worker.take_over()
     if once:
         n = worker.run_once()
         log.info("Cola vacía: %d trabajos", n)
