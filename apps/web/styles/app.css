@@ -1598,3 +1598,35 @@ body {
   flex: none;
 }
 
+/* ---------- entrar / crear cuenta ---------- */
+.lg-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--superficie-2);
+}
+.lg-tab {
+  font: inherit;
+  font-weight: 800;
+  font-size: 15px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--tinta-2);
+  cursor: pointer;
+}
+.lg-tab[aria-selected="true"] {
+  background: var(--superficie);
+  color: var(--tinta);
+  box-shadow: var(--shadow-card);
+}
+.lg-tab:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.lg-form .lu-btn--ghost {
+  justify-self: start;
+}

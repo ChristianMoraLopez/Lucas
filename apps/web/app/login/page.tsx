@@ -28,6 +28,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const next = safeNext(typeof params.next === 'string' ? params.next : null);
   const error = typeof params.error === 'string' ? (ERRORES[params.error] ?? null) : null;
   const vieneDeInvitacion = next.startsWith('/e/') || next.startsWith('/unirse');
+  const modo = params.modo === 'crear' || vieneDeInvitacion ? 'crear' : 'entrar';
 
   return (
     <div className="lu-app">
@@ -43,11 +44,11 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
             <h1 className="lu-display">{vieneDeInvitacion ? 'Entra para unirte' : 'Entra a Lucas'}</h1>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               {vieneDeInvitacion
-                ? 'Te invitaron a una cuenta. Entra con tu correo o con Google y de una te mostramos cuál es.'
-                : 'Las cuentas del hogar y de los paseos, sin pelear con el Excel. Entra con tu correo o con Google: no hay contraseñas.'}
+                ? 'Te invitaron a una cuenta. Entra o crea tu usuario y de una te mostramos cuál es.'
+                : 'Las cuentas del hogar y de los paseos, sin pelear con el Excel.'}
             </p>
           </div>
-          <LoginForm next={next} initialError={error} />
+          <LoginForm next={next} initialError={error} initialMode={modo} />
         </section>
 
         <aside className="lg-side" aria-label="Así se ve una cuenta en Lucas">
