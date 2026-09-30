@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lucas · web
 
-## Getting Started
-
-First, run the development server:
+La app que ven los usuarios: Next.js 16 (App Router) + React 19, con el sistema
+de diseño de [`lucas-design-kit`](../../lucas-design-kit/LUCAS_DISENO.md) tal cual
+(`styles/tokens.css` y `styles/lucas.css` no se tocan; lo propio de cada pantalla
+va en `styles/app.css`).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # y llena las dos variables de Supabase
+pnpm dev                     # http://localhost:3000
+pnpm test                    # pruebas de lib/ (Vitest)
+pnpm typecheck               # next typegen + tsc
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Carpeta | Qué hay |
+|---|---|
+| `app/` | Rutas: `/login`, `/auth/callback`, `/` (selector), `/cuentas/nueva`, `/unirse`, `/e/[code]`, `/c/[accountId]/*` |
+| `components/lucas-ui.tsx` | Componentes del kit (BillCard, Sticker, Amount, CodeInput, AppShell…) |
+| `components/lucas-core.ts` | Funciones puras del kit (`formatCOP`, `lucas`, tonos, códigos): sirven en Server Components |
+| `lib/` | Fechas en español, invitaciones, redirecciones seguras, errores y tipos |
+| `utils/supabase/` | Clientes de Supabase (navegador, servidor y proxy) |
+| `proxy.ts` | Refresca la sesión y manda a `/login` (recordando a dónde iba) |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Más contexto en el [README principal](../../README.md).

@@ -6,15 +6,18 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
     "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
-    "db:test": "supabase test db",
-    "db:migrate": "supabase migration up"
+    "db:test": "pnpm --filter @lucas/db test",
+    "db:push": "supabase db push"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
     "turbo": "^2.5.0"
   }
 }

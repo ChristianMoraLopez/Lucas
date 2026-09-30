@@ -1,10 +1,11 @@
 -- ============================================================================
 -- Lucas · 00000000000010_rls.sql
--- Helpers de membresía + RLS completo (enable + force en todas las tablas).
+-- Helpers de membresía + RLS completo (enable + force en todas las tablas)
+-- + privilegios por columna donde una fila tiene campos que solo cambian por RPC.
 --
--- Los helpers son security definer y los crea el rol de migración (postgres,
--- superusuario), por lo que leen account_members/expenses sin disparar RLS
--- recursivo aun con FORCE ROW LEVEL SECURITY activo.
+-- Los helpers son security definer y los crea el rol de migración (postgres),
+-- por lo que leen account_members/expenses sin disparar RLS recursivo aun con
+-- FORCE ROW LEVEL SECURITY activo.
 -- ============================================================================
 
 -- ============================================================================
@@ -76,6 +77,28 @@ as $$
   );
 $$;
 
+-- ¿Puedo agregar ítems o divisiones a este gasto? owner/admin siempre; un
+-- member solo al gasto que él mismo reportó mientras sigue pendiente.
+create or replace function public.can_detail_expense(p_expense_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.expenses e
+    join public.account_members am on am.account_id = e.account_id
+    where e.id = p_expense_id
+      and am.user_id = (select auth.uid())
+      and (
+        am.role in ('owner', 'admin')
+        or (e.created_by = (select auth.uid()) and e.status = 'pending_review')
+      )
+  );
+$$;
+
 -- ============================================================================
 -- Activar RLS (enable + force) en todas las tablas
 -- ============================================================================
@@ -133,6 +156,24 @@ alter table public.budgets force row level security;
 
 alter table public.training_examples enable row level security;
 alter table public.training_examples force row level security;
+
+-- ============================================================================
+-- Privilegios por columna. RLS decide QUÉ filas; esto decide QUÉ campos.
+-- - accounts: owner_id, status y closed_at solo cambian por RPC (close_account).
+--   Sin esto, un admin podría ponerse de dueño y luego expulsar al owner.
+-- - people: claimed_by solo cambia por RPC (join_with_code, claim_person).
+-- - profiles: el id no se toca.
+-- ============================================================================
+
+revoke insert, update on public.accounts from authenticated;
+grant update (name, starts_on, ends_on, evidence_retention_days) on public.accounts to authenticated;
+
+revoke insert, update on public.people from authenticated;
+grant insert (account_id, display_name, tone) on public.people to authenticated;
+grant update (display_name, tone) on public.people to authenticated;
+
+revoke update on public.profiles from authenticated;
+grant update (full_name, avatar_url, privacy_accepted_at, privacy_version) on public.profiles to authenticated;
 
 -- ============================================================================
 -- profiles
@@ -203,9 +244,13 @@ create policy people_update on public.people
   using (public.has_account_role(account_id, array['owner', 'admin']::public.member_role[]))
   with check (public.has_account_role(account_id, array['owner', 'admin']::public.member_role[]));
 
+-- Solo personas sin reclamar; a un miembro se le saca con remove_member.
 create policy people_delete on public.people
   for delete to authenticated
-  using (public.has_account_role(account_id, array['owner', 'admin']::public.member_role[]));
+  using (
+    claimed_by is null
+    and public.has_account_role(account_id, array['owner', 'admin']::public.member_role[])
+  );
 
 -- ============================================================================
 -- person_whatsapp_ids (el connector escribe con service role)
@@ -275,22 +320,21 @@ create policy whatsapp_groups_select on public.whatsapp_groups
 
 -- ============================================================================
 -- account_group_links
+-- Enlazar se hace por RPC con un código que el número contador ve en el grupo
+-- (fase 4); así nadie enlaza un grupo ajeno conociendo su id. Desenlazar sí
+-- lo puede hacer directamente un owner/admin.
 -- ============================================================================
 
 create policy account_group_links_select on public.account_group_links
   for select to authenticated
   using (public.is_account_member(account_id));
 
-create policy account_group_links_insert on public.account_group_links
-  for insert to authenticated
-  with check (public.has_account_role(account_id, array['owner', 'admin']::public.member_role[]));
-
 create policy account_group_links_delete on public.account_group_links
   for delete to authenticated
   using (public.has_account_role(account_id, array['owner', 'admin']::public.member_role[]));
 
 -- ============================================================================
--- messages (escritura solo service role, vía el worker)
+-- messages (escritura solo service role, vía el connector)
 -- ============================================================================
 
 create policy messages_select on public.messages
@@ -302,7 +346,8 @@ create policy messages_select on public.messages
   ));
 
 -- ============================================================================
--- expenses (cualquier miembro reporta; solo owner/admin corrige o borra)
+-- expenses: cualquier miembro reporta (queda pendiente de revisión);
+-- solo owner/admin confirma, corrige o borra.
 -- ============================================================================
 
 create policy expenses_select on public.expenses
@@ -311,7 +356,13 @@ create policy expenses_select on public.expenses
 
 create policy expenses_insert on public.expenses
   for insert to authenticated
-  with check (public.is_account_member(account_id));
+  with check (
+    created_by = (select auth.uid())
+    and (
+      public.has_account_role(account_id, array['owner', 'admin']::public.member_role[])
+      or (public.is_account_member(account_id) and status = 'pending_review')
+    )
+  );
 
 create policy expenses_update on public.expenses
   for update to authenticated
@@ -332,7 +383,7 @@ create policy expense_items_select on public.expense_items
 
 create policy expense_items_insert on public.expense_items
   for insert to authenticated
-  with check (public.is_expense_member(expense_id));
+  with check (public.can_detail_expense(expense_id));
 
 create policy expense_items_update on public.expense_items
   for update to authenticated
@@ -349,7 +400,7 @@ create policy expense_splits_select on public.expense_splits
 
 create policy expense_splits_insert on public.expense_splits
   for insert to authenticated
-  with check (public.is_expense_member(expense_id));
+  with check (public.can_detail_expense(expense_id));
 
 create policy expense_splits_update on public.expense_splits
   for update to authenticated

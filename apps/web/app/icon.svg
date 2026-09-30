@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img">
+  <title>Lucas</title>
+  <rect x="3" y="7" width="22" height="15" rx="4" transform="rotate(-14 14 14.5)" fill="#6A35E6"/>
+  <rect x="7" y="10" width="22" height="15" rx="4" transform="rotate(6 18 17.5)" fill="#0A7A4C"/>
+  <circle cx="18" cy="17.5" r="4.2" fill="#FFC53D"/>
+</svg>
