@@ -109,3 +109,30 @@ describe('invitaciones', () => {
     expect(isInviteActive({ ...inv, revoked_at: '2026-09-29T00:00:00Z' }, now)).toBe(false);
   });
 });
+
+describe('compresión de fotos', async () => {
+  const { evidencePath, extensionFor, fitWithin } = await import('./compress');
+  it('el lado largo queda en 1600 px sin agrandar las fotos pequeñas', () => {
+    expect(fitWithin(4032, 3024)).toEqual({ width: 1600, height: 1200 });
+    expect(fitWithin(3024, 4032)).toEqual({ width: 1200, height: 1600 });
+    expect(fitWithin(800, 600)).toEqual({ width: 800, height: 600 });
+  });
+  it('la extensión sigue al tipo que de verdad quedó', () => {
+    expect(extensionFor('image/webp')).toBe('webp');
+    expect(extensionFor('image/jpeg')).toBe('jpg');
+    expect(extensionFor('application/pdf')).toBe('pdf');
+  });
+  it('la ruta empieza por la cuenta (así lo exige RLS en Storage)', () => {
+    expect(evidencePath('cuenta-1', 'webp', new Date(2026, 8, 30), 'abc')).toBe('cuenta-1/2026-09/abc.webp');
+  });
+});
+
+describe('fechas de listas', async () => {
+  const { formatDateCO, formatRecent } = await import('./dates');
+  it('hoy, ayer o el día', () => {
+    expect(formatRecent('2026-09-30', undefined, '2026-09-30')).toBe('Hoy');
+    expect(formatRecent('2026-09-29', undefined, '2026-09-30')).toBe('Ayer');
+    expect(formatRecent('2026-09-27', undefined, '2026-09-30')).toBe('27 sep');
+    expect(formatDateCO('2026-09-28')).toBe('28/09/2026');
+  });
+});

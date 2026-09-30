@@ -17,3 +17,6 @@ __pycache__/
 
 # Herramientas locales
 .claude/
+
+# Se copia de node_modules en dev/build (scripts/copy-lottie-wasm.mjs)
+apps/web/public/lottie/*.wasm

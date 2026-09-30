@@ -71,6 +71,80 @@ export interface InvitationPreview {
   unclaimed_people: { id: string; display_name: string; tone: string; wa_last4: string | null; paid_count: number }[];
 }
 
+/** public.account_dashboard(p_account_id, p_month) */
+export interface Dashboard {
+  account: { id: string; name: string; type: AccountType; status: 'active' | 'closed'; starts_on: string | null; ends_on: string | null };
+  today: string;
+  month: string;
+  total: number;
+  expense_count: number;
+  pending_count: number;
+  all_equal: boolean;
+  budget: number | null;
+  prev_total: number | null;
+  categories: { id: string; name: string; letter: string; tone: string; total: number; budget: number | null }[];
+  trend: { month: string; total: number }[] | null;
+  people: { id: string; name: string; tone: string; registered: boolean; paid: number; share: number; balance: number }[];
+  recent: {
+    id: string;
+    merchant: string;
+    expense_date: string;
+    created_at: string;
+    total_cop: number;
+    status: 'pending_review' | 'confirmed';
+    source: 'whatsapp' | 'web' | 'import';
+    kind: 'photo' | 'pdf' | 'text' | null;
+    category: string | null;
+    payer: string | null;
+    payer_tone: string | null;
+    payer_registered: boolean | null;
+  }[];
+}
+
+export type MessageKind = 'photo' | 'pdf' | 'text';
+export type FieldKey = 'merchant' | 'date' | 'total' | 'category' | 'payer';
+
+/** Gasto con lo que hace falta para revisarlo (tabla expenses + su mensaje) */
+export interface ReviewExpense {
+  id: string;
+  merchant: string;
+  expense_date: string;
+  total_cop: number;
+  category_id: string | null;
+  payer_person_id: string | null;
+  status: 'pending_review' | 'confirmed';
+  confidence: number | null;
+  field_confidence: Partial<Record<FieldKey, number>> | null;
+  ai_snapshot: { merchant?: string; expense_date?: string; total_cop?: number; category_id?: string | null; payer_person_id?: string | null } | null;
+  split_note: string | null;
+  corrected_by: string | null;
+  evidence_path: string | null;
+  created_at: string;
+  source: 'whatsapp' | 'web' | 'import';
+  messages: {
+    kind: MessageKind;
+    text_body: string | null;
+    file_name: string | null;
+    received_at: string;
+    sender_person_id: string | null;
+  } | null;
+  expense_splits: { person_id: string; amount_cop: number }[];
+}
+
+export interface AccountPerson {
+  id: string;
+  display_name: string;
+  tone: string;
+  claimed_by: string | null;
+}
+
+export interface AccountCategory {
+  id: string;
+  name: string;
+  letter: string;
+  tone: string;
+}
+
 /** Tono guardado en la base (siempre uno de los 8), con respaldo por si acaso. */
 export function asTone(value: string | null | undefined, fallbackName = ''): Tone {
   return TONES.includes(value as Tone) ? (value as Tone) : toneFor(fallbackName);

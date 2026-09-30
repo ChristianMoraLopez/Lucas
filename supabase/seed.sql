@@ -179,25 +179,29 @@ values
   ('d0000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001');
 
 -- Mensajes que parecían gastos (solo esos se guardan)
-insert into public.messages (id, group_id, wa_message_id, sender_wa_id, kind, text_body, media_path, received_at, processed_at)
-values
+insert into public.messages (id, account_id, group_id, wa_message_id, sender_wa_id, kind, text_body, media_path, received_at, processed_at, status)
+select v.id::uuid, agl.account_id, v.grupo::uuid, v.wa_id, v.remitente, v.tipo::public.message_kind, v.texto, v.ruta,
+       v.recibido, v.procesado, 'done'
+from (values
   -- Paseo
-  ('e0000000-0000-4000-8000-000000000012', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01012', '573105550142', 'pdf',   null, 'evidencias/20000000-0000-4000-8000-000000000002/cabanas-taganga.pdf',      timestamptz '2026-09-25 09:12:00-05', timestamptz '2026-09-25 09:12:40-05'),
-  ('e0000000-0000-4000-8000-000000000014', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01014', '573001112233', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/la-canoa.webp',            timestamptz '2026-09-25 22:41:00-05', timestamptz '2026-09-25 22:41:35-05'),
-  ('e0000000-0000-4000-8000-000000000015', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01015', '573016667788', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/arepas-dona-chela.webp',   timestamptz '2026-09-27 08:30:00-05', timestamptz '2026-09-27 08:30:52-05'),
-  ('e0000000-0000-4000-8000-000000000016', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01016', '573002224471', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/pescaderia-el-muelle.webp', timestamptz '2026-09-26 14:05:00-05', timestamptz '2026-09-26 14:05:31-05'),
-  ('e0000000-0000-4000-8000-000000000017', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01017', '573157770918', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/asadero-el-rodadero.webp',  timestamptz '2026-09-28 21:18:00-05', timestamptz '2026-09-28 21:18:44-05'),
+  ('e0000000-0000-4000-8000-000000000012', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01012', '573105550142', 'pdf',   null, '20000000-0000-4000-8000-000000000002/cabanas-taganga.pdf',      timestamptz '2026-09-25 09:12:00-05', timestamptz '2026-09-25 09:12:40-05'),
+  ('e0000000-0000-4000-8000-000000000014', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01014', '573001112233', 'photo', null, '20000000-0000-4000-8000-000000000002/la-canoa.webp',            timestamptz '2026-09-25 22:41:00-05', timestamptz '2026-09-25 22:41:35-05'),
+  ('e0000000-0000-4000-8000-000000000015', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01015', '573016667788', 'photo', null, '20000000-0000-4000-8000-000000000002/arepas-dona-chela.webp',   timestamptz '2026-09-27 08:30:00-05', timestamptz '2026-09-27 08:30:52-05'),
+  ('e0000000-0000-4000-8000-000000000016', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01016', '573002224471', 'photo', null, '20000000-0000-4000-8000-000000000002/pescaderia-el-muelle.webp', timestamptz '2026-09-26 14:05:00-05', timestamptz '2026-09-26 14:05:31-05'),
+  ('e0000000-0000-4000-8000-000000000017', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01017', '573157770918', 'photo', null, '20000000-0000-4000-8000-000000000002/asadero-el-rodadero.webp',  timestamptz '2026-09-28 21:18:00-05', timestamptz '2026-09-28 21:18:44-05'),
   ('e0000000-0000-4000-8000-000000000018', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01018', '573128880365', 'text',  'Empanadas y jugos en La Bahía 111.500', null,                                            timestamptz '2026-09-24 19:50:00-05', timestamptz '2026-09-24 19:50:08-05'),
-  ('e0000000-0000-4000-8000-000000000019', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01019', '573014445566', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/gasolina-la-ye.webp',       timestamptz '2026-09-24 06:20:00-05', timestamptz '2026-09-24 06:20:37-05'),
+  ('e0000000-0000-4000-8000-000000000019', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01019', '573014445566', 'photo', null, '20000000-0000-4000-8000-000000000002/gasolina-la-ye.webp',       timestamptz '2026-09-24 06:20:00-05', timestamptz '2026-09-24 06:20:37-05'),
   ('e0000000-0000-4000-8000-00000000001b', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101B', '573016667788', 'text',  'La lancha a Playa Cristal la pagó Santi: 210.500', null,                                 timestamptz '2026-09-26 10:02:00-05', timestamptz '2026-09-26 10:02:06-05'),
   ('e0000000-0000-4000-8000-00000000001c', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101C', '573002224471', 'text',  'taxis al aeropuerto 100 lucas', null,                                                    timestamptz '2026-09-28 16:44:00-05', timestamptz '2026-09-28 16:44:05-05'),
-  ('e0000000-0000-4000-8000-00000000001d', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101D', '573017778899', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/estanco-el-paisa.webp',     timestamptz '2026-09-25 17:36:00-05', timestamptz '2026-09-25 17:36:49-05'),
-  ('e0000000-0000-4000-8000-00000000001e', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101E', '573157770918', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/licorera-la-22.webp',       timestamptz '2026-09-27 20:11:00-05', timestamptz '2026-09-27 20:11:38-05'),
-  ('e0000000-0000-4000-8000-00000000001f', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101F', '573105550142', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/la-economia.webp',          timestamptz '2026-09-24 15:03:00-05', timestamptz '2026-09-24 15:03:41-05'),
-  ('e0000000-0000-4000-8000-000000000020', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01020', '573002224471', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000002/tienda-dona-rosa.webp',     timestamptz '2026-09-26 18:25:00-05', timestamptz '2026-09-26 18:25:33-05'),
+  ('e0000000-0000-4000-8000-00000000001d', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101D', '573017778899', 'photo', null, '20000000-0000-4000-8000-000000000002/estanco-el-paisa.webp',     timestamptz '2026-09-25 17:36:00-05', timestamptz '2026-09-25 17:36:49-05'),
+  ('e0000000-0000-4000-8000-00000000001e', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101E', '573157770918', 'photo', null, '20000000-0000-4000-8000-000000000002/licorera-la-22.webp',       timestamptz '2026-09-27 20:11:00-05', timestamptz '2026-09-27 20:11:38-05'),
+  ('e0000000-0000-4000-8000-00000000001f', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A0101F', '573105550142', 'photo', null, '20000000-0000-4000-8000-000000000002/la-economia.webp',          timestamptz '2026-09-24 15:03:00-05', timestamptz '2026-09-24 15:03:41-05'),
+  ('e0000000-0000-4000-8000-000000000020', 'd0000000-0000-4000-8000-000000000001', '3EB0A1F2C4D6E8A01020', '573002224471', 'photo', null, '20000000-0000-4000-8000-000000000002/tienda-dona-rosa.webp',     timestamptz '2026-09-26 18:25:00-05', timestamptz '2026-09-26 18:25:33-05'),
   -- Casa
-  ('e0000000-0000-4000-8000-000000000101', 'd0000000-0000-4000-8000-000000000002', '3EB0B3D4F6A8C0E2B101', '573017778899', 'photo', null, 'evidencias/20000000-0000-4000-8000-000000000001/la-espiga.webp', now() - interval '2 hours', now() - interval '2 hours'),
-  ('e0000000-0000-4000-8000-000000000102', 'd0000000-0000-4000-8000-000000000002', '3EB0B3D4F6A8C0E2B102', '573017778899', 'pdf',   null, 'evidencias/20000000-0000-4000-8000-000000000001/acueducto.pdf',  pg_temp.dia(27) + time '12:10', pg_temp.dia(27) + time '12:11');
+  ('e0000000-0000-4000-8000-000000000101', 'd0000000-0000-4000-8000-000000000002', '3EB0B3D4F6A8C0E2B101', '573017778899', 'photo', null, '20000000-0000-4000-8000-000000000001/la-espiga.webp', now() - interval '2 hours', now() - interval '2 hours'),
+  ('e0000000-0000-4000-8000-000000000102', 'd0000000-0000-4000-8000-000000000002', '3EB0B3D4F6A8C0E2B102', '573017778899', 'pdf',   null, '20000000-0000-4000-8000-000000000001/acueducto.pdf',  (pg_temp.dia(27) + time '12:10')::timestamptz, (pg_temp.dia(27) + time '12:11')::timestamptz)
+) as v (id, grupo, wa_id, remitente, tipo, texto, ruta, recibido, procesado)
+join public.account_group_links agl on agl.group_id = v.grupo::uuid;
 
 -- ============================================================================
 -- Gastos del Paseo Santa Marta · total $4.816.000
@@ -244,6 +248,25 @@ from (values
   ('1f', 'Supermercado La Economía',    'supermercado la economia',    'Groceries for the house',       date '2026-09-24',  230000, '3', '7', 'confirmed',       0.97, 'whatsapp', 'b2e6f8a0c4d1e973', null,                                   false),
   ('20', 'Tienda Doña Rosa',            'tienda dona rosa',            'Snacks and water',              date '2026-09-26',  190000, '3', '9', 'confirmed',       0.74, 'whatsapp', 'c9a3d5f7b1e2048d', null,                                   true)
 ) as g (n, comercio, normalizado, descripcion, fecha, total, cat, pagador, estado, confianza, fuente, huella, creado_por, corregido);
+
+-- Lo que leyó la IA de cada gasto que llegó por WhatsApp: la confianza por
+-- campo y los valores originales (así se ven las correcciones de Mafe)
+update public.expenses e
+set field_confidence = case e.id
+      when '60000000-0000-4000-8000-000000000017' then '{"merchant":0.93,"date":0.91,"total":0.71,"category":0.88,"payer":0.99}'::jsonb
+      when '60000000-0000-4000-8000-00000000001c' then '{"merchant":0.62,"date":0.88,"total":0.84,"category":0.8,"payer":0.97}'::jsonb
+      when '60000000-0000-4000-8000-00000000001e' then '{"merchant":0.95,"date":0.9,"total":0.83,"category":0.93,"payer":0.99}'::jsonb
+      else jsonb_build_object('merchant', e.confidence, 'date', 0.95, 'total', e.confidence, 'category', 0.9, 'payer', 0.99)
+    end,
+    ai_snapshot = jsonb_build_object(
+      'merchant', case e.id when '60000000-0000-4000-8000-000000000015' then 'AREPAS DONA CHELA' else e.merchant end,
+      'expense_date', e.expense_date,
+      'total_cop', case e.id when '60000000-0000-4000-8000-00000000001d' then 428000 else e.total_cop end,
+      'category_id', case e.id when '60000000-0000-4000-8000-000000000020' then '40000000-0000-4000-8000-000000000018' else e.category_id::text end,
+      'payer_person_id', case e.id when '60000000-0000-4000-8000-00000000001b' then '30000000-0000-4000-8000-000000000005' else e.payer_person_id::text end
+    ),
+    split_note = case e.id when '60000000-0000-4000-8000-00000000001c' then 'Leído del mensaje: «taxis al aeropuerto»' end
+where e.account_id = '20000000-0000-4000-8000-000000000002' and e.source = 'whatsapp';
 
 -- Ítems leídos de dos recibos (suman el total del gasto)
 insert into public.expense_items (id, expense_id, name, quantity, unit_price_cop, total_cop)
@@ -327,6 +350,27 @@ from (values
   ('122', 'Estanco El Paisa',           'estanco el paisa',            25,  58000, '2', '1', 'confirmed',      null, 'web',      null),
   ('123', 'Licorera La 22',             'licorera la 22',              12,  38000, '2', '2', 'confirmed',      null, 'web',      null)
 ) as g (n, comercio, normalizado, dia, total, cat, pagador, estado, confianza, fuente, mensaje);
+
+-- Los cinco meses anteriores de Casa, para la tendencia de seis meses del kit:
+-- abr $2.180.400 · may $2.412.900 · jun $2.265.000 · jul $2.598.300 · ago $2.341.700
+insert into public.expenses (account_id, merchant, merchant_normalized, expense_date, total_cop, category_id, payer_person_id, status, source, created_by)
+select
+  '20000000-0000-4000-8000-000000000001',
+  x.comercio, public.normalize_merchant(x.comercio),
+  (date_trunc('month', current_date) - make_interval(months => t.hace))::date + (x.dia - 1),
+  x.monto, x.cat::uuid, x.pagador::uuid, 'confirmed', 'web',
+  case x.pagador when '30000000-0000-4000-8000-000000000001' then '10000000-0000-4000-8000-000000000001'::uuid
+                 else '10000000-0000-4000-8000-000000000004'::uuid end
+from (values (5, 2180400), (4, 2412900), (3, 2265000), (2, 2598300), (1, 2341700)) as t (hace, total)
+cross join lateral (
+  select (round(t.total * 0.20 / 100) * 100)::bigint as servicios, (round(t.total * 0.15 / 100) * 100)::bigint as quince
+) p
+cross join lateral (values
+  ('Supermercado La Economía',   '40000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000001',  4, t.total - p.servicios - 2 * p.quince),
+  ('Factura de energía',         '40000000-0000-4000-8000-000000000007', '30000000-0000-4000-8000-000000000002', 12, p.servicios),
+  ('Asadero Los Cerros',         '40000000-0000-4000-8000-000000000006', '30000000-0000-4000-8000-000000000001', 18, p.quince),
+  ('Estación de gasolina La 68', '40000000-0000-4000-8000-000000000004', '30000000-0000-4000-8000-000000000002', 22, p.quince)
+) as x (comercio, cat, pagador, dia, monto);
 
 -- Casa: siempre a la mitad entre Valeria y Andrés
 insert into public.expense_splits (expense_id, person_id, amount_cop)

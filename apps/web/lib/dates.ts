@@ -66,6 +66,31 @@ export function eventMoment(start: string | null, end: string | null, today: str
   return 'En curso';
 }
 
+/** '26 sep · 11:52 p. m.' (hora de Bogotá) */
+export function formatWhen(iso: string) {
+  const d = new Date(iso);
+  const dia = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', timeZone: 'America/Bogota' }).format(d).replace('.', '');
+  const hora = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Bogota' }).format(d);
+  return `${dia} · ${hora}`;
+}
+
+/** 'Hoy 7:42', 'Ayer 19:10' o '27 sep' para listas de gastos */
+export function formatRecent(date: string, createdAt?: string, today: string = todayInBogota()) {
+  const dias = daysBetween(date, today);
+  const hora = createdAt
+    ? new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Bogota' }).format(new Date(createdAt))
+    : '';
+  if (dias === 0) return hora ? `Hoy ${hora}` : 'Hoy';
+  if (dias === 1) return hora ? `Ayer ${hora}` : 'Ayer';
+  return formatDay(date, today);
+}
+
+/** '2026-09-28' → '28/09/2026' */
+export function formatDateCO(date: string) {
+  const p = parts(date);
+  return `${String(p.d).padStart(2, '0')}/${String(p.m).padStart(2, '0')}/${p.y}`;
+}
+
 /** ¿Pasaron menos de `days` días desde `iso`? */
 export function isRecent(iso: string, days: number, now = new Date()) {
   return now.getTime() - new Date(iso).getTime() < days * 86_400_000;

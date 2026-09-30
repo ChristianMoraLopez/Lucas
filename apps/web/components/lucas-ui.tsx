@@ -4,6 +4,7 @@
    Las funciones puras (formatCOP, lucas, tonos, códigos) viven en lucas-core.ts y se re-exportan aquí. */
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { isLottieName, Lottie } from './lottie';
 import { CATEGORIES, CODE_RE, formatCOP, formatCode, type Tone, toneFor } from './lucas-core';
 
 export { CATEGORIES, CODE_RE, formatCOP, formatCode, lucas, setTones, TONES, type Tone, toneFor } from './lucas-core';
@@ -493,6 +494,8 @@ export function LottieSlot({
   label?: string;
   src?: string;
 }) {
+  // Si ya tenemos la animación (public/lottie), se reproduce; si no, queda el espacio reservado del kit
+  if (!src && isLottieName(name)) return <Lottie name={name} width={width} height={height} label={label} />;
   return (
     <div
       className={cx('lu-lottie', square && 'lu-lottie--square')}

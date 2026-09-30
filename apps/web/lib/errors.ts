@@ -7,6 +7,7 @@ export function humanError(error: { message?: string } | null | undefined): stri
   if (/rate limit|security purposes|only request this after/i.test(m)) return 'Pediste muchos enlaces seguidos. Espera un minuto y vuelve a intentar.';
   if (/invalid.*email|unable to validate email|email address .* is invalid/i.test(m)) return 'Ese correo no parece válido. Revísalo.';
   if (/signups? not allowed/i.test(m)) return 'Por ahora no se pueden crear usuarios nuevos.';
+  if (/provider is not enabled|unsupported provider/i.test(m)) return 'La entrada con Google todavía no está activada. Mientras tanto, entra con tu correo.';
   if (/failed to fetch|fetch failed|network/i.test(m)) return 'No hay conexión. Revisa tu internet e intenta otra vez.';
   if (/jwt|not authenticated|auth session missing|Debes iniciar sesión/i.test(m)) return 'Tu sesión venció. Vuelve a entrar.';
   if (/permission denied|row-level security/i.test(m)) return 'No tienes permiso para hacer eso en esta cuenta.';
