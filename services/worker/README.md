@@ -86,7 +86,7 @@ Sin correcciones todavía, corre el notebook con `SOLO_EXPORTAR = True`: sube el
    cp .env.example .env && nano .env      # Supabase, HF_REPO/HF_TOKEN, SENTRY_DSN
    ```
 
-4. **La base.** Desde tu PC, en la raíz del repo: `npx supabase db push`. La migración `00000000000070_worker.sql` crea las funciones del worker y **apaga el procesador simulado**; desde ahí, lo que se suba espera en la cola hasta que el worker arranque.
+4. **La base.** Desde tu PC, en la raíz del repo: `npx supabase db push` (aplica `00000000000070_worker.sql`, con las funciones del worker). El procesador simulado sigue atendiendo la cola hasta que el worker arranca: al arrancar, el worker llama a `worker_take_over()` y lo apaga. Nunca hay un rato en que nadie lea la cola.
 5. **Arrancar:**
 
    ```bash
@@ -127,7 +127,7 @@ Necesitas [uv](https://docs.astral.sh/uv/) y Python 3.12.
 
 ```bash
 uv sync                      # entorno con dependencias de desarrollo
-uv run pytest                # 118 pruebas: reglas, QR, OCR y PDF con los recibos de ejemplo, LLM, Laya, cola…
+uv run pytest                # 120 pruebas: reglas, QR, OCR y PDF con los recibos de ejemplo, LLM, Laya, cola…
 uv run ruff check . && uv run ruff format --check .
 uv run python scripts/make_fixtures.py   # regenera tests/fixtures/
 uv run python scripts/build_notebook.py notebooks/laya_lucas_finetune.ipynb

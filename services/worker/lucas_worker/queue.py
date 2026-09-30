@@ -58,6 +58,17 @@ class Worker:
 
     # -- cola ------------------------------------------------------------------
 
+    def take_over(self) -> bool:
+        """Apaga el procesador simulado de la base (si seguía prendido): desde ya la cola es del worker."""
+        try:
+            apagado = bool(self.db.rpc("worker_take_over"))
+        except Exception as e:
+            log.warning("No se pudo apagar el procesador simulado: %s", e)
+            return False
+        if apagado:
+            log.info("Procesador simulado apagado: desde ahora la cola es del worker")
+        return apagado
+
     def claim(self) -> list[Job]:
         filas = self.db.rpc(
             "worker_claim_jobs",

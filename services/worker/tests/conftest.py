@@ -186,6 +186,10 @@ class FakeDb:
             j["status"] = "running"
         return copy.deepcopy(tomados)
 
+    def _worker_take_over(self) -> bool:
+        self.simulator_on, estaba = False, getattr(self, "simulator_on", True)
+        return estaba
+
     def _worker_complete_job(self, p_job_id: str) -> None:
         self.jobs[p_job_id]["status"] = "done"
 

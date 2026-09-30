@@ -12,7 +12,7 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 <br />
 
 ![Fase](https://img.shields.io/badge/fases_1_a_4-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-263_pasando-6A35E6?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-266_pasando-6A35E6?style=flat-square)
 ![Demo](https://img.shields.io/badge/demo-lucas--tau--black.vercel.app-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
@@ -140,7 +140,7 @@ Mientras no existe el connector de WhatsApp, todo entra por la web:
 3. El **worker** ([`services/worker`](services/worker/README.md), en el servidor ARM) toma el trabajo, lee la foto, el PDF o el texto (QR DIAN, OCR, reglas y Qwen), valida, decide quién pagó, clasifica (memoria de comercios → Laya) y deja el gasto con confianza por campo. Si la cuenta ya conoce el comercio y todo se leyó seguro, lo confirma solo; si no, va a **Revisar**. Si es la misma foto o la misma factura (CUFE), el mensaje queda como «Ya estaba registrado».
 4. En **Revisar**, un admin corrige y confirma con Enter. Cada corrección alimenta la memoria de comercios y, si cambió la categoría, queda como ejemplo para reentrenar a Laya. Todo se actualiza en vivo con Supabase Realtime.
 
-La migración 70 apaga el **procesador simulado** de la fase 3. Sus funciones siguen en la base para probar en local sin el worker: `select public.run_simulated_worker();` procesa la cola a mano.
+El **procesador simulado** de la fase 3 atiende la cola hasta que el worker arranca y lo apaga (`worker_take_over()`). Sus funciones siguen en la base para probar en local sin el worker: `select public.run_simulated_worker();` procesa la cola a mano.
 
 ## Stack
 
@@ -169,7 +169,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             125 pruebas de permisos, subidas, worker y semilla (PGlite)
+│   ├── tests/             126 pruebas de permisos, subidas, worker y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys (fase 5)
@@ -190,9 +190,9 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 125 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 126 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las pruebas de apps/web/lib)
-pnpm worker:test  # 118 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
+pnpm worker:test  # 120 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm typecheck    # tipos de rutas de Next + tsc
 pnpm lint         # Biome
 ```

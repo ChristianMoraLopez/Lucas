@@ -30,6 +30,22 @@ def worker(db: FakeDb, efecto) -> tuple[Worker, Procesador]:
     return Worker(db, p, make_settings(), sleep=lambda _: None), p  # type: ignore[arg-type]
 
 
+def test_al_arrancar_apaga_el_procesador_simulado(db):
+    w, _ = worker(db, None)
+    assert w.take_over() is True
+    assert w.take_over() is False  # ya estaba apagado
+
+
+def test_si_no_puede_apagar_el_simulador_sigue(db):
+    w, _ = worker(db, None)
+
+    def falla(**_):
+        raise SupabaseError("sin la migración 70")
+
+    db._worker_take_over = falla  # type: ignore[method-assign]
+    assert w.take_over() is False
+
+
 def test_bien_se_completa(db):
     job = db.add_job("m1")
     w, p = worker(db, None)

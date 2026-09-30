@@ -15,8 +15,10 @@
 --   · worker_training_export / worker_mark_exported: los ejemplos para
 --     reentrenar Laya (services/worker/scripts/export_training.py).
 --
--- Y apaga el cron del procesador simulado. Sus funciones se quedan para probar
--- en local sin el worker: `select public.run_simulated_worker();`
+-- El procesador simulado sigue corriendo hasta que el worker arranca y llama a
+-- worker_take_over(), que apaga su cron: así nunca hay un rato en que nadie lea
+-- la cola. Sus funciones se quedan para probar en local sin el worker:
+-- `select public.run_simulated_worker();`
 -- ============================================================================
 
 -- ============================================================================
@@ -543,17 +545,26 @@ as $$
 $$;
 
 -- ============================================================================
--- Adiós al procesador simulado: el worker toma la misma cola.
--- (Las funciones se quedan para probar en local sin worker.)
+-- worker_take_over: el worker la llama al arrancar y apaga el cron del
+-- procesador simulado (si existe). Hasta ese momento el simulador sigue
+-- atendiendo la cola; después, solo el worker. Devuelve si había algo que apagar.
 -- ============================================================================
 
-do $$
+create or replace function public.worker_take_over()
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    if exists (select 1 from cron.job where jobname = 'lucas-procesador-simulado') then
-      perform cron.unschedule('lucas-procesador-simulado');
-    end if;
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    return false;
   end if;
+  if exists (select 1 from cron.job where jobname = 'lucas-procesador-simulado') then
+    perform cron.unschedule('lucas-procesador-simulado');
+    return true;
+  end if;
+  return false;
 end;
 $$;
 
@@ -571,6 +582,7 @@ revoke execute on function public.worker_mark_message(uuid, text, uuid, text) fr
 revoke execute on function public.worker_save_expense(uuid, jsonb, int) from public, anon, authenticated;
 revoke execute on function public.worker_training_export(timestamptz, boolean, boolean, int) from public, anon, authenticated;
 revoke execute on function public.worker_mark_exported(uuid[]) from public, anon, authenticated;
+revoke execute on function public.worker_take_over() from public, anon, authenticated;
 
 grant execute on function public.image_hash_distance(text, text) to service_role;
 grant execute on function public.worker_find_duplicate(uuid, text, text, int) to service_role;
@@ -582,4 +594,5 @@ grant execute on function public.worker_mark_message(uuid, text, uuid, text) to 
 grant execute on function public.worker_save_expense(uuid, jsonb, int) to service_role;
 grant execute on function public.worker_training_export(timestamptz, boolean, boolean, int) to service_role;
 grant execute on function public.worker_mark_exported(uuid[]) to service_role;
+grant execute on function public.worker_take_over() to service_role;
 grant select, insert, update, delete on public.job_errors to service_role;
