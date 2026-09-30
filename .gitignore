@@ -20,3 +20,9 @@ __pycache__/
 
 # Se copia de node_modules en dev/build (scripts/copy-lottie-wasm.mjs)
 apps/web/public/lottie/*.wasm
+
+# Worker (Python)
+.pytest_cache/
+.ruff_cache/
+services/worker/laya-data/
+services/worker/laya-data.zip

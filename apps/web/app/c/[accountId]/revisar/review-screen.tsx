@@ -452,6 +452,12 @@ function ReviewForm({
         </div>
       </fieldset>
 
+      {ai.possible_duplicate_of && (
+        <p className="rv-note" role="note">
+          Se parece a otro gasto del mismo comercio, día y valor. Revisa que no esté repetido antes de confirmar.
+        </p>
+      )}
+
       {error && (
         <p className="lu-error" role="alert">
           {error}
