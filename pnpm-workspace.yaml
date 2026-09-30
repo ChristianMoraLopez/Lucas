@@ -2,5 +2,8 @@ packages:
   - "apps/*"
   - "services/*"
   - "supabase"
+# Scripts de instalación permitidos (pnpm 12 falla en CI si alguno queda sin decidir)
 allowBuilds:
   esbuild: true
+  # Dependencia de Serwist: sus binarios llegan por dependencias opcionales, no necesita script
+  "@swc/core": false
