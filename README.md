@@ -123,7 +123,7 @@ flowchart LR
 
 ## Estado del proyecto
 
-- [x] **Fase 1 · Base.** Monorepo, esquema completo con RLS y RPC, entrada con enlace mágico y Google, selector de cuentas, crear cuenta de hogar o evento, unirse con código o link («¿Eres alguna de estas personas?»), personas, roles e invitaciones. Modo Día y Noche.
+- [x] **Fase 1 · Base.** Monorepo, esquema completo con RLS y RPC, entrada con correo y contraseña (con recuperación), enlace mágico o Google, selector de cuentas, crear cuenta de hogar o evento, unirse con código o link («¿Eres alguna de estas personas?»), personas, roles e invitaciones. Modo Día y Noche.
 - [x] **Fase 2 · Subir, revisar y ver.** Subida de fotos (con la cámara del celular), PDFs o texto con compresión en el navegador; procesador simulado; bandeja de revisión con evidencia y zoom, confianza por campo, correcciones y tiempo real; memoria de comercios y ejemplos de entrenamiento; resúmenes de hogar (categorías, 6 meses, presupuestos) y de evento (quién puso más); lista de gastos; PWA instalable; animaciones Lottie.
 - [ ] **Fase 3 · Worker.** QR DIAN, OCR, LLM local, validación y clasificación con Laya (reemplaza al procesador simulado).
 - [ ] **Fase 4 · WhatsApp.** Connector con Baileys y «Conectar WhatsApp».
@@ -202,7 +202,7 @@ pnpm db:start     # Supabase local en Docker (Studio en http://localhost:54323)
 pnpm db:reset     # migraciones + semilla
 ```
 
-Con la semilla puedes entrar como `valeria@example.com` (titular de las dos cuentas), `laura@example.com` (admin del paseo) o `santi@example.com` (miembro) con enlace mágico: en local los correos llegan a Mailpit, en `http://localhost:54324`. Para probar el flujo de unirse, crea otro usuario y usa el código **PASEO-7K2Q**: Caro y Felipe esperan que alguien los reclame.
+Con la semilla puedes entrar como `valeria@example.com` (titular de las dos cuentas), `laura@example.com` (admin del paseo) o `santi@example.com` (miembro), con la contraseña `lucas1234` o con enlace mágico: en local los correos llegan a Mailpit, en `http://localhost:54324`. Para probar el flujo de unirse, crea otro usuario y usa el código **PASEO-7K2Q**: Caro y Felipe esperan que alguien los reclame.
 
 > La semilla crea usuarios de prueba: es solo para local. No la corras en el proyecto remoto.
 
@@ -217,14 +217,18 @@ npx supabase db push          # aplica supabase/migrations
 
 ### 2. URLs de Auth
 
-En **Authentication → URL Configuration**:
+En **Authentication → URL Configuration** ([atajo al proyecto Lucas](https://supabase.com/dashboard/project/zlmpsbwvtlyvwkkuknpj/auth/url-configuration)):
 
-- **Site URL**: tu dominio de producción (en desarrollo, `http://localhost:3000`).
-- **Redirect URLs**: `http://localhost:3000/**`, `https://tu-dominio.co/**` y, si usas previews de Vercel, `https://*-tu-equipo.vercel.app/**`.
+| Campo | Valor |
+|---|---|
+| **Site URL** | `https://lucas-tau-black.vercel.app` (o tu dominio propio). **Nunca** `localhost` en el proyecto remoto. |
+| **Redirect URLs** | `https://lucas-tau-black.vercel.app/**` · `http://localhost:3000/**` · y, si usas previews de Vercel, `https://lucas-*-tu-equipo.vercel.app/**` |
+
+> **¿Google o el enlace del correo te llevan a `localhost` en el celular?** Es esto. La web le pide a Supabase volver a `https://<donde-estés>/auth/callback`; si esa URL no está en *Redirect URLs*, Supabase la ignora y usa la *Site URL*. Si la Site URL quedó en `http://localhost:3000`, en tu PC parece que funciona (ahí corre la app) y en cualquier otro lado falla. Los correos de entrar, confirmar y recuperar contraseña también usan la Site URL (`{{ .SiteURL }}` en las plantillas), así que se arreglan con el mismo cambio. En Google Cloud no hay que tocar nada: su URI de redirección es la de Supabase (`https://<project-ref>.supabase.co/auth/v1/callback`).
 
 ### 3. Correos con la marca
 
-En **Authentication → Email Templates**, pega el HTML de [`supabase/templates/magic-link.html`](supabase/templates/magic-link.html) en *Magic Link* (asunto «Tu enlace para entrar a Lucas») y el de [`confirmation.html`](supabase/templates/confirmation.html) en *Confirm signup* (asunto «Entra a Lucas»). Estas plantillas mandan un `token_hash`, así que el enlace sirve aunque lo abran en otro dispositivo, por ejemplo en el celular.
+En **Authentication → Email Templates**, pega el HTML de [`supabase/templates/magic-link.html`](supabase/templates/magic-link.html) en *Magic Link* (asunto «Tu enlace para entrar a Lucas») el de [`confirmation.html`](supabase/templates/confirmation.html) en *Confirm signup* (asunto «Entra a Lucas») y el de [`recovery.html`](supabase/templates/recovery.html) en *Reset Password* (asunto «Pon una contraseña nueva en Lucas»). Estas plantillas mandan un `token_hash`, así que el enlace sirve aunque lo abran en otro dispositivo, por ejemplo en el celular.
 
 ### 4. SMTP con Resend
 
