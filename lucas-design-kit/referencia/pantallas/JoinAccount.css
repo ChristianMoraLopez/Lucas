@@ -1,0 +1,14 @@
+.jn { padding: var(--space-6) var(--space-4) var(--space-8); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+.jn-wait { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-6); max-width: 34ch; }
+.jn-acct { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--morado-suave); max-width: 420px; }
+.jn-acct b { font-weight: 800; }
+.jn-glyph { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--morado); color: var(--on-morado); font-family: var(--font-display); font-weight: 800; font-size: 20px; flex: none; }
+.jn-opts { display: grid; gap: var(--space-2); }
+.jn-opt { display: flex; align-items: center; gap: var(--space-3); padding: 12px 14px; border: 2px solid var(--borde); border-radius: var(--radius-lg); background: var(--superficie); cursor: pointer; }
+.jn-opt input { accent-color: var(--verde); width: 20px; height: 20px; margin: 0; flex: none; }
+.jn-opt.is-on { border-color: var(--verde); background: var(--verde-suave); }
+.jn-opt b { font-weight: 800; }
+.jn-go { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-5); }
+@container app (min-width: 760px) {
+  .jn { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); column-gap: var(--space-10); padding: var(--space-10) var(--space-10); align-items: start; }
+}

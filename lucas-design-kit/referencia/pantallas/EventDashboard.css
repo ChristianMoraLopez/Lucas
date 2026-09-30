@@ -1,0 +1,29 @@
+.ed { padding: var(--space-4) var(--space-4) var(--space-8); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+.ed-head { display: grid; gap: 4px; }
+.ed-alert { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-4); background: var(--naranja-suave); border-radius: var(--radius-lg); }
+.ed-top { display: grid; gap: var(--space-6); }
+.ed-cats { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radius-xl); padding: var(--space-5); }
+.ed-stack { display: flex; gap: 4px; height: 14px; margin-bottom: var(--space-3); }
+.ed-stack i { border-radius: var(--radius-pill); }
+.ed-cat { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.ed-sec { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px var(--space-3); margin-bottom: var(--space-3); }
+.ed-legend { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--tinta-2); }
+.ed-legend i { width: 14px; height: 10px; border-radius: 4px; display: inline-block; }
+.ed-legend i.pos { background: var(--verde-vivo); margin-left: 8px; } .ed-legend i.neg { background: var(--coral); }
+.ed-list { list-style: none; margin: 0 0 var(--space-5); padding: 0; display: grid; }
+.ed-list li { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "who bal" "bar bar"; gap: 6px var(--space-3); padding: 10px 0; border-top: 1px solid var(--borde); align-items: center; }
+.ed-who { grid-area: who; display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 15px; }
+.ed-bal { grid-area: bal; display: grid; justify-items: end; font-size: 12px; line-height: 16px; }
+.ed-bal .lu-amount { font-size: 16px; font-weight: 800; }
+.ed-track { grid-area: bar; position: relative; height: 12px; }
+.ed-track::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--borde); }
+.ed-track i { position: absolute; top: 0; bottom: 0; border-radius: var(--radius-pill); }
+.ed-track i.pos { left: 50%; background: var(--verde-vivo); }
+.ed-track i.neg { right: 50%; background: var(--coral); }
+.ed-cta { width: 100%; }
+@container app (min-width: 760px) {
+  .ed { padding: var(--space-5) var(--space-8) var(--space-10); }
+  .ed-top { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
+  .ed-list li { grid-template-columns: 200px 1fr 130px; grid-template-areas: "who bar bal"; }
+  .ed-cta { width: auto; }
+}

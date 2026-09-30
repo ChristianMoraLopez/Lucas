@@ -1,0 +1,28 @@
+.ap { padding: var(--space-4) var(--space-4) var(--space-8); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+.ap-me { margin-left: auto; }
+.ap-main { display: grid; gap: var(--space-5); }
+.ap-intro { display: grid; gap: 4px; }
+.ap-lead { all: unset; display: block; cursor: pointer; border-radius: var(--radius-xl); transition: transform var(--dur-fast) ease; }
+.ap-lead:hover { transform: translateY(-2px) rotate(-.3deg); }
+.ap-lead:focus-visible { outline: 2px solid var(--foco); outline-offset: 3px; }
+.ap-lead .lu-bill__foot { display: grid; gap: var(--space-2); }
+.ap-lead__n { font-family: var(--font-display); font-size: 26px; line-height: 28px; font-weight: 800; letter-spacing: -.02em; }
+.ap-lead .lu-avatars .lu-avatar { box-shadow: 0 0 0 2px var(--morado); }
+.ap-list { display: grid; gap: var(--space-2); }
+.ap-row { font: inherit; color: var(--tinta); text-align: left; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radius-lg); cursor: pointer; }
+.ap-row:hover { border-color: var(--tinta-2); }
+.ap-row.is-closed { background: transparent; }
+.ap-glyph { width: 44px; height: 44px; flex: none; border-radius: 14px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--tinta-fija); }
+.ap-row__txt { display: grid; min-width: 0; flex: 1; }
+.ap-row__n { font-weight: 800; font-size: 16px; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-row__s { font-size: 13px; line-height: 18px; color: var(--tinta-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-row__r { display: grid; justify-items: end; gap: 4px; }
+.ap-pend { font-size: 12px; font-weight: 800; color: var(--naranja-texto); background: var(--naranja-suave); padding: 1px 8px; border-radius: var(--radius-pill); white-space: nowrap; }
+.ap-side { display: grid; gap: var(--space-3); align-content: start; }
+.ap-tip { margin-top: var(--space-4); padding: var(--space-5); border-radius: var(--radius-lg); background: var(--superficie-2); }
+.ap-tip ol { margin: var(--space-3) 0 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14px; line-height: 20px; }
+.ap-tip li::marker { font-family: var(--font-display); font-weight: 800; color: var(--morado); }
+@container app (min-width: 760px) {
+  .ap { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); column-gap: var(--space-10); padding: var(--space-6) var(--space-10) var(--space-10); }
+  .ap-side { padding-top: 92px; }
+}

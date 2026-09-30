@@ -1,0 +1,146 @@
+/* Lucas — tokens.css (generado de tokens.json). Tema Día por defecto; Noche con data-theme="dark" en <html>
+   o automático con prefers-color-scheme si no hay data-theme. */
+@font-face { font-family: 'Bricolage Grotesque'; src: url('../fonts/BricolageGrotesque-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Bricolage Grotesque'; src: url('../fonts/BricolageGrotesque-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Bricolage Grotesque'; src: url('../fonts/BricolageGrotesque-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Bricolage Grotesque'; src: url('../fonts/BricolageGrotesque-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/Figtree-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/Figtree-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/Figtree-600.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/Figtree-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/Figtree-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+
+:root, [data-theme="light"] {
+  --fondo: #FFFBF6;
+  --superficie: #FFFFFF;
+  --superficie-2: #F3EDF7;
+  --borde: #E6DEEE;
+  --tinta: #1C1433;
+  --tinta-2: #625A78;
+  --verde: #0A7A4C;
+  --on-verde: #FFFFFF;
+  --verde-vivo: #2BD48A;
+  --verde-suave: #DDF7EA;
+  --morado: #6A35E6;
+  --on-morado: #FFFFFF;
+  --morado-suave: #ECE4FF;
+  --naranja: #FF7A1A;
+  --naranja-texto: #B04800;
+  --naranja-suave: #FFEBDB;
+  --coral: #DB2F47;
+  --coral-texto: #C4283F;
+  --on-coral: #FFFFFF;
+  --coral-suave: #FFE3E7;
+  --amarillo: #FFC53D;
+  --azul: #1E6FD0;
+  --tono-morado: #B79CFF;
+  --tono-naranja: #FF9A4D;
+  --tono-azul: #7DB8FF;
+  --tono-coral: #FF8A99;
+  --tono-verde: #2BD48A;
+  --tono-amarillo: #FFC53D;
+  --tono-turquesa: #3FD6CC;
+  --tono-rosa: #FF8FC0;
+  --tinta-fija: #1C1433;
+  --foco: var(--morado);
+  --shadow-card: 0 1px 0 rgba(28,20,51,.06), 0 8px 24px -12px rgba(28,20,51,.18);
+  --shadow-sticker: 0 3px 0 rgba(28,20,51,.18);
+  --shadow-press: 0 4px 0 #064B2F;
+}
+[data-theme="dark"] {
+  --fondo: #15111F;
+  --superficie: #221C33;
+  --superficie-2: #2C2542;
+  --borde: #3A3152;
+  --tinta: #F7F2FF;
+  --tinta-2: #B4AACB;
+  --verde: #3DDC97;
+  --on-verde: #15111F;
+  --verde-vivo: #2BD48A;
+  --verde-suave: #173A2C;
+  --morado: #AE92FF;
+  --on-morado: #15111F;
+  --morado-suave: #2E2352;
+  --naranja: #FF9A4D;
+  --naranja-texto: #FF9A4D;
+  --naranja-suave: #3D2616;
+  --coral: #FF6F82;
+  --coral-texto: #FF6F82;
+  --on-coral: #15111F;
+  --coral-suave: #3F1C26;
+  --amarillo: #FFD466;
+  --azul: #6AB0FF;
+  --tono-morado: #B79CFF;
+  --tono-naranja: #FF9A4D;
+  --tono-azul: #7DB8FF;
+  --tono-coral: #FF8A99;
+  --tono-verde: #2BD48A;
+  --tono-amarillo: #FFC53D;
+  --tono-turquesa: #3FD6CC;
+  --tono-rosa: #FF8FC0;
+  --tinta-fija: #1C1433;
+  --shadow-card: 0 1px 0 rgba(0,0,0,.4), 0 10px 26px -12px rgba(0,0,0,.6);
+  --shadow-sticker: 0 3px 0 rgba(0,0,0,.5);
+  --shadow-press: 0 4px 0 #1B8A5C;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --fondo: #15111F;
+    --superficie: #221C33;
+    --superficie-2: #2C2542;
+    --borde: #3A3152;
+    --tinta: #F7F2FF;
+    --tinta-2: #B4AACB;
+    --verde: #3DDC97;
+    --on-verde: #15111F;
+    --verde-vivo: #2BD48A;
+    --verde-suave: #173A2C;
+    --morado: #AE92FF;
+    --on-morado: #15111F;
+    --morado-suave: #2E2352;
+    --naranja: #FF9A4D;
+    --naranja-texto: #FF9A4D;
+    --naranja-suave: #3D2616;
+    --coral: #FF6F82;
+    --coral-texto: #FF6F82;
+    --on-coral: #15111F;
+    --coral-suave: #3F1C26;
+    --amarillo: #FFD466;
+    --azul: #6AB0FF;
+    --tono-morado: #B79CFF;
+    --tono-naranja: #FF9A4D;
+    --tono-azul: #7DB8FF;
+    --tono-coral: #FF8A99;
+    --tono-verde: #2BD48A;
+    --tono-amarillo: #FFC53D;
+    --tono-turquesa: #3FD6CC;
+    --tono-rosa: #FF8FC0;
+    --tinta-fija: #1C1433;
+    --shadow-card: 0 1px 0 rgba(0,0,0,.4), 0 10px 26px -12px rgba(0,0,0,.6);
+    --shadow-sticker: 0 3px 0 rgba(0,0,0,.5);
+    --shadow-press: 0 4px 0 #1B8A5C;
+  }
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --radius-pill: 999px;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 250ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-pop: cubic-bezier(.3, 1.6, .5, 1);
+  --font-display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+}

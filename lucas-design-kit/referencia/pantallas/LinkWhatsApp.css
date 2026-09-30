@@ -1,0 +1,20 @@
+.wa { padding: var(--space-4) var(--space-4) var(--space-8); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+.wa-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.wa-step { display: grid; grid-template-columns: 44px 1fr; gap: var(--space-3); padding: var(--space-4); background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radius-lg); }
+.wa-n { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 22px; background: var(--morado); color: var(--on-morado); }
+.wa-step.is-done { background: var(--verde-suave); border-color: transparent; }
+.wa-step.is-done .wa-n { background: var(--verde); color: var(--on-verde); }
+.wa-t { font-family: var(--font-display); font-size: 18px; line-height: 24px; font-weight: 800; margin: 8px 0 8px; }
+.wa-num { font-size: 26px; line-height: 32px; font-weight: 800; margin-bottom: 4px; }
+.wa-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wa-bubble { display: inline-block; background: var(--superficie-2); padding: 8px 14px; border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md); margin-bottom: 12px; font-size: 16px; font-weight: 700; }
+.wa-step.is-done .wa-bubble { background: var(--superficie); }
+.wa-live { display: flex; gap: var(--space-3); align-items: center; }
+.wa-demo { display: grid; gap: var(--space-3); align-content: start; justify-items: start; padding: var(--space-5); border-radius: var(--radius-xl); background: var(--superficie-2); }
+.wa-seg { display: inline-flex; padding: 4px; gap: 4px; border-radius: var(--radius-pill); background: var(--superficie); }
+.wa-seg button { font: inherit; font-size: 14px; font-weight: 700; padding: 6px 14px; background: transparent; color: var(--tinta); border: 0; border-radius: var(--radius-pill); cursor: pointer; }
+.wa-seg button[aria-checked="true"] { background: var(--tinta); color: var(--fondo); }
+@container app (min-width: 760px) {
+  .wa { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); column-gap: var(--space-8); padding: var(--space-6) var(--space-10); }
+  .wa-head { grid-column: 1 / -1; }
+}
