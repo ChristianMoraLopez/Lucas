@@ -408,6 +408,15 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Si el proyecto ya tenía usuarios antes de esta migración, también les toca perfil
+insert into public.profiles (id, full_name, avatar_url)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data ->> 'full_name', u.raw_user_meta_data ->> 'name'),
+  coalesce(u.raw_user_meta_data ->> 'avatar_url', u.raw_user_meta_data ->> 'picture')
+from auth.users u
+on conflict (id) do nothing;
+
 -- ============================================================================
 -- Grants de API. La seguridad real la impone RLS (enable + force) en
 -- 00000000000010. anon no toca ninguna tabla: toda la app exige sesión.
