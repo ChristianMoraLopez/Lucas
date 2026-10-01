@@ -163,7 +163,7 @@ set search_path = ''
 as $$
 declare
   v_id uuid;
-  v_phone text := nullif(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g'), '');
+  v_phone text := nullif(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g'), '');
 begin
   select id into v_id from public.whatsapp_connections where kind = 'contador';
   if v_id is null then
@@ -789,7 +789,7 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_id uuid;
-  v_phone text := nullif(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g'), '');
+  v_phone text := nullif(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g'), '');
 begin
   if v_uid is null then
     raise exception 'Debes iniciar sesión';

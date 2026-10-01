@@ -65,7 +65,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_name text := btrim(regexp_replace(coalesce(p_name, ''), '\s+', ' ', 'g'));
+  v_name text := btrim(regexp_replace(coalesce(p_name, ''), '[[:space:]]+', ' ', 'g'));
   v_tone public.tone := p_tone;
   v_id uuid;
 begin
@@ -107,7 +107,7 @@ set search_path = ''
 as $$
 declare
   c public.categories%rowtype;
-  v_name text := nullif(btrim(regexp_replace(coalesce(p_name, ''), '\s+', ' ', 'g')), '');
+  v_name text := nullif(btrim(regexp_replace(coalesce(p_name, ''), '[[:space:]]+', ' ', 'g')), '');
 begin
   select * into c from public.categories where id = p_category_id;
   if not found or not public.has_account_role(c.account_id, array['owner', 'admin']::public.member_role[]) then
