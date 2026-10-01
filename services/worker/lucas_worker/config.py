@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     hf_repo: str | None = None
     hf_token: SecretStr | None = None
     laya_cache_dir: Path = Path("/models/laya")
-    laya_onnx_file: str = "laya.int8.onnx"
+    laya_onnx_file: str = "laya.onnx"
     laya_threads: int = 0
     # Un checkpoint sin ajustar (zero-shot) es demasiado seguro de sí mismo: se
     # le pone techo para que lo que clasifique pase por revisión humana.
