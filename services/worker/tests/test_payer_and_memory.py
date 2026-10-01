@@ -86,8 +86,9 @@ class LayaFijo:
         self.categoria = categoria
         self.visto: list[str] | None = None
 
-    def predict(self, inp, allowed):
+    def predict(self, inp, allowed, descriptions=None):
         self.visto = allowed
+        self.descripciones = descriptions
         if self.categoria is None:
             raise RuntimeError("se cayó")
         return CategoryPrediction(self.categoria, 0.77, {self.categoria: 0.77}, self.name)
@@ -111,3 +112,28 @@ def test_cascada_palabras_clave_y_otros():
     assert (d.source, d.category_name) == ("keywords", "Transporte")
     d = CategoryClassifier(LayaFijo(None)).classify(ClassifyInput(merchant="Cosa rara"), CATS, [])
     assert (d.source, d.category_name) == ("default", "Otros") and d.confidence < 0.75
+
+
+# ---------------------------------------------------------------------------
+# Categorías propias de la cuenta («Salud»): Laya las recibe y sus palabras clave cuentan
+# ---------------------------------------------------------------------------
+
+SALUD = Category("salud", "Salud", "droguería, citas médicas, exámenes, EPS")
+
+
+def test_laya_recibe_las_categorias_propias_con_su_descripcion():
+    laya = LayaFijo("Salud")
+    d = CategoryClassifier(laya).classify(ClassifyInput(merchant="Cruz Verde"), [*CATS, SALUD], [])
+    assert (d.source, d.category_name) == ("laya", "Salud")
+    assert "Salud" in laya.visto
+    assert laya.descripciones["Salud"] == "droguería, citas médicas, exámenes, EPS"
+
+
+def test_palabras_clave_de_la_descripcion_y_antes_que_las_de_siempre():
+    sin_laya = CategoryClassifier(None)
+    d = sin_laya.classify(ClassifyInput(merchant="Droguería La Rebaja"), [*CATS, SALUD], [])
+    assert (d.source, d.category_name) == ("keywords", "Salud")
+    d = sin_laya.classify(ClassifyInput(merchant="x", message_text="cita medica del niño 40 lucas"), [*CATS, SALUD], [])
+    assert d.category_name == "Salud"
+    # Sin la categoría en la cuenta, la droguería sigue cayendo en «Otros»
+    assert sin_laya.classify(ClassifyInput(merchant="Droguería La Rebaja"), CATS, []).category_name == "Otros"

@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/server';
  * Aquí vuelve la gente después de entrar:
  * - Google y el enlace mágico con la plantilla por defecto traen `code` (PKCE;
  *   solo funciona en el mismo navegador donde se pidió el enlace).
- * - Con la plantilla de Lucas (supabase/templates) el correo trae
+ * - Con la plantilla de Luks (supabase/templates) el correo trae
  *   `token_hash` + `type`, que funciona aunque lo abran en otro dispositivo.
  */
 export async function GET(request: NextRequest) {

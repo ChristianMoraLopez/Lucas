@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -134,13 +135,18 @@ export function MembersScreen({
   const subtitle = people.isPending
     ? 'Cargando…'
     : unclaimed.length === 0
-      ? `${plural(rows.length, 'persona', 'personas')} en la cuenta · todas con usuario en Lucas`
+      ? `${plural(rows.length, 'persona', 'personas')} en la cuenta · todas con usuario en Luks`
       : `${rows.length} en la cuenta · ${members.length} con cuenta y ${unclaimed.length} solo en WhatsApp`;
 
   return (
     <div className="mb">
       <header className="mb-head">
-        <h1 className="lu-display">Personas</h1>
+        <div className="mb-head__row">
+          <h1 className="lu-display">Personas</h1>
+          <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--sm lu-btn--secondary">
+            Conectar WhatsApp
+          </Link>
+        </div>
         <span className="lu-small lu-muted">{subtitle}</span>
       </header>
 

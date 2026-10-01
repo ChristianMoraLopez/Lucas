@@ -23,9 +23,9 @@ def code(s: str) -> None:
 
 
 md(r"""
-# Ajustar Laya para clasificar los gastos de Lucas
+# Ajustar Laya para clasificar los gastos de Luks
 
-Este notebook toma los ejemplos que exporta `services/worker/scripts/export_training.py` (las correcciones de categoría que hicieron las personas en la bandeja de revisión), ajusta **Laya** con esos ejemplos, lo calibra, lo exporta a **ONNX** y lo sube a tu repositorio privado de Hugging Face. El worker de Lucas lo baja de ahí y lo corre en CPU, sin PyTorch.
+Este notebook toma los ejemplos que exporta `services/worker/scripts/export_training.py` (las correcciones de categoría que hicieron las personas en la bandeja de revisión), ajusta **Laya** con esos ejemplos, lo calibra, lo exporta a **ONNX** y lo sube a tu repositorio privado de Hugging Face. El worker de Luks lo baja de ahí y lo corre en CPU, sin PyTorch.
 
 Corre en **Google Colab** o **Kaggle**, gratis:
 
@@ -60,7 +60,7 @@ LOTE = 8                # secuencias por paso
 ACUMULAR = 2            # pasos por actualización (lote efectivo = 16)
 LR_ENCODER = 2.0e-5
 LR_CABEZA = 1.0e-4
-MAX_LEN = 512           # los "state" de Lucas son cortos; 512 sobra y ahorra memoria
+MAX_LEN = 512           # los "state" de Luks son cortos; 512 sobra y ahorra memoria
 HEAD_MAX_LEN = 192
 SEMILLA = 20260930
 

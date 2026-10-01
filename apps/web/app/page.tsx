@@ -87,8 +87,8 @@ export default async function AccountPickerPage() {
               <li>
                 Crea una cuenta de <b>hogar</b> o de <b>evento</b>.
               </li>
-              <li>Agrega el número de Lucas a su grupo de WhatsApp.</li>
-              <li>Manden fotos, PDFs o mensajes. Lucas los vuelve gastos.</li>
+              <li>Agrega el número de Luks a su grupo de WhatsApp.</li>
+              <li>Manden fotos, PDFs o mensajes. Luks los vuelve gastos.</li>
             </ol>
           </div>
         </aside>

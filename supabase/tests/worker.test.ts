@@ -288,9 +288,10 @@ describe('ejemplos para reentrenar a Laya', () => {
         tx,
         'select public.worker_training_export() as x',
       );
-      expect(x.map((e) => [e.category, e.merchant])).toEqual([
-        ['Mercado', 'Tienda Doña Rosa'],
+      // Los dos se crearon en el mismo instante: el orden entre ellos no está garantizado
+      expect(x.map((e) => [e.category, e.merchant]).sort()).toEqual([
         ['Café', 'CAFE DE LA ESQUINA'],
+        ['Mercado', 'Tienda Doña Rosa'],
       ]);
       const { n } = await one<{ n: number }>(tx, 'select public.worker_mark_exported($1) as n', [x.map((e) => e.training_id)]);
       expect(n).toBe(2);

@@ -1,5 +1,5 @@
 'use client';
-/* Lucas — componentes React (Next.js). Requiere styles/tokens.css y styles/lucas.css cargados globalmente.
+/* Luks — componentes React (Next.js). Requiere styles/tokens.css y styles/lucas.css cargados globalmente.
    Port tipado de lucas-design-kit/components/lucas-ui.jsx (tipos de lucas-ui.d.ts).
    Las funciones puras (formatCOP, lucas, tonos, códigos) viven en lucas-core.ts y se re-exportan aquí. */
 import Link from 'next/link';
@@ -156,8 +156,21 @@ export function Sticker({
 }
 
 /* ---------- CategoryTag ---------- */
-export function CategoryTag({ name, showName = true, size = 'md' }: { name: string; showName?: boolean; size?: 'sm' | 'md' | 'lg' }) {
-  const [g, t] = CATEGORIES[name] || [String(name)[0], 'rosa' as Tone];
+export function CategoryTag({
+  name,
+  showName = true,
+  size = 'md',
+  letter,
+  tone,
+}: {
+  name: string;
+  showName?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  /** Las categorías propias de una cuenta traen su letra y su color de la base */
+  letter?: string;
+  tone?: Tone;
+}) {
+  const [g, t] = CATEGORIES[name] || [letter || String(name)[0], tone || ('rosa' as Tone)];
   return (
     <span className={cx('lu-cat', size !== 'md' && 'lu-cat--' + size)}>
       <span className="lu-cat__glyph" style={toneVars(t)} aria-hidden={showName}>
@@ -723,7 +736,7 @@ export function Logo({ size = 24 }: { size?: number }) {
         <rect className="a" x="7" y="10" width="22" height="15" rx="4" transform="rotate(6 18 17.5)" />
         <circle className="b" cx="18" cy="17.5" r="4.2" />
       </svg>
-      lucas
+      luks
     </span>
   );
 }

@@ -1,18 +1,18 @@
 /* Links y mensajes de invitación. El link corto es /e/CODIGO (como en el kit:
-   lucas.co/e/PASEO-7K2Q) y lleva a /unirse con el código ya puesto. */
+   luks.co/e/PASEO-7K2Q) y lleva a /unirse con el código ya puesto. */
 
 export function inviteLink(origin: string, code: string) {
   return `${origin}/e/${code}`;
 }
 
-/** El link sin protocolo, para mostrarlo: 'lucas.co/e/PASEO-7K2Q' */
+/** El link sin protocolo, para mostrarlo: 'luks.co/e/PASEO-7K2Q' */
 export function displayLink(link: string) {
   return link.replace(/^https?:\/\//, '');
 }
 
 export function inviteMessage({ accountName, code, link, name }: { accountName: string; code: string; link: string; name?: string }) {
   const saludo = name ? `${name}, entra` : 'Entren';
-  return `${saludo} a «${accountName}» en Lucas para ver y dividir los gastos. Código: ${code} · ${link}`;
+  return `${saludo} a «${accountName}» en Luks para ver y dividir los gastos. Código: ${code} · ${link}`;
 }
 
 /** Abre WhatsApp con el mensaje listo; con número, directo a esa persona. */

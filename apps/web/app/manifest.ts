@@ -3,9 +3,9 @@ import type { MetadataRoute } from 'next';
 /** PWA instalable: desde el celular se abre como app y va directo a subir un recibo. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Lucas · cuentas compartidas',
-    short_name: 'Lucas',
-    description: 'Las cuentas del hogar y de los paseos: manden la foto del recibo y Lucas la vuelve gasto.',
+    name: 'Luks · cuentas compartidas',
+    short_name: 'Luks',
+    description: 'Las cuentas del hogar y de los paseos: manden la foto del recibo y Luks la vuelve gasto.',
     lang: 'es-CO',
     start_url: '/',
     scope: '/',

@@ -7,6 +7,10 @@ import { Button, Chip, Field } from '@/components/lucas-ui';
 import { formatDateCO } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { type AccountCategory, type AccountPerson, asTone, type FieldKey, type ReviewExpense } from '@/lib/types';
+import { NuevaCategoria } from './new-category';
+
+const NUEVA = '__nueva';
+
 import { createClient } from '@/utils/supabase/client';
 
 /** Lo que se muestra en la tarjeta de «Quedó registrado» */
@@ -22,20 +26,23 @@ export interface SavedExpense {
 
 /**
  * Los datos de un gasto y entre quiénes se divide. En la bandeja (`review`)
- * confirma lo que leyó Lucas; en el detalle (`edit`) un admin corrige o
+ * confirma lo que leyó Luks; en el detalle (`edit`) un admin corrige o
  * elimina cualquier gasto, aunque ya esté confirmado. Lo que alguien cambia
  * respecto a lo que leyó la IA se marca en morado (corrección humana).
  */
 export function ExpenseForm({
+  accountId,
   expense,
   people,
-  categories,
+  categories: categoriasCuenta,
   canEdit,
   mode,
   position,
   onSaved,
   onDeleted,
+  onCategoriesChanged,
 }: {
+  accountId: string;
   expense: ReviewExpense;
   people: AccountPerson[];
   categories: AccountCategory[];
@@ -44,8 +51,13 @@ export function ExpenseForm({
   position?: string;
   onSaved: (d: SavedExpense) => void;
   onDeleted: () => void;
+  onCategoriesChanged?: () => void;
 }) {
   const [supabase] = useState(() => createClient());
+  // Las que se crean aquí mismo se suman mientras la lista se vuelve a pedir
+  const [nuevas, setNuevas] = useState<AccountCategory[]>([]);
+  const categories = [...categoriasCuenta, ...nuevas.filter((n) => !categoriasCuenta.some((c) => c.id === n.id))];
+  const [creando, setCreando] = useState(false);
   const ai = expense.ai_snapshot ?? {};
   const pending = expense.status === 'pending_review';
   // La confianza de la IA solo ayuda mientras está por revisar
@@ -166,13 +178,14 @@ export function ExpenseForm({
             corrected={changed.category}
             correctedBy={savedBy('category', expense.category_id ?? '', categoryId)}
           >
-            <select id="rv-categoria" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <select id="rv-categoria" value={categoryId} onChange={(e) => (e.target.value === NUEVA ? setCreando(true) : setCategoryId(e.target.value))}>
               <option value="">Sin categoría</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
+              {canEdit && <option value={NUEVA}>+ Nueva categoría…</option>}
             </select>
           </Field>
           <Field
@@ -195,6 +208,18 @@ export function ExpenseForm({
             </select>
           </Field>
         </div>
+        {creando && (
+          <NuevaCategoria
+            accountId={accountId}
+            onCancel={() => setCreando(false)}
+            onCreated={(c) => {
+              setNuevas((x) => [...x, c]);
+              setCategoryId(c.id);
+              setCreando(false);
+              onCategoriesChanged?.();
+            }}
+          />
+        )}
         <div className="lu-field">
           <div className="lu-field__top">
             <span className="lu-label">

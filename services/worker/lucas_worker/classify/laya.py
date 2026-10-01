@@ -45,7 +45,9 @@ class CategoryModel(Protocol):
 
     name: str
 
-    def predict(self, inp: ClassifyInput, allowed_categories: list[str]) -> CategoryPrediction | None: ...
+    def predict(
+        self, inp: ClassifyInput, allowed_categories: list[str], descriptions: dict[str, str | None] | None = None
+    ) -> CategoryPrediction | None: ...
 
 
 class LayaUnavailable(Exception):
@@ -179,8 +181,10 @@ class LayaOnnx:
         p = lf.unpermute_probs(p, item["q"].get("option_order"))
         return list(item["q"]["crit"].keys()), p
 
-    def predict(self, inp: ClassifyInput, allowed_categories: list[str]) -> CategoryPrediction | None:
-        pregunta = self.question.restricted_to(allowed_categories)
+    def predict(
+        self, inp: ClassifyInput, allowed_categories: list[str], descriptions: dict[str, str | None] | None = None
+    ) -> CategoryPrediction | None:
+        pregunta = self.question.for_account(allowed_categories, descriptions)
         if len(pregunta.definition["criteria"]) < 2:
             return None
         state = build_state(self.variant, inp)

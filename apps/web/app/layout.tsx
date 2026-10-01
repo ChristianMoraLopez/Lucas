@@ -6,10 +6,10 @@ import '@/styles/lucas.css';
 import '@/styles/app.css';
 
 export const metadata: Metadata = {
-  title: 'Lucas — cuentas compartidas',
-  description: 'Lucas vuelve gastos lo que mandan al grupo de WhatsApp: fotos de recibos, PDFs y mensajes, clasificados y divididos.',
-  applicationName: 'Lucas',
-  appleWebApp: { capable: true, title: 'Lucas', statusBarStyle: 'default' },
+  title: 'Luks — cuentas compartidas',
+  description: 'Luks vuelve gastos lo que mandan al grupo de WhatsApp: fotos de recibos, PDFs y mensajes, clasificados y divididos.',
+  applicationName: 'Luks',
+  appleWebApp: { capable: true, title: 'Luks', statusBarStyle: 'default' },
   icons: { apple: '/icons/apple-touch-icon.png' },
 };
 

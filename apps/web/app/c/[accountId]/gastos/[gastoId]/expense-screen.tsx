@@ -44,7 +44,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
           .eq('account_id', accountId)
           .maybeSingle(),
         supabase.from('people').select('id, display_name, tone, claimed_by').eq('account_id', accountId).order('created_at'),
-        supabase.from('categories').select('id, name, letter, tone').eq('account_id', accountId).order('name'),
+        supabase.from('categories').select('id, name, letter, tone, description, is_default').eq('account_id', accountId).order('name'),
       ]);
       const error = exp.error ?? people.error ?? cats.error;
       if (error) throw error;
@@ -114,7 +114,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
             </div>
             {expense.confidence != null && (
               <div>
-                <dt>Lucas lo leyó</dt>
+                <dt>Luks lo leyó</dt>
                 <dd>con {Math.round(Number(expense.confidence) * 100)} % de confianza</dd>
               </div>
             )}
@@ -158,6 +158,8 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
         <section className="rv-data" aria-label="Datos del gasto">
           <ExpenseForm
             key={`${expense.id}-${expense.status}`}
+            accountId={accountId}
+            onCategoriesChanged={() => queryClient.invalidateQueries({ queryKey: ['gasto', expenseId] })}
             mode="edit"
             expense={expense}
             people={people}

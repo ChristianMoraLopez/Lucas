@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from lucas_worker.classify import laya_format as lf
-from lucas_worker.classify.categories import CATEGORIES
+from lucas_worker.classify.categories import BY_NAME, CATEGORIES
 from lucas_worker.classify.classifier import Category, CategoryClassifier
 from lucas_worker.classify.laya import HfLikeTokenizer, LayaOnnx, LayaUnavailable, load_laya
 from lucas_worker.classify.question import ClassifyInput, build_state, default_question
@@ -219,3 +219,25 @@ def test_formato_igual_al_paquete_oficial(carpeta_laya):
     p = np.array([0.1, 0.7, 0.2])
     assert lf.answer_confidence(p, 3) == oficial.answer_confidence(p, 3)
     assert lf.temp_bucket(0, 8) == oficial.temp_bucket(0, 8)
+
+
+def test_categorias_propias_entran_como_opciones_descritas():
+    q = default_question(LayaVariant.MULTILINGUAL).for_account(
+        ["Mercado", "Otros", "Salud", "Mascotas"], {"Salud": "droguería, EPS", "Mascotas": None}
+    )
+    assert q.definition["criteria"] == {
+        "Mercado": BY_NAME["Mercado"].desc_es,
+        "Otros": BY_NAME["Otros"].desc_es,
+        "Mascotas": "Mascotas",
+        "Salud": "droguería, EPS",
+    }
+    assert q.label_to_category["Salud"] == "Salud"
+    # En la variante inglesa también (la descripción va como la escribieron)
+    en = default_question(LayaVariant.ENGLISH).for_account(["Mercado", "Salud"], {"Salud": "droguería, EPS"})
+    assert en.label_to_category == {"groceries": "Mercado", "Salud": "Salud"}
+
+
+def test_laya_elige_una_categoria_propia(carpeta_laya):
+    laya = LayaOnnx(carpeta_laya, LayaVariant.MULTILINGUAL)
+    pred = laya.predict(ClassifyInput(merchant="x"), ["Café", "Otros", "Salud"], {"Salud": "droguería"})
+    assert set(pred.probabilities) == {"Café", "Otros", "Salud"}

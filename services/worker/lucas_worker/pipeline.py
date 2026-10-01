@@ -153,7 +153,7 @@ class MessageProcessor:
         today = date.fromisoformat(ctx["today"])
         received = _dia_bogota(msg.get("received_at"), today)
         people = [Person(p["id"], p["display_name"]) for p in ctx.get("people") or []]
-        categories = [Category(c["id"], c["name"]) for c in ctx.get("categories") or []]
+        categories = [Category(c["id"], c["name"], c.get("description")) for c in ctx.get("categories") or []]
         memory = [
             MemoryEntry(m["id"], m["merchant_text"], m["normalized"], m["category_id"], int(m.get("hits") or 0))
             for m in ctx.get("memory") or []

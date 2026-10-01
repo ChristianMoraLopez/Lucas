@@ -154,20 +154,43 @@ _MONTO_EN_TEXTO = re.compile(
 )
 
 
+# Lo que no es el «en qué» de un mensaje escrito: fechas, verbos de pagar y relleno
+_MESES_TXT = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre"
+_FECHA_TXT = re.compile(
+    r"(?<!\w)(?:el\s+)?(?:d[ií]a\s+de\s+)?(?:hoy|ayer|anoche|antier|anteayer|antenoche)(?!\w)"
+    r"|(?<!\w)(?:el\s+)?\d{1,2}\s+de\s+(?:" + _MESES_TXT + r")(?:\s+de\s+\d{4})?(?!\w)",
+    re.IGNORECASE,
+)
+_RELLENO = re.compile(r"(?<!\w)(?:otr[oa]s?\s+vez|otr[oa]s?|tambi[eé]n|nuevamente|de\s+nuevo)(?!\w)", re.IGNORECASE)
+# «para Valentina»: a quién beneficia, no en qué (con mayúscula: es un nombre)
+_PARA_ALGUIEN = re.compile(r"(?<!\w)para\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*(?:\s+y\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*)?")
+_INICIO = re.compile(
+    r"^[\s,.;:-]*(?:(?:yo|nosotros|hoy|ayer|de|del|el|la|los|las|en|un|una|unos|unas|para|por|que|se|nos|me|le|les|y"
+    r"|gast\w*|pagu[eé]|pagamos|pagaron|compr\w*|cost\w*|sali[oó]|valieron|vali[oó]|cobr\w*|invert\w*)[\s,.;:]+)+",
+    re.IGNORECASE,
+)
+
+
 def merchant_from_text(text: str | None) -> str:
-    """Nombre del comercio a partir de un mensaje (igual que public.merchant_from_text)."""
+    """El «en qué» de un mensaje: «Ayer gastamos 47,500 en un vale de salud para
+    Valentina» → «Vale de salud». (Más completo que public.merchant_from_text.)"""
     t = text or ""
+    t = _FECHA_TXT.sub(" ", t)  # antes que los montos: el «1» de «1 de octubre» no es plata
     t = _MONTO_EN_TEXTO.sub(" ", t)
     t = re.sub(r"\s*(la|lo|los|las)?\s*pag[oó]\s+[^\W\d_]+", " ", t, flags=re.IGNORECASE)
-    t = re.sub(r"^\s*((yo|hoy|ayer|pagu[eé]|compr[eé]|gast[eé]|de|el|la|en)\s+)+", "", t, flags=re.IGNORECASE)
+    t = _RELLENO.sub(" ", t)
+    t = _PARA_ALGUIEN.sub(" ", t)
+    t = _INICIO.sub("", t)
     # Lo que no es el comercio: «entre Vale y Santi», «pagado por Laura», «ayer»
     t = re.sub(r"\b(entre|pagad[oa]s?\s+por)\b.*$", " ", t, flags=re.IGNORECASE)
     t = re.sub(r"\b(ayer|hoy|anoche|antier|anteayer|antenoche)\b", " ", t, flags=re.IGNORECASE)
     t = re.sub(r"\s+([,.;:])", r"\1", re.sub(r"\s+", " ", t))
-    t = t.strip(" :;,.-·")
+    t = _INICIO.sub("", t).strip(" :;,.-·")
     if not t:
         return "Gasto sin nombre"
-    return (t[0].upper() + t[1:])[:40]
+    if len(t) > 40:  # se corta en una palabra completa
+        t = t[:41].rsplit(" ", 1)[0].rstrip(" ,.;:-")
+    return t[0].upper() + t[1:]
 
 
 def guess_category(text: str | None) -> str | None:

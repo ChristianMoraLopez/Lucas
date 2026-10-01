@@ -87,6 +87,12 @@ def test_comercio_a_partir_del_mensaje():
         "pagué el almuerzo en El Sazón de Mamá 41.200": "Almuerzo en El Sazón de Mamá",
         "100 lucas": "Gasto sin nombre",
         "hielo 12 lucas entre Vale y Santi, ayer": "Hielo",
+        # Mensajes reales: el «en qué», sin verbos, fechas ni a quién beneficia
+        "Ayer gastamos 47,500 en un vale de salud para Valentina": "Vale de salud",
+        "El día de hoy, 1 de octubre gastamos otros 47,500 para un Vale de salud": "Vale de salud",
+        "pagué 120000 por las cabañas": "Cabañas",
+        "gasolina 90 mil, la pagó Andrés": "Gasolina",
+        "nos cobraron 80 lucas por el parqueadero del centro comercial Santafé de Bogotá": "Parqueadero del centro comercial Santafé",
     }
     for texto, esperado in casos.items():
         assert merchant_from_text(texto) == esperado

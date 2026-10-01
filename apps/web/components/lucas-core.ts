@@ -1,4 +1,4 @@
-/* Lucas — funciones puras del sistema de diseño (sin React). Viven aparte de
+/* Luks — funciones puras del sistema de diseño (sin React). Viven aparte de
    lucas-ui.tsx, que es 'use client', para poder usarlas en Server Components.
    Mismo comportamiento que lucas-design-kit/components/lucas-ui.jsx. */
 

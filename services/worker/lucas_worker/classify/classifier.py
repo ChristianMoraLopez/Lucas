@@ -2,7 +2,8 @@
 
 1. Memoria de comercios de la cuenta (lo que las personas ya confirmaron).
 2. Laya (la variante configurada), si está cargado.
-3. Palabras clave del mensaje o del recibo.
+3. Palabras clave del mensaje o del recibo: primero las de las categorías
+   propias de la cuenta (salen de su descripción), luego las de siempre.
 4. «Otros», con confianza baja: que lo decida una persona.
 """
 
@@ -11,7 +12,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
-from .categories import BY_NAME, OTHER, keyword_category
+from .categories import BY_NAME, OTHER, custom_keyword_category, keyword_category
 from .laya import CategoryModel
 from .memory import MemoryEntry, match_memory
 from .question import ClassifyInput
@@ -23,6 +24,8 @@ log = logging.getLogger(__name__)
 class Category:
     id: str
     name: str
+    # Qué entra en ella; en las propias lo escribe quien la creó
+    description: str | None = None
 
 
 @dataclass
@@ -58,9 +61,10 @@ class CategoryClassifier:
 
         # 2. Laya
         if self.model is not None:
-            permitidas = [n for n in por_nombre if n in BY_NAME]
             try:
-                pred = self.model.predict(inp, permitidas)
+                pred = self.model.predict(
+                    inp, list(por_nombre), descriptions={c.name: c.description for c in categories}
+                )
             except Exception as e:  # un fallo de Laya no tumba el gasto
                 log.warning("Laya falló al clasificar: %s", type(e).__name__, exc_info=True)
                 pred = None
@@ -70,9 +74,11 @@ class CategoryClassifier:
                     cat.id, cat.name, pred.confidence, "laya", probabilities=pred.probabilities, model=pred.model
                 )
 
-        # 3. Palabras clave
+        # 3. Palabras clave (las propias de la cuenta son más específicas: van primero)
+        propias = [(c.name, c.description) for c in categories if c.name not in BY_NAME]
         for texto in (inp.merchant, keyword_text, inp.message_text, " ".join(inp.items)):
-            if (nombre := keyword_category(texto)) and nombre in por_nombre:
+            nombre = custom_keyword_category(texto, propias) or keyword_category(texto)
+            if nombre and nombre in por_nombre:
                 cat = por_nombre[nombre]
                 return CategoryDecision(cat.id, cat.name, 0.7, "keywords")
 

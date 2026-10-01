@@ -7,3 +7,6 @@ allowBuilds:
   esbuild: true
   # Dependencia de Serwist: sus binarios llegan por dependencias opcionales, no necesita script
   "@swc/core": false
+  # Connector: el de Baileys solo revisa la versión de Node; el de protobufjs prepara su CLI
+  baileys: false
+  protobufjs: false

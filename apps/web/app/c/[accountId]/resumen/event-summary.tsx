@@ -28,7 +28,7 @@ export function EventSummary({ d }: { d: Dashboard }) {
           <span className="lu-small" style={{ flex: 1, minWidth: 160 }}>
             {termino
               ? `El evento ${momento.charAt(0).toLowerCase()}${momento.slice(1)}. Revisen lo pendiente y después liquidan.`
-              : 'Hay gastos que Lucas no leyó seguros. Revísenlos para que cuenten bien.'}
+              : 'Hay gastos que Luks no leyó seguros. Revísenlos para que cuenten bien.'}
           </span>
           <Link href={`/c/${d.account.id}/revisar`} className="lu-btn lu-btn--sm lu-btn--primary">
             Revisar
