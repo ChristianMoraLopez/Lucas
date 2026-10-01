@@ -45,14 +45,14 @@ Las dos variantes que el worker sabe usar (`LAYA_VARIANT`):
 
 Tiempo aproximado en una T4 con unos cientos de ejemplos: 5 a 15 minutos, más ~5 de exportar.
 
-> **¿Todavía no hay correcciones?** Pon `SOLO_EXPORTAR = True`: se exporta el checkpoint base (zero-shot) tal cual, para que el worker ya tenga Laya. El worker le pone techo a su confianza hasta que subas uno ajustado.
+> **Primera vez (todavía sin correcciones):** deja `SOLO_EXPORTAR = True` y corre todo: se sube el modelo base (zero-shot) tal cual, para que el worker ya tenga Laya, y el worker le pone techo a su confianza. **Para ajustarlo** con las correcciones de la gente, pon `SOLO_EXPORTAR = False` y sube `laya-data.zip` cuando lo pida la celda 3.
 """)
 
 code(r"""
 # 1. Configuración ─────────────────────────────────────────────────────────────
 VARIANTE = "multilingual"          # "multilingual" | "english" (igual a LAYA_VARIANT del worker)
 HF_REPO = ""                       # vacío = <tu usuario de Hugging Face>/lucas-laya (privado)
-SOLO_EXPORTAR = False              # True: exporta el checkpoint base sin ajustar (zero-shot)
+SOLO_EXPORTAR = True               # True: sube el modelo base sin ajustar · False: ajusta con laya-data.zip
 DATOS = "laya-data"                # carpeta (o .zip) que sale de export_training.py
 
 EPOCAS = 4
