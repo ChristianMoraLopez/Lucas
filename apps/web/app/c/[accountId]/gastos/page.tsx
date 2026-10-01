@@ -23,8 +23,10 @@ interface Row {
 
 export default async function GastosPage({ params, searchParams }: PageProps<'/c/[accountId]/gastos'>) {
   const { accountId } = await params;
-  const { ver } = await searchParams;
+  const { ver, mes: mesParam } = await searchParams;
   const soloPendientes = ver === 'pendientes';
+  // ?mes=2026-09 (desde la tarjeta del resumen): solo los gastos de ese mes
+  const mes = typeof mesParam === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(mesParam) ? mesParam : null;
   const { supabase } = await requireUser(`/c/${accountId}/gastos`);
 
   const { data: account } = await supabase.from('accounts').select('id').eq('id', accountId).maybeSingle();
@@ -40,6 +42,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
     .order('created_at', { ascending: false })
     .limit(300);
   if (soloPendientes) query = query.eq('status', 'pending_review');
+  if (mes) query = query.gte('expense_date', `${mes}-01`).lt('expense_date', mesSiguiente(mes));
   const { data, error } = await query;
   if (error) throw error;
   const rows = (data ?? []) as unknown as Row[];
@@ -52,6 +55,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   }
   const hoy = todayInBogota();
   const base = `/c/${accountId}/gastos`;
+  const conMes = (q: string) => (mes ? `${base}?${q ? `${q}&` : ''}mes=${mes}` : q ? `${base}?${q}` : base);
 
   return (
     <div className="gs">
@@ -67,19 +71,32 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
       </header>
 
       <nav className="gs-filter" aria-label="Filtrar gastos">
-        <Link href={base} className="lu-chip" aria-pressed={!soloPendientes} aria-current={!soloPendientes ? 'page' : undefined}>
+        <Link href={conMes('')} className="lu-chip" aria-pressed={!soloPendientes} aria-current={!soloPendientes ? 'page' : undefined}>
           Todos
         </Link>
-        <Link href={`${base}?ver=pendientes`} className="lu-chip" aria-pressed={soloPendientes} aria-current={soloPendientes ? 'page' : undefined}>
+        <Link href={conMes('ver=pendientes')} className="lu-chip" aria-pressed={soloPendientes} aria-current={soloPendientes ? 'page' : undefined}>
           Por revisar
         </Link>
+        {mes && (
+          <Link
+            href={soloPendientes ? `${base}?ver=pendientes` : base}
+            className="lu-chip gs-mes"
+            aria-label={`Quitar el filtro de ${monthName(`${mes}-01`).toLowerCase()}`}
+          >
+            {monthName(`${mes}-01`)} {mes.slice(0, 4)} <span aria-hidden="true">×</span>
+          </Link>
+        )}
       </nav>
 
       {rows.length === 0 ? (
         <div className="ap-empty">
           <LottieSlot name="vacio" width={72} height={72} />
           <span className="lu-small lu-muted">
-            {soloPendientes ? 'No hay nada por revisar.' : 'Todavía no hay gastos. Manden fotos al grupo o súbanlas aquí.'}
+            {soloPendientes
+              ? 'No hay nada por revisar.'
+              : mes
+                ? `No hay gastos en ${monthName(`${mes}-01`).toLowerCase()}.`
+                : 'Todavía no hay gastos. Manden fotos al grupo o súbanlas aquí.'}
           </span>
         </div>
       ) : (
@@ -93,10 +110,13 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
             </div>
             <ul className="hd-recent">
               {lista.map((r) => (
-                <li key={r.id}>
+                <li key={r.id} className="gs-row">
                   <CategoryTag name={r.categories?.name ?? 'Otros'} showName={false} size="lg" />
                   <span className="hd-r__t">
-                    <span className="hd-r__m">{r.merchant}</span>
+                    {/* Toda la fila abre el gasto: verlo, corregirlo o eliminarlo */}
+                    <Link href={`${base}/${r.id}`} className="hd-r__m gs-link">
+                      {r.merchant}
+                    </Link>
                     <span className="hd-r__s">
                       {formatRecent(r.expense_date, r.created_at, hoy)}
                       {r.people && (
@@ -130,4 +150,10 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
       )}
     </div>
   );
+}
+
+/** «2026-09» → «2026-10-01» (primer día del mes siguiente) */
+function mesSiguiente(mes: string) {
+  const [y, m] = mes.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
 }

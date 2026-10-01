@@ -2,6 +2,7 @@
 /* Lucas — componentes React (Next.js). Requiere styles/tokens.css y styles/lucas.css cargados globalmente.
    Port tipado de lucas-design-kit/components/lucas-ui.jsx (tipos de lucas-ui.d.ts).
    Las funciones puras (formatCOP, lucas, tonos, códigos) viven en lucas-core.ts y se re-exportan aquí. */
+import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { isLottieName, Lottie } from './lottie';
@@ -86,6 +87,8 @@ export function BillCard({
   highlight = true,
   children,
   aside,
+  href,
+  linkLabel,
 }: {
   label: React.ReactNode;
   amount: number;
@@ -95,15 +98,25 @@ export function BillCard({
   roll?: boolean;
   highlight?: boolean;
   children?: React.ReactNode;
+  /** Toda la tarjeta lleva aquí (p. ej. a los gastos del mes); los enlaces del `aside` siguen funcionando */
+  href?: string;
+  linkLabel?: string;
 }) {
+  const cifra = <Amount value={amount} size="xl" roll={roll} highlight={highlight} />;
   return (
-    <section className={cx('lu-bill', tone === 'morado' && 'lu-bill--morado')}>
+    <section className={cx('lu-bill', tone === 'morado' && 'lu-bill--morado', href && 'lu-bill--link')}>
       <div className="lu-bill__top">
         <span className="lu-bill__label">{label}</span>
         {aside || <span className="lu-bill__denom">{denom}</span>}
       </div>
       <span className="lu-bill__amount">
-        <Amount value={amount} size="xl" roll={roll} highlight={highlight} />
+        {href ? (
+          <Link href={href} className="lu-bill__link" aria-label={linkLabel}>
+            {cifra}
+          </Link>
+        ) : (
+          cifra
+        )}
       </span>
       {children && <div className="lu-bill__foot">{children}</div>}
     </section>

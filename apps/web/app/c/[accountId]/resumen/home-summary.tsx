@@ -45,6 +45,8 @@ export function HomeSummary({ d }: { d: Dashboard }) {
           amount={d.total}
           roll
           highlight={esEsteMes}
+          href={`/c/${d.account.id}/gastos?mes=${param(d.month)}`}
+          linkLabel={`Ver los gastos de ${monthName(d.month).toLowerCase()}`}
           aside={
             <span className="hd-nav">
               {prevParam ? (
@@ -78,6 +80,9 @@ export function HomeSummary({ d }: { d: Dashboard }) {
               {d.total >= d.prev_total ? '▲' : '▼'} <b>{formatCOP(Math.abs(d.total - d.prev_total))}</b> vs. {MESES_CORTOS[mesDe(mesAnterior.month)]}
             </span>
           )}
+          <span className="lu-bill__more" aria-hidden="true">
+            Ver gastos ›
+          </span>
         </BillCard>
 
         <section aria-label="Gasto por categoría">
@@ -187,10 +192,12 @@ export function RecentList({ d }: { d: Dashboard }) {
   return (
     <ul className="hd-recent">
       {d.recent.map((r) => (
-        <li key={r.id}>
+        <li key={r.id} className="gs-row">
           <CategoryTag name={r.category ?? 'Otros'} showName={false} size="lg" />
           <span className="hd-r__t">
-            <span className="hd-r__m">{r.merchant}</span>
+            <Link href={`/c/${d.account.id}/gastos/${r.id}`} className="hd-r__m gs-link">
+              {r.merchant}
+            </Link>
             <span className="hd-r__s">
               {formatRecent(r.expense_date, r.created_at, d.today)}
               {r.payer && (
