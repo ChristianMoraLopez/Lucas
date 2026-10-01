@@ -220,8 +220,10 @@ def resolve_model_dir(settings: Settings) -> Path | None:
     token = settings.hf_token.get_secret_value() if settings.hf_token else None
     carpeta = snapshot_download(
         repo_id=settings.hf_repo,
+        # El notebook sube la INT8, o la fp32 si la INT8 se alejaba demasiado: se baja la que haya
         allow_patterns=[
             f"{variante}/{settings.laya_onnx_file}",
+            f"{variante}/laya.onnx",
             f"{variante}/rl_agent_config.json",
             f"{variante}/lucas_question.json",
             f"{variante}/tokenizer/*",

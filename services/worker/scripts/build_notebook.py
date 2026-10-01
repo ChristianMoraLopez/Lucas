@@ -45,14 +45,14 @@ Las dos variantes que el worker sabe usar (`LAYA_VARIANT`):
 
 Tiempo aproximado en una T4 con unos cientos de ejemplos: 5 a 15 minutos, más ~5 de exportar.
 
-> **¿Todavía no hay correcciones?** Pon `SOLO_EXPORTAR = True`: se exporta el checkpoint base (zero-shot) tal cual, para que el worker ya tenga Laya. El worker le pone techo a su confianza hasta que subas uno ajustado.
+> **Primera vez (todavía sin correcciones):** deja `SOLO_EXPORTAR = True` y corre todo: se sube el modelo base (zero-shot) tal cual, para que el worker ya tenga Laya, y el worker le pone techo a su confianza. **Para ajustarlo** con las correcciones de la gente, pon `SOLO_EXPORTAR = False` y sube `laya-data.zip` cuando lo pida la celda 3.
 """)
 
 code(r"""
 # 1. Configuración ─────────────────────────────────────────────────────────────
 VARIANTE = "multilingual"          # "multilingual" | "english" (igual a LAYA_VARIANT del worker)
-HF_REPO = "tu-usuario/lucas-laya"  # repo PRIVADO de modelos; el mismo HF_REPO del worker
-SOLO_EXPORTAR = False              # True: exporta el checkpoint base sin ajustar (zero-shot)
+HF_REPO = ""                       # vacío = <tu usuario de Hugging Face>/lucas-laya (privado)
+SOLO_EXPORTAR = True               # True: sube el modelo base sin ajustar · False: ajusta con laya-data.zip
 DATOS = "laya-data"                # carpeta (o .zip) que sale de export_training.py
 
 EPOCAS = 4
@@ -97,6 +97,20 @@ def secreto(nombre):
 HF_TOKEN = secreto("HF_TOKEN")
 assert HF_TOKEN, "Falta el secreto HF_TOKEN (con permiso write)"
 os.environ["HF_TOKEN"] = HF_TOKEN
+
+# Antes de trabajar media hora: ¿el token sirve y el repo es tuyo?
+from huggingface_hub import HfApi
+yo = HfApi(token=HF_TOKEN).whoami()
+usuario = yo["name"]
+espacios = [usuario, *[o["name"] for o in yo.get("orgs", [])]]
+if not HF_REPO or HF_REPO.startswith("tu-usuario/"):
+    HF_REPO = f"{usuario}/lucas-laya"
+assert HF_REPO.split("/")[0] in espacios, (
+    f"HF_REPO es de «{HF_REPO.split('/')[0]}», pero el token es de «{usuario}». "
+    f'Pon HF_REPO = "{usuario}/lucas-laya" o déjalo vacío')
+assert (yo.get("auth") or {}).get("accessToken", {}).get("role") != "read", (
+    "HF_TOKEN es de solo lectura: el notebook necesita uno de tipo Write")
+print(f"Hugging Face: {usuario} · el modelo se sube a {HF_REPO}")
 
 def ubicar_datos():
     for candidato in [DATOS, *glob.glob("/kaggle/input/*/" + DATOS), *glob.glob("/kaggle/input/*")]:
@@ -187,11 +201,16 @@ def evaluar(agente, filas):
             "n": len(filas)}
 
 dispositivo = "cuda" if torch.cuda.is_available() else "cpu"
-base_agent = laya.Agent(base_dir, device=dispositivo)
-metricas = {"zero_shot": evaluar(base_agent, test_rows)}
-print("Zero-shot:", metricas["zero_shot"])
-del base_agent
-torch.cuda.empty_cache() if torch.cuda.is_available() else None
+metricas = {"zero_shot": None}
+if test_rows:
+    base_agent = laya.Agent(base_dir, device=dispositivo)
+    metricas["zero_shot"] = evaluar(base_agent, test_rows)
+    print("Zero-shot:", metricas["zero_shot"])
+    del base_agent
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+else:
+    print("Sin datos de prueba: no hay nada que evaluar todavía")
 """)
 
 code(r"""
@@ -239,7 +258,8 @@ def ajustar_temperatura(pares):
 
 model = build_model(cfg, encoder_dir=os.path.join(base_dir, "encoder"))
 model.load_state_dict(load_file(os.path.join(base_dir, "model.safetensors")), strict=True)
-model.to(dispositivo)
+if not SOLO_EXPORTAR:
+    model.to(dispositivo)
 temperatura = cfg.get("temperature", [1.0, 1.0, 1.0])
 
 if not SOLO_EXPORTAR:
@@ -329,6 +349,13 @@ os.makedirs(ckpt, exist_ok=True)
 model.eval().cpu()
 save_file({k: v.half().contiguous() for k, v in model.state_dict().items()}, os.path.join(ckpt, "model.safetensors"))
 model.encoder.config.save_pretrained(os.path.join(ckpt, "encoder"))
+# ModernBERT activa torch.compile si alguna vez corrió en GPU; al cargarlo para
+# exportar (en CPU) eso solo estorba
+ruta_enc = os.path.join(ckpt, "encoder", "config.json")
+cfg_enc = json.load(open(ruta_enc))
+if cfg_enc.get("model_type") == "modernbert" or "reference_compile" in cfg_enc:
+    cfg_enc["reference_compile"] = False
+    json.dump(cfg_enc, open(ruta_enc, "w"), indent=2)
 tok.save_pretrained(os.path.join(ckpt, "tokenizer"))
 cfg_out = dict(cfg)
 cfg_out["temperature"] = temperatura
@@ -346,60 +373,173 @@ if not SOLO_EXPORTAR:
 """)
 
 code(r"""
-# 8. Exportar a ONNX y cuantizar a INT8 (la receta de laya/scripts/export_onnx.py) ─
-import onnx
-from onnxruntime.quantization import QuantType, quantize_dynamic
+%%writefile exportar_onnx.py
+# 8. Script que exporta a ONNX y a INT8 y comprueba que respondan como PyTorch.
+#    Corre en un proceso aparte y solo con CPU: nada de lo que quedó en memoria
+#    del entrenamiento (CUDA, autocast, torch.compile) se mete en la exportación.
+#    Uso: python exportar_onnx.py <checkpoint> <salida> [muestras.json]
+import json
+import os
+import shutil
+import sys
+import time
 
-onnx_dir = os.path.join(SALIDA, "onnx")
-os.makedirs(onnx_dir, exist_ok=True)
-fp32 = os.path.join(onnx_dir, "laya.onnx")
-int8 = os.path.join(onnx_dir, "laya.int8.onnx")
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # antes de importar torch
 
-agente_cpu = laya.Agent(ckpt, compile=False, device="cpu")
+import numpy as np
+import torch
+
+ckpt, out = sys.argv[1], sys.argv[2]
+muestras = []
+if len(sys.argv) > 3 and os.path.exists(sys.argv[3]):
+    muestras = json.load(open(sys.argv[3], encoding="utf-8"))
+os.makedirs(out, exist_ok=True)
+fp32, int8 = os.path.join(out, "laya.onnx"), os.path.join(out, "laya.int8.onnx")
+
+import laya
+
+agente = laya.Agent(ckpt, compile=False, device="cpu")
+modelo = agente.model.float().eval()
+if getattr(modelo.encoder, "config", None) is not None:
+    modelo.encoder.config.reference_compile = False  # ModernBERT: sin torch.compile al exportar
+# Las capas de la cabeza (nn.TransformerEncoderLayer) tienen un atajo interno de
+# PyTorch que no existe en ONNX; apagado, se exportan como operaciones normales.
+if hasattr(torch.backends, "mha") and hasattr(torch.backends.mha, "set_fastpath_enabled"):
+    torch.backends.mha.set_fastpath_enabled(False)
+
 lote, largo, marcas = 2, 17, 3  # todo > 1 y distinto: así el grafo queda dinámico
 entradas = (
-    torch.randint(0, 100, (lote, largo), dtype=torch.long),
+    torch.randint(5, 100, (lote, largo), dtype=torch.long),
     torch.ones((lote, largo), dtype=torch.long),
     torch.tensor([[1, 5, 9]] * lote, dtype=torch.long),
     torch.ones((lote, marcas), dtype=torch.bool),
     torch.zeros(lote, dtype=torch.long),
 )
-B, S, K = torch.export.Dim("batch_size"), torch.export.Dim("seq_len"), torch.export.Dim("num_markers")
-torch.onnx.export(
-    agente_cpu.model, entradas, fp32, export_params=True, opset_version=18, do_constant_folding=True,
-    input_names=["input_ids", "attention_mask", "marker_pos", "marker_mask", "qtype"],
-    output_names=["logits", "act_logits"],
-    dynamic_shapes=({0: B, 1: S}, {0: B, 1: S}, {0: B, 1: K}, {0: B, 1: K}, {0: B}),
-)
+ENTRADAS = ["input_ids", "attention_mask", "marker_pos", "marker_mask", "qtype"]
+SALIDAS = ["logits", "act_logits"]
+
+
+def exportador_clasico():
+    torch.onnx.export(
+        modelo, entradas, fp32, input_names=ENTRADAS, output_names=SALIDAS, opset_version=17,
+        do_constant_folding=True, dynamo=False,
+        dynamic_axes={
+            "input_ids": {0: "batch", 1: "seq"}, "attention_mask": {0: "batch", 1: "seq"},
+            "marker_pos": {0: "batch", 1: "k"}, "marker_mask": {0: "batch", 1: "k"},
+            "qtype": {0: "batch"}, "logits": {0: "batch", 1: "k"}, "act_logits": {0: "batch"},
+        },
+    )
+
+
+def exportador_torch_export():
+    # La receta de laya/scripts/export_onnx.py
+    B, S, K = torch.export.Dim("batch_size"), torch.export.Dim("seq_len"), torch.export.Dim("num_markers")
+    torch.onnx.export(
+        modelo, entradas, fp32, export_params=True, opset_version=18, do_constant_folding=True,
+        input_names=ENTRADAS, output_names=SALIDAS,
+        dynamic_shapes=({0: B, 1: S}, {0: B, 1: S}, {0: B, 1: K}, {0: B, 1: K}, {0: B}),
+    )
+
+
+fallas = []
+for nombre, exportar in (("clásico (TorchScript)", exportador_clasico), ("torch.export", exportador_torch_export)):
+    try:
+        t0 = time.time()
+        exportar()
+        print(f"✓ ONNX exportado con el exportador {nombre} en {time.time() - t0:.0f} s")
+        break
+    except Exception as e:
+        fallas.append(f"{nombre}: {type(e).__name__}: {str(e)[:400]}")
+        print(f"✗ El exportador {nombre} falló; pruebo el siguiente")
+else:
+    sys.exit("No se pudo exportar a ONNX:\n" + "\n".join(fallas))
+
+import onnx
+from onnxruntime.quantization import QuantType, quantize_dynamic
+
 m = onnx.load(fp32)
 del m.graph.value_info[:]
 quantize_dynamic(model_input=m, model_output=int8, op_types_to_quantize=["MatMul"],
                  weight_type=QuantType.QInt8, per_channel=True)
 print(f"ONNX fp32 {os.path.getsize(fp32) / 1e6:.0f} MB · INT8 {os.path.getsize(int8) / 1e6:.0f} MB")
+
+# Lo que ONNXAgent necesita junto al grafo
+shutil.copy(os.path.join(ckpt, "rl_agent_config.json"), out)
+for carpeta in ("tokenizer", "encoder"):
+    shutil.copytree(os.path.join(ckpt, carpeta), os.path.join(out, carpeta), dirs_exist_ok=True)
+
+# Comprobación: los mismos casos por PyTorch y por ONNX, con textos de distintos
+# largos y preguntas de 3 y 8 opciones (si el grafo quedó con un tamaño fijo, aquí se nota)
+from laya.onnx_agent import ONNXAgent
+
+P8 = {"category": {"type": "choice", "instructions": "¿En qué categoría de gasto va esta compra hecha en Colombia?",
+      "criteria": {"Transporte": "taxis, buses, lanchas, peajes, gasolina, vuelos", "Hospedaje": "hoteles, hostales",
+                   "Licor": "estancos, cerveza, aguardiente", "Café": "cafeterías, panaderías",
+                   "Restaurante": "almuerzos, cenas, comidas rápidas", "Mercado": "supermercados, tiendas de barrio",
+                   "Servicios": "luz, agua, gas, internet, celular", "Otros": "todo lo demás"}}}
+P3 = {"category": {"type": "choice", "instructions": "Which spending category does this expense belong to?",
+      "criteria": {"groceries": "supermarkets and corner stores", "transport": "taxis and buses", "other": "anything else"}}}
+ESTADOS = [
+    {"comercio": "Tienda Don Beto", "items": ["Leche", "Huevos", "Arepas"]},
+    {"comercio": "Taxi al aeropuerto"},
+    {"merchant": "Hostal Brisas del Rodadero", "description": "Two nights at a beach hostel in Santa Marta"},
+    {"comercio": "Panadería La Espiga",
+     "texto": "PANADERIA LA ESPIGA NIT 900123456 2 Pandebono 5.000 1 Tinto grande 3.800 TOTAL 11.300 " * 12},
+]
+casos = [(json.loads(r["state"]), json.loads(r["questions"])) for r in muestras[:40]]
+casos += [(e, p) for e in ESTADOS for p in (P8, P3)]
+
+
+def comparar(ruta):
+    onnx_agente = ONNXAgent(out, onnx_path=ruta)
+    difs, cambios, seguros = [], 0, 0
+    for estado, preguntas in casos:
+        a = agente.predict(estado, preguntas)["answers"]["category"]
+        b = onnx_agente.predict(estado, preguntas)["answers"]["category"]
+        difs.append(max(abs(a["probabilities"][k] - b["probabilities"][k]) for k in a["probabilities"]))
+        top = sorted(a["probabilities"].values(), reverse=True)
+        if top[0] - top[1] > 0.1:  # solo cuenta cuando PyTorch no está dudando entre dos
+            seguros += 1
+            cambios += a["choice"] != b["choice"]
+    return {"max_diff": round(max(difs), 4), "mediana_diff": round(float(np.median(difs)), 4),
+            "cambios": cambios, "seguros": seguros, "n": len(casos)}
+
+
+r32 = comparar(fp32)
+print("ONNX fp32 vs PyTorch:", r32)
+if r32["max_diff"] > 0.02:
+    sys.exit("El ONNX fp32 no responde como PyTorch: la exportación salió mal (mira los mensajes de arriba)")
+r8 = comparar(int8)
+print("ONNX INT8 vs PyTorch:", r8)
+elegido = "laya.int8.onnx"
+if r8["mediana_diff"] > 0.05 or r8["cambios"] > max(1, r8["seguros"] // 10):
+    elegido = "laya.onnx"
+    print("La versión INT8 se aleja demasiado de PyTorch: se sube la fp32 (más pesada, igual de exacta)")
+json.dump({"fp32": r32, "int8": r8, "elegido": elegido}, open(os.path.join(out, "onnx_check.json"), "w"), indent=2)
+print("✓ Listo para subir:", elegido)
 """)
 
 code(r"""
-# 9. ¿El ONNX INT8 dice lo mismo que PyTorch? ────────────────────────────────
-from laya.onnx_agent import ONNXAgent
-for nombre in ("rl_agent_config.json",):
-    shutil.copy(os.path.join(ckpt, nombre), onnx_dir)
-shutil.copytree(os.path.join(ckpt, "tokenizer"), os.path.join(onnx_dir, "tokenizer"), dirs_exist_ok=True)
-shutil.copytree(os.path.join(ckpt, "encoder"), os.path.join(onnx_dir, "encoder"), dirs_exist_ok=True)
+# 9. Exportar (en un proceso aparte) y comprobar ─────────────────────────────
+import gc
+onnx_dir = os.path.join(SALIDA, "onnx")
+muestras_path = os.path.join(SALIDA, "muestras.json")
+json.dump(test_rows[:40], open(muestras_path, "w"), ensure_ascii=False)
+# El proceso de exportación carga el modelo otra vez: se libera la memoria de este
+for nombre in ("model", "opt", "scaler", "sched"):
+    globals().pop(nombre, None)
+gc.collect()
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
 
-onnx_agent = ONNXAgent(onnx_dir, onnx_path=int8)
-muestras = test_rows[:40] or [{"state": json.dumps({"comercio": "Tienda Don Beto", "items": ["Leche", "Huevos"]}),
-                               "questions": json.dumps({"category": {"type": "choice", "instructions": "¿Categoría?",
-                               "criteria": {"Mercado": "tiendas", "Transporte": "taxis"}}})}]
-iguales, deriva = 0, 0.0
-for r in muestras:
-    q = json.loads(r["questions"])
-    a = agente_cpu.predict(json.loads(r["state"]), q)["answers"]["category"]
-    b = onnx_agent.predict(json.loads(r["state"]), q)["answers"]["category"]
-    iguales += a["choice"] == b["choice"]
-    deriva = max(deriva, max(abs(a["probabilities"][k] - b["probabilities"][k]) for k in a["probabilities"]))
-print(f"ONNX INT8 coincide en {iguales}/{len(muestras)} · máxima diferencia de probabilidad {deriva:.3f}")
-metricas["onnx_int8"] = {"coincide": iguales, "n": len(muestras), "max_diff": round(deriva, 4)}
-assert iguales >= 0.9 * len(muestras), "La cuantización cambió demasiadas respuestas: sube laya.onnx (fp32) en su lugar"
+!python exportar_onnx.py "{ckpt}" "{onnx_dir}" "{muestras_path}"
+
+ruta_chequeo = os.path.join(onnx_dir, "onnx_check.json")
+assert os.path.exists(ruta_chequeo), "La exportación falló: el motivo está en el mensaje de arriba"
+chequeo = json.load(open(ruta_chequeo))
+archivo_onnx = os.path.join(onnx_dir, chequeo["elegido"])
+metricas["onnx"] = chequeo
+print("Se sube:", chequeo["elegido"])
 """)
 
 code(r"""
@@ -408,7 +548,7 @@ from huggingface_hub import HfApi
 subir = os.path.join(SALIDA, "subir")
 shutil.rmtree(subir, ignore_errors=True)
 os.makedirs(subir)
-shutil.copy(int8, subir)
+shutil.copy(archivo_onnx, subir)
 shutil.copy(os.path.join(onnx_dir, "rl_agent_config.json"), subir)
 shutil.copytree(os.path.join(onnx_dir, "tokenizer"), os.path.join(subir, "tokenizer"))
 if pregunta_lucas:
