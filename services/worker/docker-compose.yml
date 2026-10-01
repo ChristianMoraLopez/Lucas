@@ -1,0 +1,61 @@
+# Lucas en Oracle Cloud Always Free (Ampere A1, arm64, sin GPU): Ollama + worker.
+#
+#   cp .env.example .env    # y llena las variables
+#   docker compose up -d --build
+#   docker compose logs -f worker
+#
+# La VM gratuita tiene 4 OCPU y 24 GB: qwen2.5:7b (~5 GB) y el worker (~2 GB con
+# OCR y Laya) caben con holgura. En VMs más chicas usa OLLAMA_MODEL=qwen2.5:3b.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"        # CPU: uno a la vez rinde más
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "30m"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    # Sin puertos publicados: solo el worker lo usa, por la red interna
+
+  # Baja el modelo una vez (y cada vez que cambies OLLAMA_MODEL); luego sale
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["sh", "-c", "ollama pull ${OLLAMA_MODEL:-qwen2.5:7b}"]
+    restart: "no"
+
+  worker:
+    build: .
+    image: lucas-worker:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    volumes:
+      - models:/models  # Laya bajado de Hugging Face; sobrevive a reconstruir la imagen
+    stop_grace_period: 5m # termina el recibo que esté leyendo antes de apagarse
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+
+volumes:
+  ollama:
+  models:

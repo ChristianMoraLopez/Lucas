@@ -14,7 +14,9 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "pnpm --filter @lucas/db test",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "worker:test": "cd services/worker && uv run pytest",
+    "worker:lint": "cd services/worker && uv run ruff check . && uv run ruff format --check ."
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
