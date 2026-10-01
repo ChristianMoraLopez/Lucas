@@ -25,7 +25,7 @@ def code(s: str) -> None:
 md(r"""
 # Ajustar Laya para clasificar los gastos de Lucas
 
-Este notebook toma los ejemplos que exporta `services/worker/scripts/export_training.py` (las correcciones de categoría que hicieron las personas en la bandeja de revisión), ajusta **Laya** con esos ejemplos, lo calibra, lo exporta a **ONNX INT8** y lo sube a tu repositorio privado de Hugging Face. El worker de Lucas lo baja de ahí y lo corre en CPU, sin PyTorch.
+Este notebook toma los ejemplos que exporta `services/worker/scripts/export_training.py` (las correcciones de categoría que hicieron las personas en la bandeja de revisión), ajusta **Laya** con esos ejemplos, lo calibra, lo exporta a **ONNX** y lo sube a tu repositorio privado de Hugging Face. El worker de Lucas lo baja de ahí y lo corre en CPU, sin PyTorch.
 
 Corre en **Google Colab** o **Kaggle**, gratis:
 
@@ -374,10 +374,15 @@ if not SOLO_EXPORTAR:
 
 code(r"""
 %%writefile exportar_onnx.py
-# 8. Script que exporta a ONNX y a INT8 y comprueba que respondan como PyTorch.
+# 8. Script que exporta a ONNX y comprueba que responda como PyTorch.
 #    Corre en un proceso aparte y solo con CPU: nada de lo que quedó en memoria
 #    del entrenamiento (CUDA, autocast, torch.compile) se mete en la exportación.
 #    Uso: python exportar_onnx.py <checkpoint> <salida> [muestras.json]
+#
+#    Sin INT8: la cuantización dinámica cambiaba la respuesta en casi todos los
+#    casos claros, ahorraba poco (casi todo el modelo es el vocabulario, que no
+#    se cuantiza) y era el paso que dejaba a Colab sin memoria.
+import gc
 import json
 import os
 import shutil
@@ -394,7 +399,7 @@ muestras = []
 if len(sys.argv) > 3 and os.path.exists(sys.argv[3]):
     muestras = json.load(open(sys.argv[3], encoding="utf-8"))
 os.makedirs(out, exist_ok=True)
-fp32, int8 = os.path.join(out, "laya.onnx"), os.path.join(out, "laya.int8.onnx")
+fp32 = os.path.join(out, "laya.onnx")
 
 import laya
 
@@ -454,14 +459,7 @@ for nombre, exportar in (("clásico (TorchScript)", exportador_clasico), ("torch
 else:
     sys.exit("No se pudo exportar a ONNX:\n" + "\n".join(fallas))
 
-import onnx
-from onnxruntime.quantization import QuantType, quantize_dynamic
-
-m = onnx.load(fp32)
-del m.graph.value_info[:]
-quantize_dynamic(model_input=m, model_output=int8, op_types_to_quantize=["MatMul"],
-                 weight_type=QuantType.QInt8, per_channel=True)
-print(f"ONNX fp32 {os.path.getsize(fp32) / 1e6:.0f} MB · INT8 {os.path.getsize(int8) / 1e6:.0f} MB")
+print(f"ONNX {os.path.getsize(fp32) / 1e6:.0f} MB")
 
 # Lo que ONNXAgent necesita junto al grafo
 shutil.copy(os.path.join(ckpt, "rl_agent_config.json"), out)
@@ -470,7 +468,6 @@ for carpeta in ("tokenizer", "encoder"):
 
 # Comprobación: los mismos casos por PyTorch y por ONNX, con textos de distintos
 # largos y preguntas de 3 y 8 opciones (si el grafo quedó con un tamaño fijo, aquí se nota)
-from laya.onnx_agent import ONNXAgent
 
 P8 = {"category": {"type": "choice", "instructions": "¿En qué categoría de gasto va esta compra hecha en Colombia?",
       "criteria": {"Transporte": "taxis, buses, lanchas, peajes, gasolina, vuelos", "Hospedaje": "hoteles, hostales",
@@ -490,11 +487,19 @@ casos = [(json.loads(r["state"]), json.loads(r["questions"])) for r in muestras[
 casos += [(e, p) for e in ESTADOS for p in (P8, P3)]
 
 
+# Primero las respuestas de PyTorch; luego se suelta el modelo para no tener
+# PyTorch y ONNX en memoria a la vez
+referencia = [agente.predict(estado, preguntas)["answers"]["category"] for estado, preguntas in casos]
+del agente, modelo, entradas
+gc.collect()
+
+from laya.onnx_agent import ONNXAgent
+
+
 def comparar(ruta):
     onnx_agente = ONNXAgent(out, onnx_path=ruta)
     difs, cambios, seguros = [], 0, 0
-    for estado, preguntas in casos:
-        a = agente.predict(estado, preguntas)["answers"]["category"]
+    for (estado, preguntas), a in zip(casos, referencia):
         b = onnx_agente.predict(estado, preguntas)["answers"]["category"]
         difs.append(max(abs(a["probabilities"][k] - b["probabilities"][k]) for k in a["probabilities"]))
         top = sorted(a["probabilities"].values(), reverse=True)
@@ -506,16 +511,11 @@ def comparar(ruta):
 
 
 r32 = comparar(fp32)
-print("ONNX fp32 vs PyTorch:", r32)
+print("ONNX vs PyTorch:", r32)
 if r32["max_diff"] > 0.02:
-    sys.exit("El ONNX fp32 no responde como PyTorch: la exportación salió mal (mira los mensajes de arriba)")
-r8 = comparar(int8)
-print("ONNX INT8 vs PyTorch:", r8)
-elegido = "laya.int8.onnx"
-if r8["mediana_diff"] > 0.05 or r8["cambios"] > max(1, r8["seguros"] // 10):
-    elegido = "laya.onnx"
-    print("La versión INT8 se aleja demasiado de PyTorch: se sube la fp32 (más pesada, igual de exacta)")
-json.dump({"fp32": r32, "int8": r8, "elegido": elegido}, open(os.path.join(out, "onnx_check.json"), "w"), indent=2)
+    sys.exit("El ONNX no responde como PyTorch: la exportación salió mal (mira los mensajes de arriba)")
+elegido = "laya.onnx"
+json.dump({"fp32": r32, "elegido": elegido}, open(os.path.join(out, "onnx_check.json"), "w"), indent=2)
 print("✓ Listo para subir:", elegido)
 """)
 
@@ -526,11 +526,16 @@ onnx_dir = os.path.join(SALIDA, "onnx")
 muestras_path = os.path.join(SALIDA, "muestras.json")
 json.dump(test_rows[:40], open(muestras_path, "w"), ensure_ascii=False)
 # El proceso de exportación carga el modelo otra vez: se libera la memoria de este
-for nombre in ("model", "opt", "scaler", "sched"):
+for nombre in ("model", "opt", "scaler", "sched", "base_agent", "ajustado"):
     globals().pop(nombre, None)
 gc.collect()
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
+try:  # Linux: le devuelve al sistema la memoria que Python ya soltó
+    import ctypes
+    ctypes.CDLL("libc.so.6").malloc_trim(0)
+except OSError:
+    pass
 
 !python exportar_onnx.py "{ckpt}" "{onnx_dir}" "{muestras_path}"
 
@@ -575,7 +580,7 @@ HF_REPO=tu-usuario/lucas-laya
 HF_TOKEN=hf_…                    # uno de SOLO LECTURA en el servidor
 ```
 
-y reinicia: `docker compose restart worker`. Al arrancar baja `<variante>/laya.int8.onnx`, `rl_agent_config.json`, `tokenizer/` y `lucas_question.json`; `docker compose exec worker python -m lucas_worker check` confirma cuál quedó cargado.
+y reinicia: `docker compose restart worker`. Al arrancar baja `<variante>/laya.onnx`, `rl_agent_config.json`, `tokenizer/` y `lucas_question.json`; `docker compose exec worker python -m lucas_worker check` confirma cuál quedó cargado.
 
 Para volver a ajustar más adelante, exporta solo lo nuevo (`export_training.py --marcar` marca lo que ya salió) o todo otra vez con `--todos --incluir-confirmados`, y vuelve a correr este notebook.
 """)

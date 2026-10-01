@@ -64,7 +64,7 @@ Todo pasa por la interfaz `CategoryModel`. Se elige la variante con `LAYA_VARIAN
    ```
 
    Sale `laya-data/` y `laya-data.zip` con `train.jsonl`, `test.jsonl`, `lucas_question.json` y `stats.json` por variante, en el formato *typed decisions* de Laya (`state`, `questions`, `gold`). Antes de salir se quitan los nombres de quién pagó y los números largos (teléfonos, cédulas, NIT).
-3. Abre [`notebooks/laya_lucas_finetune.ipynb`](notebooks/laya_lucas_finetune.ipynb) en Colab o Kaggle (GPU T4 gratis), sube el zip y corre todo. El notebook ajusta con la receta del notebook oficial de Laya, calibra la temperatura, compara contra el modelo sin ajustar, exporta a ONNX INT8, verifica que el ONNX responda igual que PyTorch y sube `<variante>/` a tu repo privado de Hugging Face (`HF_REPO`).
+3. Abre [`notebooks/laya_lucas_finetune.ipynb`](notebooks/laya_lucas_finetune.ipynb) en Colab o Kaggle (GPU T4 gratis), sube el zip y corre todo. El notebook ajusta con la receta del notebook oficial de Laya, calibra la temperatura, compara contra el modelo sin ajustar, exporta a ONNX, verifica que responda igual que PyTorch y sube `<variante>/` a tu repo privado de Hugging Face (`HF_REPO`).
 4. En el servidor: `docker compose restart worker`.
 
 Sin correcciones todavía, corre el notebook con `SOLO_EXPORTAR = True`: sube el modelo base (zero-shot) y el worker le pone techo a su confianza (`LAYA_ZERO_SHOT_MAX_CONFIDENCE`) para que todo lo que clasifique pase por revisión. Sin ningún modelo, el worker usa memoria y palabras clave.

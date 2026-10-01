@@ -5,7 +5,7 @@ implementación: carga la carpeta de una variante (la que publica el notebook
 de ajuste) y responde la pregunta de categoría con probabilidades calibradas.
 
     <carpeta de la variante>/
-      laya.int8.onnx         grafo exportado (INT8 para CPU; también sirve laya.onnx)
+      laya.onnx              grafo exportado (también sirve laya.int8.onnx de antes)
       rl_agent_config.json   max_len, head_max_len y temperaturas de calibración
       tokenizer/             tokenizer.json + tokenizer_config.json
       lucas_question.json    (opcional) la pregunta con la que se ajustó
@@ -114,7 +114,7 @@ class LayaOnnx:
         model_dir: Path,
         variant: LayaVariant,
         *,
-        onnx_file: str = "laya.int8.onnx",
+        onnx_file: str = "laya.onnx",
         threads: int = 0,
         zero_shot_max_confidence: float = 0.8,
     ):
@@ -220,7 +220,7 @@ def resolve_model_dir(settings: Settings) -> Path | None:
     token = settings.hf_token.get_secret_value() if settings.hf_token else None
     carpeta = snapshot_download(
         repo_id=settings.hf_repo,
-        # El notebook sube la INT8, o la fp32 si la INT8 se alejaba demasiado: se baja la que haya
+        # El notebook sube laya.onnx (los modelos viejos traían laya.int8.onnx): se baja la que haya
         allow_patterns=[
             f"{variante}/{settings.laya_onnx_file}",
             f"{variante}/laya.onnx",
