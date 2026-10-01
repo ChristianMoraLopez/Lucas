@@ -31,7 +31,7 @@ describe('códigos de invitación', () => {
   });
   it('saca el código de un link pegado', () => {
     expect(formatCode('https://lucas.co/e/PASEO-7K2Q')).toBe('PASEO-7K2Q');
-    expect(formatCode('Entren a Lucas: lucas.co/e/paseo-7k2q')).toBe('PASEO-7K2Q');
+    expect(formatCode('Entren a Luks: lucas.co/e/paseo-7k2q')).toBe('PASEO-7K2Q');
   });
   it('reconoce un código completo', () => {
     expect(CODE_RE.test('PASEO-7K2Q')).toBe(true);

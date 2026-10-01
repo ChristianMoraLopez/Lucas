@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ============================================================================
-# Lucas worker · imagen para linux/arm64 (Oracle Cloud Ampere A1) y linux/amd64
+# Luks worker · imagen para linux/arm64 (Oracle Cloud Ampere A1) y linux/amd64
 #
 #   Oracle (ARM, nativo):  docker compose up -d --build
 #   Desde un PC x86:       docker buildx build --platform linux/arm64 -t lucas-worker .

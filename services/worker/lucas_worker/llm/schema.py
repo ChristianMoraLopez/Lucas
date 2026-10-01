@@ -72,8 +72,10 @@ class ReceiptExtraction(BaseModel):
         description="False only if the message is clearly not about money spent (greetings, jokes)"
     )
     merchant: str | None = Field(
-        description="Business trading name as printed (e.g. 'Panadería La Espiga'), or a short name of what was paid "
-        "for if it is a chat message (e.g. 'Taxis al aeropuerto'). Null if unknown."
+        description="Business trading name as printed (e.g. 'Panadería La Espiga'). For a chat message: a short "
+        "Spanish name of WHAT was paid for, 1-5 words (e.g. 'Taxis al aeropuerto', 'Vale de salud', 'Mercado'); "
+        "never copy the sentence, and leave out amounts, dates, verbs like 'gastamos' and who it was for "
+        "('para Valentina'). Null if unknown."
     )
     merchant_nit: str | None = Field(default=None, description="Seller NIT digits if printed, else null")
     date: str | None = Field(description="Purchase date as YYYY-MM-DD, null if not stated")

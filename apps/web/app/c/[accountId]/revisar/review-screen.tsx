@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useState } from 'react';
+import { Cargando } from '@/components/cargando';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { ExpenseForm, type SavedExpense } from '@/components/expense-form';
 import { formatCOP } from '@/components/lucas-core';
@@ -24,7 +25,17 @@ interface Processing {
 
 type Done = SavedExpense;
 
-export function ReviewScreen({ accountId, myRole, focus }: { accountId: string; myRole: Role; focus: string | null }) {
+export function ReviewScreen({
+  accountId,
+  myRole,
+  focus,
+  unknownSenders = 0,
+}: {
+  accountId: string;
+  myRole: Role;
+  focus: string | null;
+  unknownSenders?: number;
+}) {
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const canReview = myRole === 'owner' || myRole === 'admin';
@@ -48,7 +59,7 @@ export function ReviewScreen({ accountId, myRole, focus }: { accountId: string; 
           .in('status', ['queued', 'processing'])
           .order('created_at'),
         supabase.from('people').select('id, display_name, tone, claimed_by').eq('account_id', accountId).order('created_at'),
-        supabase.from('categories').select('id, name, letter, tone').eq('account_id', accountId).order('name'),
+        supabase.from('categories').select('id, name, letter, tone, description, is_default').eq('account_id', accountId).order('name'),
       ]);
       const error = pend.error ?? proc.error ?? people.error ?? cats.error;
       if (error) throw error;
@@ -69,7 +80,7 @@ export function ReviewScreen({ accountId, myRole, focus }: { accountId: string; 
     return (
       <div className="rv">
         <h1 className="lu-display">Por revisar</h1>
-        <p className="lu-small lu-muted">Cargando…</p>
+        <Cargando />
       </div>
     );
   }
@@ -111,6 +122,20 @@ export function ReviewScreen({ accountId, myRole, focus }: { accountId: string; 
       <p className="lu-small lu-muted" style={{ margin: '-8px 0 0' }}>
         Lo que llegó al grupo o subieron aquí y todavía no es gasto.
       </p>
+
+      {unknownSenders > 0 && (
+        <div className="ed-alert" role="status">
+          <Sticker tone="revisar" rotate={-5}>
+            {unknownSenders === 1 ? '1 número' : `${unknownSenders} números`}
+          </Sticker>
+          <span className="lu-small" style={{ flex: 1, minWidth: 160 }}>
+            Escribieron en el grupo y no sabemos de quién {unknownSenders === 1 ? 'es' : 'son'}: sus gastos quedan sin pagador.
+          </span>
+          <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--sm lu-btn--secondary">
+            ¿Quién es?
+          </Link>
+        </div>
+      )}
 
       {(queue.length > 0 || processing.length > 0) && (
         <ol className="rv-queue" aria-label="Cola de revisión">
@@ -159,19 +184,24 @@ export function ReviewScreen({ accountId, myRole, focus }: { accountId: string; 
 
       {!item && !(current && done[current]) ? (
         <div className="rv-empty">
-          <LottieSlot name="vacio" width={96} height={96} />
+          <LottieSlot name={processing.length ? 'escaneo' : 'todo-revisado'} width={96} height={96} />
           <div>
             <p className="lu-title" style={{ margin: 0 }}>
-              {processing.length ? 'Lucas está leyendo lo último' : 'Todo revisado'}
+              {processing.length ? 'Luks está leyendo lo último' : 'Todo revisado'}
             </p>
             <p className="lu-small lu-muted" style={{ margin: '4px 0 var(--space-4)' }}>
               {processing.length
                 ? 'En unos segundos aparece aquí para que lo revises.'
-                : 'Cuando manden fotos al grupo o suban un gasto, llega aquí si Lucas no lo leyó seguro.'}
+                : 'Cuando manden fotos al grupo o suban un gasto, llega aquí si Luks no lo leyó seguro.'}
             </p>
-            <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--primary">
-              Subir un gasto
-            </Link>
+            <div className="wa-row">
+              <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--primary">
+                Subir un gasto
+              </Link>
+              <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--ghost">
+                Conectar el grupo de WhatsApp
+              </Link>
+            </div>
           </div>
         </div>
       ) : (
@@ -205,6 +235,8 @@ export function ReviewScreen({ accountId, myRole, focus }: { accountId: string; 
               item && (
                 <ExpenseForm
                   key={item.id}
+                  accountId={accountId}
+                  onCategoriesChanged={() => queryClient.invalidateQueries({ queryKey: ['revisar', accountId] })}
                   mode="review"
                   expense={item}
                   people={people}

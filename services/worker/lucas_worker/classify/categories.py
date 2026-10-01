@@ -1,7 +1,8 @@
 """Las 8 categorías por defecto de cada cuenta (create_account en la migración 20).
 
-Laya aprende estas etiquetas; si una cuenta tuviera una categoría extra, esa
-no la propone la IA (queda para las personas en la revisión).
+Cada cuenta puede crear las suyas (migración 90) con una descripción de qué
+entra en ellas: Laya las recibe como opciones descritas (question.for_account)
+y de la descripción salen sus palabras clave (custom_keyword_category).
 """
 
 from __future__ import annotations
@@ -124,6 +125,49 @@ def keyword_category(text: str | None) -> str | None:
     for c in CATEGORIES:
         if c.keywords.search(t):
             return c.name
+    return None
+
+
+_SEPARADORES = re.compile(r"[,;/·:\n()]|\by\b|\bo\b")
+
+
+def _singular_o_plural(termino: str) -> str:
+    """«citas medicas» → «cita» o «citas», «medica» o «medicas»; «examenes» → «examen(es)»."""
+    partes = []
+    for palabra in termino.split():
+        if len(palabra) > 4 and palabra.endswith("es"):
+            partes.append(re.escape(palabra[:-2]) + "(?:es)?")
+        elif len(palabra) > 3 and palabra.endswith("s"):
+            partes.append(re.escape(palabra[:-1]) + "s?")
+        else:
+            partes.append(re.escape(palabra) + "(?:s|es)?")
+    return " ".join(partes)
+
+
+def custom_keywords(name: str, description: str | None) -> re.Pattern[str] | None:
+    """«Salud» + «droguería, citas médicas, EPS» → regex con «salud», «drogueria»,
+    «citas medicas» y «eps» (sin tildes, al comienzo de una palabra)."""
+    terminos = {normalize_merchant(name)}
+    for parte in _SEPARADORES.split(description or ""):
+        t = normalize_merchant(parte)
+        if t and len(t) >= 3 and len(t) <= 40 and t not in ("todo lo demas", "otros", "lo demas"):
+            terminos.add(t)
+    terminos.discard(None)
+    if not terminos:
+        return None
+    return re.compile(
+        r"\b(?:" + "|".join(_singular_o_plural(t) for t in sorted(terminos, key=len, reverse=True)) + r")"
+    )
+
+
+def custom_keyword_category(text: str | None, categories: list[tuple[str, str | None]]) -> str | None:
+    """La categoría propia de la cuenta cuyas palabras aparecen en el texto, o None."""
+    if not text or not categories:
+        return None
+    t = (normalize_merchant(text) or "") + " "
+    for nombre, descripcion in categories:
+        if (patron := custom_keywords(nombre, descripcion)) and patron.search(t):
+            return nombre
     return None
 
 

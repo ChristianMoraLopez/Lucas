@@ -176,6 +176,9 @@ def _comercio(ex: Extraction, llm: ReceiptExtraction | None) -> tuple[str, float
     del_llm = llm.merchant if llm else None
     por_reglas = ex.hints.merchant_guess
     if ex.kind == "text":
+        # Si el LLM copió media frase, el «en qué» de las reglas es mejor
+        if del_llm and por_reglas and len(del_llm.split()) > 6 and len(por_reglas.split()) < len(del_llm.split()):
+            del_llm = None
         if (
             del_llm
             and por_reglas

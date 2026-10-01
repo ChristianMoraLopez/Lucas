@@ -144,7 +144,7 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
       <header className="up-head">
         <h1 className="lu-display">Subir un gasto</h1>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          Una foto del recibo, un PDF o escríbelo como en el grupo. Lucas lo lee y lo deja en Revisar.
+          Una foto del recibo, un PDF o escríbelo como en el grupo. Luks lo lee y lo deja en Revisar.
         </p>
       </header>
 
@@ -258,12 +258,17 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
                 ? 'Ya estaba registrado: no se contó dos veces.'
                 : state?.status === 'processing'
                   ? 'Leyendo…'
-                  : 'En cola: Lucas lo lee en menos de un minuto';
+                  : 'En cola: Luks lo lee en menos de un minuto';
 
   return (
     <div className={`up-row${upload.local === 'error' || state?.status === 'failed' ? ' is-error' : ''}`}>
       {upload.local !== 'error' && (!state || state.status === 'queued' || state.status === 'processing') && (
-        <LottieSlot name="escaneo" width={40} height={40} label="Procesando" />
+        <LottieSlot
+          name={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? 'subiendo' : 'escaneo'}
+          width={40}
+          height={40}
+          label={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? 'Subiendo' : 'Procesando'}
+        />
       )}
       <span className="up-row__txt">
         <b>{upload.label}</b>

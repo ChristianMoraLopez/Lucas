@@ -1,5 +1,5 @@
 /**
- * Mensaje para la persona. Los RPC de Lucas ya fallan en español y se
+ * Mensaje para la persona. Los RPC de Luks ya fallan en español y se
  * muestran tal cual; los errores de Supabase Auth y de red se traducen.
  */
 export function humanError(error: { message?: string } | null | undefined): string {

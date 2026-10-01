@@ -10,7 +10,7 @@ esa manda.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -42,12 +42,25 @@ class LayaQuestion:
 
     def restricted_to(self, categories: Iterable[str]) -> LayaQuestion:
         """Solo las opciones que la cuenta tiene."""
-        permitidas = set(categories)
-        crit = {k: v for k, v in self.definition["criteria"].items() if self.label_to_category.get(k) in permitidas}
-        return LayaQuestion(
-            {**self.definition, "criteria": crit},
-            {k: v for k, v in self.label_to_category.items() if k in crit},
-        )
+        return self.for_account(categories)
+
+    def for_account(
+        self, categories: Iterable[str], descriptions: Mapping[str, str | None] | None = None
+    ) -> LayaQuestion:
+        """Las opciones de una cuenta: las que la pregunta ya conoce y que la cuenta
+        tiene, más las categorías propias de la cuenta («Salud», «Mascotas»…),
+        descritas con lo que escribió quien las creó. Laya elige entre opciones
+        descritas aunque nunca las haya visto: una categoría nueva entra desde el
+        primer gasto, y con correcciones se aprende en el siguiente ajuste."""
+        nombres = list(dict.fromkeys(categories))
+        crit = {k: v for k, v in self.definition["criteria"].items() if self.label_to_category.get(k) in nombres}
+        labels = {k: v for k, v in self.label_to_category.items() if k in crit}
+        conocidas = set(self.label_to_category.values())
+        for nombre in sorted(n for n in nombres if n not in BY_NAME and n not in conocidas):
+            etiqueta = nombre if nombre not in crit else f"{nombre} (propia)"
+            crit[etiqueta] = ((descriptions or {}).get(nombre) or "").strip() or nombre
+            labels[etiqueta] = nombre
+        return LayaQuestion({**self.definition, "criteria": crit}, labels)
 
 
 def default_question(variant: LayaVariant) -> LayaQuestion:
@@ -64,8 +77,7 @@ def load_question(variant: LayaVariant, model_dir: Path | None) -> LayaQuestion:
     """La pregunta con la que se entrenó el modelo (lucas_question.json) o la de siempre."""
     if model_dir and (archivo := model_dir / "lucas_question.json").exists():
         data = json.loads(archivo.read_text(encoding="utf-8"))
-        labels = {k: v for k, v in data["label_to_category"].items() if v in BY_NAME}
-        return LayaQuestion(data["question"], labels)
+        return LayaQuestion(data["question"], dict(data["label_to_category"]))
     return default_question(variant)
 
 

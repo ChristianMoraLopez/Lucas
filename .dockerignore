@@ -1,0 +1,19 @@
+# Contexto de construcción desde la raíz (connector). El worker usa el suyo.
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+apps
+lucas-design-kit
+supabase
+services/worker
+pruebas
+deploy
+**/*.md
+# pnpm valida el lockfile con los package.json de todo el monorepo
+!apps/web/package.json
+!supabase/package.json

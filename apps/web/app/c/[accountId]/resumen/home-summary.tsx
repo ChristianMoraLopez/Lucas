@@ -162,7 +162,7 @@ export function HomeSummary({ d }: { d: Dashboard }) {
             </div>
           ) : (
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              Todavía no hay presupuestos para {monthName(d.month).toLowerCase()}. Con ellos, Lucas les avisa cuando se pasan.
+              Todavía no hay presupuestos para {monthName(d.month).toLowerCase()}. Con ellos, Luks les avisa cuando se pasan.
             </p>
           )}
         </section>

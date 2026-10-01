@@ -79,15 +79,17 @@ def is_test(row_id: str, pct: float) -> bool:
 def build_rows(
     ejemplos: list[dict[str, Any]], variant: LayaVariant, smoothing: float = 0.05
 ) -> tuple[list[dict[str, Any]], Counter[str]]:
-    pregunta = default_question(variant)
-    categoria_a_etiqueta = {v: k for k, v in pregunta.label_to_category.items()}
-    etiquetas = list(pregunta.definition["criteria"])
-    preguntas = json.dumps({QUESTION_ID: pregunta.definition}, ensure_ascii=False)
+    base = default_question(variant)
     saltados: Counter[str] = Counter()
     filas = []
     for e in ejemplos:
         categoria = e.get("category")
-        if categoria not in BY_NAME:
+        # Las categorías propias de la cuenta entran como opciones de ese ejemplo
+        # (con su descripción), igual que al clasificar (question.for_account)
+        propias = {c["name"]: c.get("description") for c in e.get("account_categories") or []}
+        pregunta = base.for_account([*BY_NAME, *propias], propias) if propias else base
+        categoria_a_etiqueta = {v: k for k, v in pregunta.label_to_category.items()}
+        if categoria not in categoria_a_etiqueta:
             saltados[f"categoria propia: {categoria}"] += 1
             continue
         state = build_state(
@@ -104,6 +106,8 @@ def build_rows(
             saltados["sin texto"] += 1
             continue
         etiqueta = categoria_a_etiqueta[categoria]
+        etiquetas = list(pregunta.definition["criteria"])
+        preguntas = json.dumps({QUESTION_ID: pregunta.definition}, ensure_ascii=False)
         filas.append(
             {
                 "id": e["id"],

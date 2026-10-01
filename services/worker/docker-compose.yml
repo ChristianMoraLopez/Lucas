@@ -1,4 +1,4 @@
-# Lucas en Oracle Cloud Always Free (Ampere A1, arm64, sin GPU): Ollama + worker.
+# Luks en Oracle Cloud Always Free (Ampere A1, arm64, sin GPU): Ollama + worker.
 #
 #   cp .env.example .env    # y llena las variables
 #   docker compose up -d --build

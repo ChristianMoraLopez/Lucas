@@ -101,3 +101,19 @@ def test_desde_json_sin_supabase(tmp_path):
     assert ex.main(["--desde-json", str(archivo), "--salida", str(tmp_path / "out"), "--variante", "ambas"]) == 0
     assert (tmp_path / "out" / "english" / "train.jsonl").exists()
     assert (tmp_path / "out.zip").exists()
+
+
+def test_categorias_propias_entran_con_las_opciones_de_su_cuenta():
+    ejemplo = {
+        "id": "te:9",
+        "category": "Mascotas",
+        "merchant": "Veterinaria Patitas",
+        "account_categories": [{"name": "Mascotas", "description": "veterinaria, concentrado"}],
+    }
+    filas, saltados = ex.build_rows([ejemplo], LayaVariant.MULTILINGUAL, smoothing=0.05)
+    assert not saltados
+    questions, gold = (json.loads(filas[0][k]) for k in ("questions", "gold"))
+    criterios = questions["category"]["criteria"]
+    assert criterios["Mascotas"] == "veterinaria, concentrado" and "Mercado" in criterios
+    assert gold["category"]["label"] == "Mascotas"
+    assert abs(sum(gold["category"]["probabilities"].values()) - 1) < 1e-6

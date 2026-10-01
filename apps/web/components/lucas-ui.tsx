@@ -1,5 +1,5 @@
 'use client';
-/* Lucas — componentes React (Next.js). Requiere styles/tokens.css y styles/lucas.css cargados globalmente.
+/* Luks — componentes React (Next.js). Requiere styles/tokens.css y styles/lucas.css cargados globalmente.
    Port tipado de lucas-design-kit/components/lucas-ui.jsx (tipos de lucas-ui.d.ts).
    Las funciones puras (formatCOP, lucas, tonos, códigos) viven en lucas-core.ts y se re-exportan aquí. */
 import Link from 'next/link';
@@ -156,8 +156,21 @@ export function Sticker({
 }
 
 /* ---------- CategoryTag ---------- */
-export function CategoryTag({ name, showName = true, size = 'md' }: { name: string; showName?: boolean; size?: 'sm' | 'md' | 'lg' }) {
-  const [g, t] = CATEGORIES[name] || [String(name)[0], 'rosa' as Tone];
+export function CategoryTag({
+  name,
+  showName = true,
+  size = 'md',
+  letter,
+  tone,
+}: {
+  name: string;
+  showName?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  /** Las categorías propias de una cuenta traen su letra y su color de la base */
+  letter?: string;
+  tone?: Tone;
+}) {
+  const [g, t] = CATEGORIES[name] || [letter || String(name)[0], tone || ('rosa' as Tone)];
   return (
     <span className={cx('lu-cat', size !== 'md' && 'lu-cat--' + size)}>
       <span className="lu-cat__glyph" style={toneVars(t)} aria-hidden={showName}>
@@ -716,14 +729,38 @@ export function ConnectionStatus({
 
 /* ---------- Logo ---------- */
 export function Logo({ size = 24 }: { size?: number }) {
+  // La versión plana del logo (a este tamaño el grabado es ruido); los colores van en app.css
+  const alto = Math.round(size * 1.35);
   return (
-    <span className="lu-logo" style={{ fontSize: size, lineHeight: size + 2 + 'px' }}>
-      <svg className="lu-logo__mark" viewBox="0 0 32 32" aria-hidden="true" style={{ width: size * 1.25, height: size * 1.25 }}>
-        <rect className="c" x="3" y="7" width="22" height="15" rx="4" transform="rotate(-14 14 14.5)" />
-        <rect className="a" x="7" y="10" width="22" height="15" rx="4" transform="rotate(6 18 17.5)" />
-        <circle className="b" cx="18" cy="17.5" r="4.2" />
+    <span className="lu-logo">
+      <svg className="lu-logo__svg" viewBox="0 0 610 200" role="img" aria-label="luks" style={{ height: alto, width: Math.round((alto * 610) / 200) }}>
+        <path d="M58 14 C36 12 22 30 23 56 L27 140 C28 162 44 176 64 174 C80 172 90 160 90 140 L92 70 C92 38 80 16 58 14 Z" className="lu-logo__v" />
+        <path
+          d="M26 156 C30 132 58 124 86 130 C108 135 124 120 146 106 C168 94 194 108 193 138 C192 170 168 189 134 189 L64 189 C38 189 22 176 26 156 Z"
+          className="lu-logo__m"
+        />
+        <circle cx="128" cy="70" r="23" className="lu-logo__a" />
+        <path
+          transform="translate(226 186) scale(0.192 -0.192)"
+          d="M233 -9.5Q191.5 -9.5 160.0 -5.0Q128.5 -0.5 106.25 11.5Q84 23.5 69.875 44.875Q55.75 66.25 49.125 99.625Q42.5 133 42.5 181.5V643.75Q42.5 664 46.125 681.0Q49.75 698 65.625 708.875Q81.5 719.75 117.75 719.75Q154.25 719.75 169.75 709.0Q185.25 698.25 189.0 681.0Q192.75 663.75 192.75 643.75V189.25Q192.75 172.5 194.375 162.0Q196 151.5 200.5 145.625Q205 139.75 213.0 138.0Q221 136.25 233.5 136.25Q246.25 136.25 258.75 133.0Q271.25 129.75 279.875 115.0Q288.5 100.25 288.5 65.25Q288.5 28.75 279.875 12.875Q271.25 -3 258.375 -6.25Q245.5 -9.5 233 -9.5Z"
+          className="lu-logo__v"
+        />
+        <path
+          transform="translate(290.8 186) scale(0.192 -0.192)"
+          d="M256.25 -8.25Q209.5 -8.25 169.375 9.625Q129.25 27.5 99.25 60.25Q69.25 93 52.75 137.375Q36.25 181.75 36.25 235V416Q36.25 436 39.875 453.0Q43.5 470 59.375 480.75Q75.25 491.5 111.5 491.5Q148.75 491.5 164.25 480.625Q179.75 469.75 183.375 452.375Q187 435 187 415V234.75Q187 205.5 197.375 184.375Q207.75 163.25 228.125 151.875Q248.5 140.5 277 140.5Q305.75 140.5 326.5 152.25Q347.25 164 358.75 185.125Q370.25 206.25 370.25 234.75V416.75Q370.25 436.75 373.875 453.75Q377.5 470.75 393.375 481.125Q409.25 491.5 445.75 491.5Q482.75 491.5 498.125 480.625Q513.5 469.75 517.125 452.375Q520.75 435 520.75 415.75V64Q520.75 45.25 517.125 28.75Q513.5 12.25 497.75 1.875Q482 -8.5 445.5 -8.5Q419 -8.5 403.875 -2.5Q388.75 3.5 382.0 12.875Q375.25 22.25 373.75 32.125Q372.25 42 372.25 49.75L385 60.75Q381.75 56.5 371.75 45.5Q361.75 34.5 345.25 22.0Q328.75 9.5 306.625 0.625Q284.5 -8.25 256.25 -8.25Z"
+          className="lu-logo__v"
+        />
+        <path
+          transform="translate(405.3 186) scale(0.192 -0.192)"
+          d="M453.5 126.75Q484.75 99.5 486.875 75.25Q489 51 459.75 19.25Q437.75 -4 421.5 -11.25Q405.25 -18.5 389.25 -11.625Q373.25 -4.75 351.5 14.25L194.25 152.25V65.5Q194.25 46.25 190.5 28.875Q186.75 11.5 171.375 1.0Q156 -9.5 118.75 -9.5Q82.5 -9.5 66.625 1.375Q50.75 12.25 47.5 29.75Q44.25 47.25 44.25 66.5V643.5Q44.25 663.5 48.0 680.5Q51.75 697.5 67.625 708.375Q83.5 719.25 119.75 719.25Q156.25 719.25 171.625 708.375Q187 697.5 190.625 680.125Q194.25 662.75 194.25 642.5V340.5L306 448.75Q325.75 467.75 343.25 474.875Q360.75 482 377.875 476.0Q395 470 414 449Q446 414.25 444.75 392.5Q443.5 370.75 413.5 341L305.5 242.75Z"
+          className="lu-logo__m"
+        />
+        <path
+          transform="translate(509.1 186) scale(0.192 -0.192)"
+          d="M220.75 -17Q194 -17 162.25 -11.0Q130.5 -5 100.75 6.5Q71 18 50.75 33.625Q30.5 49.25 27.75 69.25Q26 79.25 28.625 90.375Q31.25 101.5 37.875 114.25Q44.5 127 55.25 141Q63.25 151.5 72.875 154.75Q82.5 158 96.25 153.75Q112 151.25 128.25 143.5Q144.5 135.75 161.25 127.125Q178 118.5 195.875 112.125Q213.75 105.75 233 105.75Q261 105.75 276.625 114.125Q292.25 122.5 292.25 137.75Q292.25 148.5 285.625 155.875Q279 163.25 267.375 168.375Q255.75 173.5 240.625 177.625Q225.5 181.75 208.125 186.125Q190.75 190.5 172.5 196.25Q148.25 203.25 124.875 214.0Q101.5 224.75 82.875 242.25Q64.25 259.75 53.0 285.25Q41.75 310.75 41.75 348.25Q41.75 396.75 64.625 430.0Q87.5 463.25 131.5 480.75Q175.5 498.25 238.75 498.25Q257.25 498.25 275.0 495.875Q292.75 493.5 310.25 488.75Q327.75 484 344.75 476.75Q361.75 469.5 378.5 460.25Q409.25 445.5 410.25 421.875Q411.25 398.25 392.75 372.5Q381.5 355.75 369.625 348.25Q357.75 340.75 345.25 343.5Q329.25 347.5 310.625 356.625Q292 365.75 271.625 373.75Q251.25 381.75 230.5 381.75Q214.25 381.75 202.125 377.5Q190 373.25 183.875 365.5Q177.75 357.75 177.75 347.5Q177.75 335 185.5 327.25Q193.25 319.5 206.125 314.5Q219 309.5 236.125 305.75Q253.25 302 272.75 298.25Q299.75 293.25 328.125 284.5Q356.5 275.75 380.125 259.875Q403.75 244 418.25 216.75Q432.75 189.5 432.75 145.75Q432.75 67 377.75 25.0Q322.75 -17 220.75 -17Z"
+          className="lu-logo__o"
+        />
       </svg>
-      lucas
     </span>
   );
 }

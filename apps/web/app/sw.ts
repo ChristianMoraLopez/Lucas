@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// Service worker de Lucas (Serwist). Lo construye app/serwist/[path]/route.ts
+// Service worker de Luks (Serwist). Lo construye app/serwist/[path]/route.ts
 // con esbuild: Turbopack todavía no admite plugins de webpack.
 import { defaultCache } from '@serwist/turbopack/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';

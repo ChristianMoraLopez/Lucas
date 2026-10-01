@@ -82,7 +82,7 @@ export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next
     if (modo === 'olvide') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callbackUrl(window.location.origin, '/cuenta/clave') });
       if (error) return setError(humanError(error));
-      return setAviso(`Si ${email} tiene cuenta en Lucas, te llega un enlace para poner una contraseña nueva.`);
+      return setAviso(`Si ${email} tiene cuenta en Luks, te llega un enlace para poner una contraseña nueva.`);
     }
     const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: vuelta } });
     if (error) return setError(humanError(error));

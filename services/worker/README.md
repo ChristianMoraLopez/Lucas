@@ -1,4 +1,4 @@
-# Lucas worker
+# Luks worker
 
 Convierte lo que llega a una cuenta (foto de un recibo, PDF o mensaje como «taxis al aeropuerto 100 lucas, la pagó Santi») en un gasto con comercio, fecha, total, ítems, categoría, quién pagó y la confianza de cada campo. Reemplaza al procesador simulado de la base: toma los trabajos de la misma cola (`public.jobs`).
 
@@ -82,7 +82,7 @@ Sin correcciones todavía, corre el notebook con `SOLO_EXPORTAR = True`: sube el
 3. **El código y la configuración:**
 
    ```bash
-   git clone https://github.com/ChristianMoraLopez/Lucas.git && cd Lucas/services/worker
+   git clone https://github.com/ChristianMoraLopez/Lucas.git && cd Luks/services/worker
    cp .env.example .env && nano .env      # Supabase, HF_REPO/HF_TOKEN, SENTRY_DSN
    ```
 

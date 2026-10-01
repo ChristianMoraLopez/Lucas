@@ -41,7 +41,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <div className="lg">
         <section className="lg-main">
           <div className="ap-intro">
-            <h1 className="lu-display">{vieneDeInvitacion ? 'Entra para unirte' : 'Entra a Lucas'}</h1>
+            <h1 className="lu-display">{vieneDeInvitacion ? 'Entra para unirte' : 'Entra a Luks'}</h1>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               {vieneDeInvitacion
                 ? 'Te invitaron a una cuenta. Entra o crea tu usuario y de una te mostramos cuál es.'
@@ -51,7 +51,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
           <LoginForm next={next} initialError={error} initialMode={modo} />
         </section>
 
-        <aside className="lg-side" aria-label="Así se ve una cuenta en Lucas">
+        <aside className="lg-side" aria-label="Así se ve una cuenta en Luks">
           <BillCard
             label="Evento · 24 – 28 sep 2026"
             amount={4_816_000}
@@ -74,7 +74,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
           </BillCard>
           <ol className="lg-steps">
             <li>Mandan la foto del recibo al grupo de WhatsApp.</li>
-            <li>Lucas lo lee, lo clasifica y lo divide.</li>
+            <li>Luks lo lee, lo clasifica y lo divide.</li>
             <li>Al final, les dice quién le paga a quién.</li>
           </ol>
         </aside>

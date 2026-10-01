@@ -2,17 +2,17 @@
 
 <img src="apps/web/app/icon.svg" width="76" alt="" />
 
-# lucas
+# luks
 
 **Las cuentas compartidas de tu grupo de WhatsApp, sin hacer cuentas.**
 
-Manden la foto del recibo al grupo y Lucas la vuelve un gasto clasificado,<br />
+Manden la foto del recibo al grupo y Luks la vuelve un gasto clasificado,<br />
 dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 
 <br />
 
-![Fase](https://img.shields.io/badge/fases_1_a_4-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-266_pasando-6A35E6?style=flat-square)
+![Fase](https://img.shields.io/badge/fases_1_a_5-listas-0A7A4C?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-352_pasando-6A35E6?style=flat-square)
 ![Demo](https://img.shields.io/badge/demo-lucas--tau--black.vercel.app-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
@@ -33,8 +33,8 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 «Me debes 40 lucas». Así se habla de plata en Colombia, y de ahí sale el nombre.
 
 1. **Mandan** fotos de recibos, PDFs o mensajes («pagué 100 lucas de taxis») al grupo de WhatsApp de siempre.
-2. **Un número contador** de Lucas está en el grupo, lo lee todo y lo vuelve gastos: comercio, fecha, total, ítems, categoría y quién pagó.
-3. **En la web** revisan lo que la IA no leyó seguro, corrigen, ven presupuestos y, al final del paseo, Lucas dice **quién le paga a quién** con el mínimo de transferencias.
+2. **Un número contador** de Luks está en el grupo, lo lee todo y lo vuelve gastos: comercio, fecha, total, ítems, categoría y quién pagó.
+3. **En la web** revisan lo que la IA no leyó seguro, corrigen, ven presupuestos y, al final del paseo, Luks dice **quién le paga a quién** con el mínimo de transferencias.
 
 Hay dos tipos de cuenta:
 
@@ -127,13 +127,13 @@ flowchart LR
 - [x] **Fase 2 · Web.** Entrada con correo y contraseña (con recuperación), enlace mágico o Google, selector de cuentas, crear cuenta de hogar o evento, unirse con código o link («¿Eres alguna de estas personas?»), personas, roles e invitaciones. Modo Día y Noche.
 - [x] **Fase 3 · Subir, revisar y ver.** Subida de fotos (con la cámara del celular), PDFs o texto con compresión en el navegador; bandeja de revisión con evidencia y zoom, confianza por campo, correcciones y tiempo real; memoria de comercios y ejemplos de entrenamiento; resúmenes de hogar (categorías, 6 meses, presupuestos) y de evento (quién puso más); lista de gastos; PWA instalable; animaciones Lottie.
 - [x] **Fase 4 · Worker.** [`services/worker`](services/worker/README.md) en Python reemplaza al procesador simulado: cola con reintentos y registro de errores, QR DIAN, pdfplumber, OpenCV + RapidOCR, Qwen 2.5 con JSON validado por Pydantic, confianza por campo, pagador según el mensaje, memoria de comercios con RapidFuzz, Laya sobre ONNX Runtime (multilingüe o inglés), duplicados por huella y CUFE, export y notebook para ajustar Laya, Docker para Oracle ARM y Sentry.
-- [ ] **Fase 5 · WhatsApp.** Connector con Baileys y «Conectar WhatsApp».
+- [x] **Fase 5 · WhatsApp.** [`services/connector`](services/connector/README.md) en Node con Baileys detrás de una interfaz que luego puede implementar la API oficial: número contador y vinculaciones personales, reconexión y aviso si una sesión se cierra, credenciales cifradas (AES-256-GCM) en Postgres, enlace grupo-cuenta con «luks CÓDIGO», ingesta solo de grupos enlazados (fotos comprimidas, PDFs y mensajes con montos, sin repetir), «¿Quién es este número?» para los admins, confirmaciones en el grupo con límite de frecuencia y la pantalla «Conecta el grupo de WhatsApp» con estado en vivo. Categorías propias por cuenta («Salud»…) que Laya elige desde el primer gasto. Todo el servidor con [`deploy/docker-compose.yml`](deploy/README.md): connector, worker, Ollama y Uptime Kuma.
 - [ ] **Fase 6 · Números.** Liquidación (quién le paga a quién), edición de presupuestos y exportes (Excel, CSV, PDF).
 - [ ] **Fase 7 · Producción.** Consentimiento y borrado de datos (Ley 1581) y retención de evidencias.
 
-## Cómo llegan los gastos hoy
+## Cómo llegan los gastos
 
-Mientras no existe el connector de WhatsApp, todo entra por la web:
+Por el **grupo de WhatsApp** (el connector deja en la cola las fotos, PDFs y mensajes con montos de los grupos enlazados) o por la **web**:
 
 1. **Subir** (`/c/[cuenta]/subir` o el atajo «Subir un recibo» de la PWA): la foto se comprime en el navegador (1600 px, WebP o JPEG) y va al bucket privado `evidencias`, en la carpeta de la cuenta. También sirven PDFs o un mensaje como «taxis al aeropuerto 100 lucas, la pagó Santi».
 2. `submit_upload` verifica que el archivo exista y que la persona sea de la cuenta, y crea el **mensaje** y el **trabajo** en la cola (`jobs`).
@@ -169,11 +169,12 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             126 pruebas de permisos, subidas, worker y semilla (PGlite)
+│   ├── tests/             148 pruebas de permisos, subidas, worker, WhatsApp, categorías y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
-│   ├── connector/         Node + Baileys (fase 5)
+│   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
 │   └── worker/            Python: OCR, QR DIAN, Ollama, Laya (fase 4)
+├── deploy/                docker-compose del servidor y paso a paso en Oracle Cloud
 └── lucas-design-kit/      sistema de diseño: manual, CSS, componentes y capturas
 ```
 
@@ -190,9 +191,10 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 126 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 148 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las pruebas de apps/web/lib)
-pnpm worker:test  # 120 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
+pnpm worker:test  # 125 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
+pnpm --filter @lucas/connector test   # 59 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
 pnpm typecheck    # tipos de rutas de Next + tsc
 pnpm lint         # Biome
 ```
@@ -219,7 +221,7 @@ npx supabase db push          # aplica supabase/migrations
 
 ### 2. URLs de Auth
 
-En **Authentication → URL Configuration** ([atajo al proyecto Lucas](https://supabase.com/dashboard/project/zlmpsbwvtlyvwkkuknpj/auth/url-configuration)):
+En **Authentication → URL Configuration** ([atajo al proyecto Luks](https://supabase.com/dashboard/project/zlmpsbwvtlyvwkkuknpj/auth/url-configuration)):
 
 | Campo | Valor |
 |---|---|
@@ -230,7 +232,7 @@ En **Authentication → URL Configuration** ([atajo al proyecto Lucas](https://s
 
 ### 3. Correos con la marca
 
-En **Authentication → Email Templates**, pega el HTML de [`supabase/templates/magic-link.html`](supabase/templates/magic-link.html) en *Magic Link* (asunto «Tu enlace para entrar a Lucas») el de [`confirmation.html`](supabase/templates/confirmation.html) en *Confirm signup* (asunto «Entra a Lucas») y el de [`recovery.html`](supabase/templates/recovery.html) en *Reset Password* (asunto «Pon una contraseña nueva en Lucas»). Estas plantillas mandan un `token_hash`, así que el enlace sirve aunque lo abran en otro dispositivo, por ejemplo en el celular.
+En **Authentication → Email Templates**, pega el HTML de [`supabase/templates/magic-link.html`](supabase/templates/magic-link.html) en *Magic Link* (asunto «Tu enlace para entrar a Luks») el de [`confirmation.html`](supabase/templates/confirmation.html) en *Confirm signup* (asunto «Entra a Luks») y el de [`recovery.html`](supabase/templates/recovery.html) en *Reset Password* (asunto «Pon una contraseña nueva en Luks»). Estas plantillas mandan un `token_hash`, así que el enlace sirve aunque lo abran en otro dispositivo, por ejemplo en el celular.
 
 ### 4. SMTP con Resend
 
@@ -245,13 +247,13 @@ El correo por defecto de Supabase es solo para pruebas y manda muy pocos por hor
    | Puerto | `465` (SSL) o `587` (STARTTLS) |
    | Usuario | `resend` |
    | Contraseña | la API key de Resend (**secreta**: vive solo en Supabase) |
-   | Remitente | `Lucas <hola@tu-dominio.co>` |
+   | Remitente | `Luks <hola@tu-dominio.co>` |
 
 3. En **Authentication → Rate Limits**, sube *Emails sent per hour* (con SMTP propio el tope lo pones tú; 30 alcanza para empezar).
 
 ### 5. Google
 
-1. En [Google Cloud Console](https://console.cloud.google.com/): **APIs y servicios → Pantalla de consentimiento de OAuth** (externa, nombre «Lucas», alcances `openid`, `email` y `profile`).
+1. En [Google Cloud Console](https://console.cloud.google.com/): **APIs y servicios → Pantalla de consentimiento de OAuth** (externa, nombre «Luks», alcances `openid`, `email` y `profile`).
 2. **Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web**:
    - Orígenes de JavaScript autorizados: `https://tu-dominio.co` y `http://localhost:3000`.
    - URI de redireccionamiento autorizado: `https://<tu-project-ref>.supabase.co/auth/v1/callback`.
@@ -287,7 +289,7 @@ Nadie cambia su propio rol, nadie se vuelve titular y al titular no lo toca nadi
 
 La fuente de verdad visual es [`lucas-design-kit/`](lucas-design-kit/LUCAS_DISENO.md): identidad colombiana y vibrante, con colores de billete. Verde (el de 100 mil) para la marca y lo confirmado, morado (el de 50 mil) para eventos y correcciones hechas por personas, naranja para lo pendiente y coral para las alertas. Tarjeta billete con guilloche para la cifra protagonista, stickers rotados para los estados, un color fijo por persona y montos siempre en pesos: **$84.300**.
 
-**Animaciones:** Lottie solo en los momentos que el kit reserva (vacío, procesando, registrado, conectando WhatsApp y cierre de evento). Son animaciones gratuitas de [LottieFiles](https://lottiefiles.com) bajo la *Lottie Simple License*, recoloreadas a la paleta del kit: «Empty» de Ali Azgar, «Scan a receipt» de Musa, «success» de Biswajit Rout, «Chat» de Mahendra, «Success» de Mildred y «Money stack» de JuanMakes. Con `prefers-reduced-motion` se quedan quietas en el último cuadro.
+**Animaciones:** al abrir la app, el logo con grabado entra pieza por pieza (una vez por sesión, solo CSS). En los momentos que importan hay Lottie: vacío, cargando, subiendo, procesando, registrado, todo revisado, conectando WhatsApp, cierre de evento, sin conexión y no encontrado. Son animaciones gratuitas de [LottieFiles](https://lottiefiles.com) bajo la *Lottie Simple License*, recoloreadas a la paleta del kit: «Empty» de Ali Azgar, «Scan a receipt» de Musa, «success» de Biswajit Rout, «Chat» de Mahendra, «Success» de Mildred, «Money stack» de JuanMakes, «coin» de Nook, «success confetti» de Deepesh Reddy, «uploading» de Avinash Reddy, «no internet» de Twinkle Sharma, «not found» de Tùng Hoàng Hữu y «Money Bag» de Mahendra Bhunwal. Con `prefers-reduced-motion` se quedan quietas en el último cuadro y no hay animación de inicio.
 
 ---
 

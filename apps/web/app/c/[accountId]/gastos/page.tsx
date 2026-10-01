@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LiveRefresh } from '@/components/live-refresh';
-import { formatCOP } from '@/components/lucas-core';
+import { formatCOP, type Tone } from '@/components/lucas-core';
 import { Amount, Avatar, CategoryTag, LottieSlot } from '@/components/lucas-ui';
 import { formatRecent, monthName, todayInBogota } from '@/lib/dates';
 import { asTone, plural } from '@/lib/types';
@@ -15,7 +15,7 @@ interface Row {
   total_cop: number;
   status: 'pending_review' | 'confirmed';
   corrected_by: string | null;
-  categories: { name: string } | null;
+  categories: { name: string; letter: string; tone: string } | null;
   people: { display_name: string; tone: string; claimed_by: string | null } | null;
   messages: { kind: 'photo' | 'pdf' | 'text' } | null;
   expense_splits: { person_id: string }[];
@@ -35,7 +35,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   let query = supabase
     .from('expenses')
     .select(
-      'id, merchant, expense_date, created_at, total_cop, status, corrected_by, categories(name), people!expenses_payer_person_id_fkey(display_name, tone, claimed_by), messages(kind), expense_splits(person_id)',
+      'id, merchant, expense_date, created_at, total_cop, status, corrected_by, categories(name, letter, tone), people!expenses_payer_person_id_fkey(display_name, tone, claimed_by), messages(kind), expense_splits(person_id)',
     )
     .eq('account_id', accountId)
     .order('expense_date', { ascending: false })
@@ -65,9 +65,14 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
           <h1 className="lu-display">Gastos</h1>
           <span className="lu-small lu-muted">{plural(rows.length, 'gasto', 'gastos')}</span>
         </div>
-        <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--sm lu-btn--secondary">
-          Subir gasto
-        </Link>
+        <div className="wa-row">
+          <Link href={`/c/${accountId}/categorias`} className="lu-btn lu-btn--sm lu-btn--ghost">
+            Categorías
+          </Link>
+          <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--sm lu-btn--secondary">
+            Subir gasto
+          </Link>
+        </div>
       </header>
 
       <nav className="gs-filter" aria-label="Filtrar gastos">
@@ -111,7 +116,13 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
             <ul className="hd-recent">
               {lista.map((r) => (
                 <li key={r.id} className="gs-row">
-                  <CategoryTag name={r.categories?.name ?? 'Otros'} showName={false} size="lg" />
+                  <CategoryTag
+                    name={r.categories?.name ?? 'Otros'}
+                    letter={r.categories?.letter}
+                    tone={r.categories?.tone as Tone | undefined}
+                    showName={false}
+                    size="lg"
+                  />
                   <span className="hd-r__t">
                     {/* Toda la fila abre el gasto: verlo, corregirlo o eliminarlo */}
                     <Link href={`${base}/${r.id}`} className="hd-r__m gs-link">

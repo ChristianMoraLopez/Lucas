@@ -55,7 +55,7 @@ def cmd_run(once: bool) -> int:
     settings = get_settings()
     setup_logging(settings)
     init_sentry(settings)
-    log.info("Lucas worker %s", __version__, extra={"detail": f"modelo {settings.ollama_model}"})
+    log.info("Luks worker %s", __version__, extra={"detail": f"modelo {settings.ollama_model}"})
     worker, ocr, _llm, _cls = _componentes(settings)
     ocr.warmup()
     worker.install_signal_handlers()
@@ -88,7 +88,7 @@ def cmd_check() -> int:
             ok = False
             print(f"  ✗ {nombre}: {e}")
 
-    print(f"Lucas worker {__version__}")
+    print(f"Luks worker {__version__}")
     paso("Supabase (RPC del worker)", lambda: _probar_supabase(worker.db))
     paso("OCR (RapidOCR)", lambda: (ocr.warmup(), "modelos cargados")[1])
     if llm is not None:
@@ -140,7 +140,7 @@ def cmd_health(max_age: int) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="lucas-worker", description="Worker de Lucas: recibos → gastos")
+    parser = argparse.ArgumentParser(prog="lucas-worker", description="Worker de Luks: recibos → gastos")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("run", help="procesa la cola para siempre (por defecto)")
     sub.add_parser("once", help="procesa lo que haya y sale")

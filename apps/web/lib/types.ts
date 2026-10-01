@@ -151,6 +151,9 @@ export interface AccountCategory {
   name: string;
   letter: string;
   tone: string;
+  /** Qué entra en ella (lo lee Laya para elegirla) */
+  description?: string | null;
+  is_default?: boolean;
 }
 
 /** Tono guardado en la base (siempre uno de los 8), con respaldo por si acaso. */
@@ -169,4 +172,47 @@ export function accountGlyph(name: string) {
 
 export function plural(n: number, uno: string, varios: string) {
   return `${n} ${n === 1 ? uno : varios}`;
+}
+
+/** public.whatsapp_overview(p_account_id): la pantalla «Conecta el grupo de WhatsApp» */
+export interface WhatsappOverview {
+  is_admin: boolean;
+  contador: { phone: string | null; connected: boolean; status: string; last_seen_at: string | null } | null;
+  /** Invitación vigente para escribir «lucas CÓDIGO» (solo la ven los admins) */
+  code: string | null;
+  groups: {
+    group_id: string;
+    name: string | null;
+    linked_at: string;
+    confirm_in_group: boolean;
+    participants: number | null;
+    last_message_at: string | null;
+    left_at: string | null;
+    connection_ok: boolean | null;
+    connection_kind: 'contador' | 'personal' | null;
+    messages: number;
+    expenses: number;
+    last_sender: string | null;
+  }[];
+  unknown_senders: { wa_id: string; push_name: string | null; message_count: number; last_seen_at: string }[];
+}
+
+/** public.my_whatsapp_link(): vincular el WhatsApp propio */
+export interface MyWhatsappLink {
+  status: 'connecting' | 'connected' | 'disconnected';
+  qr: string | null;
+  code: string | null;
+  expires_at: string | null;
+  phone: string | null;
+  connected_at: string | null;
+  alive: boolean | null;
+  disconnect_reason: string | null;
+  stopping: boolean;
+}
+
+/** «573001234567» → «+57 300 123 4567»; «lid:…» → null (WhatsApp no mostró el número) */
+export function formatWaNumber(waId: string | null | undefined): string | null {
+  if (!waId || waId.startsWith('lid:')) return null;
+  const m = waId.match(/^57(\d{3})(\d{3})(\d{4})$/);
+  return m ? `+57 ${m[1]} ${m[2]} ${m[3]}` : `+${waId}`;
 }
