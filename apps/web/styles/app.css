@@ -1320,6 +1320,52 @@ body {
   font-weight: 700;
 }
 
+/* ---------- detalle de un gasto ---------- */
+.gd-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.gd-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 14px;
+  line-height: 20px;
+}
+.gd-facts dt {
+  color: var(--tinta-2);
+  font-weight: 600;
+}
+.gd-facts dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+.gd-facts .gd-fix {
+  color: var(--morado);
+}
+.gd-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.gd-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-top: 1px dashed var(--borde);
+  font-size: 14px;
+}
+.gd-items li:first-child {
+  border-top: 0;
+}
+
 /* ---------- navegación de meses en la tarjeta billete ---------- */
 .hd-nav a,
 .hd-nav span {
@@ -1342,6 +1388,44 @@ body {
 .hd-bar:focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
+}
+
+/* ---------- tarjeta billete que lleva a los gastos ---------- */
+.lu-bill--link {
+  transition: transform 0.15s ease;
+}
+.lu-bill--link:hover {
+  transform: translateY(-2px);
+}
+.lu-bill__link {
+  color: inherit;
+  text-decoration: none;
+}
+/* El área del enlace cubre toda la tarjeta */
+.lu-bill__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.lu-bill__link:focus-visible {
+  outline: none;
+}
+.lu-bill--link:has(.lu-bill__link:focus-visible) {
+  outline: 3px solid var(--foco);
+  outline-offset: 3px;
+}
+.lu-bill--link .lu-bill__top a {
+  position: relative;
+  z-index: 1;
+}
+.lu-bill__more {
+  margin-left: auto;
+  font-weight: 800;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-bill--link:hover {
+    transform: none;
+  }
 }
 .hd-bar {
   text-decoration: none;
@@ -1568,6 +1652,11 @@ body {
   text-decoration: none;
   padding: 4px 14px;
 }
+.gs-filter .gs-mes {
+  background: var(--tinta);
+  color: var(--fondo);
+  border-color: var(--tinta);
+}
 .gs-month {
   display: grid;
   gap: var(--space-2);
@@ -1576,6 +1665,35 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+}
+/* Fila de gasto: el comercio es el enlace y su área cubre toda la fila */
+.gs-row {
+  position: relative;
+}
+.gs-link {
+  color: inherit;
+  text-decoration: none;
+}
+.gs-row:hover .gs-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.gs-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.gs-link:focus-visible {
+  outline: none;
+}
+.gs-row:has(.gs-link:focus-visible) {
+  outline: 2px solid var(--tinta);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.gs-row .ap-pend {
+  position: relative;
+  z-index: 1;
 }
 .gs-fix {
   margin-left: 4px;

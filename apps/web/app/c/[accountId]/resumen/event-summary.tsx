@@ -37,7 +37,15 @@ export function EventSummary({ d }: { d: Dashboard }) {
       )}
 
       <div className="ed-top">
-        <BillCard label="Total del evento" amount={d.total} tone="morado" denom={`${n} ${n === 1 ? 'PERSONA' : 'PERSONAS'}`} roll>
+        <BillCard
+          label="Total del evento"
+          amount={d.total}
+          tone="morado"
+          denom={`${n} ${n === 1 ? 'PERSONA' : 'PERSONAS'}`}
+          roll
+          href={`/c/${d.account.id}/gastos`}
+          linkLabel="Ver todos los gastos del evento"
+        >
           {d.all_equal && n > 0 ? (
             <span>
               <b>{formatCOP(Math.round(d.total / n))}</b> a cada uno
@@ -48,6 +56,9 @@ export function EventSummary({ d }: { d: Dashboard }) {
           <span>
             {plural(d.expense_count, 'gasto', 'gastos')}
             {d.all_equal ? ' · partes iguales' : ''}
+          </span>
+          <span className="lu-bill__more" aria-hidden="true">
+            Ver gastos ›
           </span>
         </BillCard>
 
