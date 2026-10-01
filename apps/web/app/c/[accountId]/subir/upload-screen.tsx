@@ -18,10 +18,21 @@ interface Upload {
   error: string | null;
 }
 
+interface ExpenseBrief {
+  id: string;
+  merchant: string;
+  total_cop: number;
+  status: string;
+  categories: { name: string } | null;
+}
+
 interface MessageState {
   id: string;
-  status: 'queued' | 'processing' | 'done' | 'not_expense' | 'failed';
-  expenses: { id: string; merchant: string; total_cop: number; status: string; categories: { name: string } | null }[];
+  status: 'queued' | 'processing' | 'done' | 'not_expense' | 'duplicate' | 'failed';
+  duplicate_of?: string | null;
+  expenses: ExpenseBrief[];
+  /** El gasto que ya existía cuando el mensaje resultó repetido (misma foto o misma factura) */
+  original?: ExpenseBrief;
 }
 
 export function UploadScreen({ accountId, accountName, closed }: { accountId: string; accountName: string; closed: boolean }) {
@@ -41,9 +52,20 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
     queryKey: ['subidas', accountId, ids.join()],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('messages').select('id, status, expenses(id, merchant, total_cop, status, categories(name))').in('id', ids);
+      const { data, error } = await supabase
+        .from('messages')
+        // `*` y no la lista de columnas: así sirve antes y después de la migración 70 (duplicate_of)
+        .select('*, expenses(id, merchant, total_cop, status, categories(name))')
+        .in('id', ids);
       if (error) throw error;
-      return Object.fromEntries((data as unknown as MessageState[]).map((m) => [m.id, m]));
+      const mensajes = data as unknown as MessageState[];
+      const repetidos = mensajes.map((m) => m.duplicate_of).filter(Boolean) as string[];
+      if (repetidos.length) {
+        const { data: originales } = await supabase.from('expenses').select('id, merchant, total_cop, status, categories(name)').in('id', repetidos);
+        const porId = new Map(((originales ?? []) as unknown as ExpenseBrief[]).map((e) => [e.id, e]));
+        for (const m of mensajes) m.original = m.duplicate_of ? porId.get(m.duplicate_of) : undefined;
+      }
+      return Object.fromEntries(mensajes.map((m) => [m.id, m]));
     },
   });
   // El procesador corre en la base: cuando termina, Realtime avisa y se actualiza solo
@@ -178,6 +200,28 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
 }
 
 function UploadRow({ upload, state, accountId }: { upload: Upload; state: MessageState | undefined; accountId: string }) {
+  if (state?.status === 'duplicate' && state.original) {
+    const o = state.original;
+    return (
+      <ExpenseCard
+        merchant={o.merchant}
+        category={o.categories?.name}
+        total={o.total_cop}
+        meta="Ya estaba registrado: es la misma foto o la misma factura. No se contó dos veces."
+        sticker={
+          <Sticker tone="pendiente" size="sm" rotate={-4} animate>
+            Repetido
+          </Sticker>
+        }
+      >
+        {o.status === 'pending_review' && (
+          <Link href={`/c/${accountId}/revisar?gasto=${o.id}`} className="lu-btn lu-btn--sm lu-btn--secondary">
+            Revisar el original
+          </Link>
+        )}
+      </ExpenseCard>
+    );
+  }
   const gasto = state?.expenses?.[0];
   if (gasto && state?.status === 'done') {
     const pendiente = gasto.status === 'pending_review';
@@ -208,13 +252,19 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
           ? upload.error
           : state?.status === 'failed'
             ? 'No pudimos leerlo. Intenta con otra foto.'
-            : state?.status === 'processing'
-              ? 'Leyendo…'
-              : 'En cola: Lucas lo lee en unos segundos';
+            : state?.status === 'not_expense'
+              ? 'No parece un gasto. Si lo es, escríbelo con el monto: «almuerzo 45 lucas».'
+              : state?.status === 'duplicate'
+                ? 'Ya estaba registrado: no se contó dos veces.'
+                : state?.status === 'processing'
+                  ? 'Leyendo…'
+                  : 'En cola: Lucas lo lee en menos de un minuto';
 
   return (
     <div className={`up-row${upload.local === 'error' || state?.status === 'failed' ? ' is-error' : ''}`}>
-      {upload.local !== 'error' && state?.status !== 'failed' && <LottieSlot name="escaneo" width={40} height={40} label="Procesando" />}
+      {upload.local !== 'error' && (!state || state.status === 'queued' || state.status === 'processing') && (
+        <LottieSlot name="escaneo" width={40} height={40} label="Procesando" />
+      )}
       <span className="up-row__txt">
         <b>{upload.label}</b>
         <span>{estado}</span>
