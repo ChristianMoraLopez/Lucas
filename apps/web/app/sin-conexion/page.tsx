@@ -10,7 +10,7 @@ export default function SinConexionPage() {
         <Logo />
       </header>
       <div className="ph">
-        <LottieSlot name="vacio" width={120} height={120} label="Sin conexión" />
+        <LottieSlot name="sin-conexion" width={120} height={120} label="Sin conexión" />
         <h1 className="lu-title">No hay conexión</h1>
         <p className="lu-small lu-muted" style={{ margin: 0, maxWidth: '38ch' }}>
           Cuando vuelva el internet, Luks sigue donde ibas. Las fotos que mandaron al grupo no se pierden: llegan igual.

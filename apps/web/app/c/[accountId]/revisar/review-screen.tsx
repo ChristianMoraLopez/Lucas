@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useState } from 'react';
+import { Cargando } from '@/components/cargando';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { ExpenseForm, type SavedExpense } from '@/components/expense-form';
 import { formatCOP } from '@/components/lucas-core';
@@ -79,7 +80,7 @@ export function ReviewScreen({
     return (
       <div className="rv">
         <h1 className="lu-display">Por revisar</h1>
-        <p className="lu-small lu-muted">Cargando…</p>
+        <Cargando />
       </div>
     );
   }
@@ -183,7 +184,7 @@ export function ReviewScreen({
 
       {!item && !(current && done[current]) ? (
         <div className="rv-empty">
-          <LottieSlot name="vacio" width={96} height={96} />
+          <LottieSlot name={processing.length ? 'escaneo' : 'todo-revisado'} width={96} height={96} />
           <div>
             <p className="lu-title" style={{ margin: 0 }}>
               {processing.length ? 'Luks está leyendo lo último' : 'Todo revisado'}

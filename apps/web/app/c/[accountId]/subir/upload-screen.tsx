@@ -263,7 +263,12 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
   return (
     <div className={`up-row${upload.local === 'error' || state?.status === 'failed' ? ' is-error' : ''}`}>
       {upload.local !== 'error' && (!state || state.status === 'queued' || state.status === 'processing') && (
-        <LottieSlot name="escaneo" width={40} height={40} label="Procesando" />
+        <LottieSlot
+          name={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? 'subiendo' : 'escaneo'}
+          width={40}
+          height={40}
+          label={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? 'Subiendo' : 'Procesando'}
+        />
       )}
       <span className="up-row__txt">
         <b>{upload.label}</b>

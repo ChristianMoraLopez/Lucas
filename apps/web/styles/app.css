@@ -2026,3 +2026,80 @@ body {
     padding: var(--space-6) var(--space-8) var(--space-10);
   }
 }
+
+/* ---------- logo de Luks (versión plana; la de grabado va en la animación de inicio) ---------- */
+.lu-logo__svg {
+  display: block;
+  overflow: visible;
+}
+.lu-logo__v {
+  fill: #3e9a70;
+}
+.lu-logo__m {
+  fill: #7a5ab3;
+}
+.lu-logo__a {
+  fill: #f0be2e;
+}
+.lu-logo__o {
+  fill: #e0ae1f;
+}
+/* De noche, el morado y el verde un poco más claros para que la palabra se lea */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lu-logo__m {
+    fill: #9b80d6;
+  }
+  :root:not([data-theme="light"]) .lu-logo__v {
+    fill: #4fb486;
+  }
+}
+:root[data-theme="dark"] .lu-logo__m {
+  fill: #9b80d6;
+}
+:root[data-theme="dark"] .lu-logo__v {
+  fill: #4fb486;
+}
+
+/* ---------- animación de inicio (una vez por sesión; ver app/layout.tsx) ---------- */
+.lu-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--fondo);
+  pointer-events: none;
+  animation: lu-intro-salir 450ms ease 1.9s forwards;
+}
+.lu-intro__img {
+  width: min(82vw, 560px);
+  height: auto;
+}
+.sin-intro .lu-intro {
+  display: none;
+}
+@keyframes lu-intro-salir {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-intro {
+    display: none;
+  }
+}
+
+/* ---------- cargando y no encontrado ---------- */
+.lu-cargando {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.nf {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  padding: var(--space-10) var(--space-4);
+}

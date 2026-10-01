@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
+import { Cargando } from '@/components/cargando';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button, ConnectionStatus, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { formatDay, formatWhen, todayInBogota } from '@/lib/dates';
@@ -129,7 +130,7 @@ export function WhatsappScreen({
     return (
       <div className="wa">
         <h1 className="lu-display">Conecta el grupo de WhatsApp</h1>
-        <p className="lu-small lu-muted">Cargando…</p>
+        <Cargando />
       </div>
     );
   }

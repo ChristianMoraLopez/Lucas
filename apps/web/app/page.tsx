@@ -56,7 +56,7 @@ export default async function AccountPickerPage() {
           ) : (
             !error && (
               <div className="ap-empty">
-                <LottieSlot name="vacio" width={96} height={96} />
+                <LottieSlot name="bienvenida" width={96} height={96} />
                 <p className="lu-small lu-muted" style={{ margin: 0 }}>
                   Una cuenta es donde caen los gastos del grupo: la casa de todos los meses o ese paseo que están planeando.
                 </p>

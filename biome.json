@@ -15,6 +15,7 @@
       "!apps/web/styles/tokens.css",
       "!apps/web/styles/lucas.css",
       "!apps/web/next-env.d.ts",
+      "!apps/web/public/brand",
       "!supabase/.temp"
     ]
   },

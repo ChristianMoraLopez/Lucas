@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useState } from 'react';
+import { Cargando } from '@/components/cargando';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import type { Tone } from '@/components/lucas-core';
 import { Button, CategoryTag } from '@/components/lucas-ui';
@@ -63,7 +64,7 @@ export function CategoriesScreen({ accountId, myRole }: { accountId: string; myR
           {error}
         </p>
       )}
-      {cats.isPending && <p className="lu-small lu-muted">Cargando…</p>}
+      {cats.isPending && <Cargando />}
       {cats.isError && (
         <p className="lu-error" role="alert">
           {humanError(cats.error)}
