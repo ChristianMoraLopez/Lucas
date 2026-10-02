@@ -4,8 +4,10 @@ import { LiveRefresh } from '@/components/live-refresh';
 import { formatCOP, type Tone } from '@/components/lucas-core';
 import { Amount, Avatar, CategoryTag, LottieSlot } from '@/components/lucas-ui';
 import { formatRecent, monthName, todayInBogota } from '@/lib/dates';
+import { normalizarBusqueda, uuidOrNull } from '@/lib/search';
 import { asTone, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
+import { GastosFiltros } from './filtros';
 
 interface Row {
   id: string;
@@ -23,14 +25,25 @@ interface Row {
 
 export default async function GastosPage({ params, searchParams }: PageProps<'/c/[accountId]/gastos'>) {
   const { accountId } = await params;
-  const { ver, mes: mesParam } = await searchParams;
-  const soloPendientes = ver === 'pendientes';
-  // ?mes=2026-09 (desde la tarjeta del resumen): solo los gastos de ese mes
-  const mes = typeof mesParam === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(mesParam) ? mesParam : null;
+  const sp = await searchParams;
+  const soloPendientes = sp.ver === 'pendientes';
+  // ?mes=2026-09 (también desde la tarjeta del resumen): solo los gastos de ese mes
+  const mes = typeof sp.mes === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(sp.mes) ? sp.mes : null;
+  // ?q= busca en el comercio, sin tildes; ?cat= y ?quien= filtran por categoría y por quién pagó
+  const q = typeof sp.q === 'string' ? sp.q.trim().slice(0, 60) : '';
+  const busqueda = normalizarBusqueda(q);
+  const cat = uuidOrNull(sp.cat);
+  const quien = uuidOrNull(sp.quien);
   const { supabase } = await requireUser(`/c/${accountId}/gastos`);
 
-  const { data: account } = await supabase.from('accounts').select('id').eq('id', accountId).maybeSingle();
+  const [{ data: account }, { data: cats }, { data: gente }, { data: fechas }] = await Promise.all([
+    supabase.from('accounts').select('id').eq('id', accountId).maybeSingle(),
+    supabase.from('categories').select('id, name').eq('account_id', accountId).order('name'),
+    supabase.from('people').select('id, display_name').eq('account_id', accountId).order('display_name'),
+    supabase.from('expenses').select('expense_date').eq('account_id', accountId).order('expense_date', { ascending: false }).limit(2000),
+  ]);
   if (!account) notFound();
+  const meses = [...new Set((fechas ?? []).map((f) => (f.expense_date as string).slice(0, 7)))];
 
   let query = supabase
     .from('expenses')
@@ -40,9 +53,12 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
     .eq('account_id', accountId)
     .order('expense_date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(300);
+    .limit(TOPE);
   if (soloPendientes) query = query.eq('status', 'pending_review');
   if (mes) query = query.gte('expense_date', `${mes}-01`).lt('expense_date', mesSiguiente(mes));
+  if (busqueda) query = query.ilike('merchant_normalized', `%${busqueda}%`);
+  if (cat) query = query.eq('category_id', cat);
+  if (quien) query = query.eq('payer_person_id', quien);
   const { data, error } = await query;
   if (error) throw error;
   const rows = (data ?? []) as unknown as Row[];
@@ -55,7 +71,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   }
   const hoy = todayInBogota();
   const base = `/c/${accountId}/gastos`;
-  const conMes = (q: string) => (mes ? `${base}?${q ? `${q}&` : ''}mes=${mes}` : q ? `${base}?${q}` : base);
+  const filtrando = Boolean(busqueda || cat || quien || mes || soloPendientes);
 
   return (
     <div className="gs">
@@ -75,34 +91,33 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
         </div>
       </header>
 
-      <nav className="gs-filter" aria-label="Filtrar gastos">
-        <Link href={conMes('')} className="lu-chip" aria-pressed={!soloPendientes} aria-current={!soloPendientes ? 'page' : undefined}>
-          Todos
-        </Link>
-        <Link href={conMes('ver=pendientes')} className="lu-chip" aria-pressed={soloPendientes} aria-current={soloPendientes ? 'page' : undefined}>
-          Por revisar
-        </Link>
-        {mes && (
-          <Link
-            href={soloPendientes ? `${base}?ver=pendientes` : base}
-            className="lu-chip gs-mes"
-            aria-label={`Quitar el filtro de ${monthName(`${mes}-01`).toLowerCase()}`}
-          >
-            {monthName(`${mes}-01`)} {mes.slice(0, 4)} <span aria-hidden="true">×</span>
-          </Link>
-        )}
-      </nav>
+      <GastosFiltros
+        filtros={{ q, cat: cat ?? '', quien: quien ?? '', mes: mes ?? '', ver: soloPendientes ? 'pendientes' : '' }}
+        categorias={(cats ?? []) as { id: string; name: string }[]}
+        personas={(gente ?? []).map((p) => ({ id: p.id as string, name: p.display_name as string }))}
+        meses={meses}
+        total={rows.length}
+        suma={rows.reduce((sum, r) => sum + r.total_cop, 0)}
+        tope={rows.length === TOPE}
+      />
 
       {rows.length === 0 ? (
         <div className="ap-empty">
           <LottieSlot name="vacio" width={72} height={72} />
           <span className="lu-small lu-muted">
-            {soloPendientes
-              ? 'No hay nada por revisar.'
-              : mes
-                ? `No hay gastos en ${monthName(`${mes}-01`).toLowerCase()}.`
-                : 'Todavía no hay gastos. Manden fotos al grupo o súbanlas aquí.'}
+            {busqueda || cat || quien
+              ? 'Ningún gasto coincide con la búsqueda.'
+              : soloPendientes
+                ? 'No hay nada por revisar.'
+                : mes
+                  ? `No hay gastos en ${monthName(`${mes}-01`).toLowerCase()}.`
+                  : 'Todavía no hay gastos. Manden fotos al grupo o súbanlas aquí.'}
           </span>
+          {filtrando && (
+            <Link href={base} className="lu-btn lu-btn--sm lu-btn--secondary">
+              Quitar filtros
+            </Link>
+          )}
         </div>
       ) : (
         [...grupos.entries()].map(([mes, lista]) => (
@@ -162,6 +177,9 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
     </div>
   );
 }
+
+/** Cuántos gastos muestra la lista como máximo (los más recientes) */
+const TOPE = 300;
 
 /** «2026-09» → «2026-10-01» (primer día del mes siguiente) */
 function mesSiguiente(mes: string) {
