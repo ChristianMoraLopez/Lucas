@@ -3,127 +3,247 @@
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useId, useState } from 'react';
-import { Avatar, Button } from '@/components/lucas-ui';
+import { type FormEvent, type ReactNode, useId, useState } from 'react';
+import { lanzarChispas } from '@/components/chispas';
+import { Avatar, Button, LottieSlot } from '@/components/lucas-ui';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { formatDay, formatWhen } from '@/lib/dates';
+import { formatDay, formatWhen, monthName } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
-import { asTone, formatWaNumber, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
+import { accountGlyph, accountTone, formatWaNumber, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
-const PROVEEDOR: Record<string, string> = { email: 'Correo (contraseña o enlace)', google: 'Google' };
+const PROVEEDOR: Record<string, string> = { email: 'Correo', google: 'Google' };
+
+/** Chispas en el centro del botón que envió el formulario (cuando quedó guardado). */
+function chispasEn(boton: Element | null) {
+  if (!boton) return;
+  const r = boton.getBoundingClientRect();
+  lanzarChispas({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, currentTarget: null });
+}
+
+/* Íconos de trazo de 2px, redondeados, de 24px (como ICONS del kit) */
+const ICONO = {
+  nombre: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c1.6-4 4.6-6 8-6s6.4 2 8 6" />
+    </>
+  ),
+  cuentas: (
+    <>
+      <path d="M3 12V4h8l10 10-8 8z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
+    </>
+  ),
+  whatsapp: <path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19z" />,
+  datos: (
+    <>
+      <path d="M12 3l8 3v6c0 4.4-3.4 8-8 9-4.6-1-8-4.6-8-9V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
+  bajar: (
+    <>
+      <path d="M12 4v11M7 10l5 5 5-5" />
+      <path d="M5 20h14" />
+    </>
+  ),
+  borrar: (
+    <>
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+    </>
+  ),
+} satisfies Record<string, ReactNode>;
+
+function Icono({ d, className }: { d: keyof typeof ICONO; className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      {ICONO[d]}
+    </svg>
+  );
+}
+
+/** Tarjeta de sección con su ícono de color */
+function Seccion({
+  id,
+  icono,
+  tono,
+  titulo,
+  nota,
+  i,
+  children,
+}: {
+  id: string;
+  icono: keyof typeof ICONO;
+  tono: string;
+  titulo: string;
+  nota?: string;
+  i: number;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pf-card" aria-labelledby={id} style={{ '--i': i } as React.CSSProperties}>
+      <div className="pf-card__head">
+        <span className={`pf-ico pf-ico--${tono}`}>
+          <Icono d={icono} />
+        </span>
+        <div>
+          <h2 id={id} className="lu-title">
+            {titulo}
+          </h2>
+          {nota && <p className="lu-small lu-muted pf-nota">{nota}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 /**
- * Perfil: lo que se puede cambiar (el nombre, cómo te llaman en cada cuenta,
- * tus números de WhatsApp), lo que solo se ve (correo, con qué entras,
- * fechas, la política de datos) y tus datos: descargarlos o borrar la cuenta.
+ * Perfil: el carné con lo que solo se ve (correo, con qué entras, fechas,
+ * política de datos, cuentas), lo que se puede cambiar (nombre, cómo te
+ * llaman en cada cuenta, tus números de WhatsApp) y tus datos: descargarlos o
+ * borrar la cuenta.
  */
 export function ProfileScreen({ p }: { p: MyProfile }) {
   const router = useRouter();
   const refresh = () => router.refresh();
-  const nombre = p.full_name?.trim() || p.email?.split('@')[0] || 'Tú';
-  const conCorreo = p.providers.includes('email');
+  const conCuentas = p.accounts.filter((a) => a.person_id);
 
   return (
-    <div className="pf">
-      <header className="pf-head">
-        <Avatar name={nombre} size="md" />
-        <div>
-          <h1 className="lu-display">Tu perfil</h1>
-          <span className="lu-small lu-muted">{p.email}</span>
-        </div>
+    <div className="pf lu-stagger">
+      <header className="pf-head" style={{ '--i': 0 } as React.CSSProperties}>
+        <h1 className="lu-display">Tu perfil</h1>
+        <p className="lu-small lu-muted" style={{ margin: 0 }}>
+          Lo tuyo en Luks: cámbialo, descárgalo o bórralo cuando quieras.
+        </p>
       </header>
 
-      <section className="pf-card" aria-labelledby="pf-nombre">
-        <h2 id="pf-nombre" className="lu-title">
-          Tu nombre
-        </h2>
-        <Nombre actual={p.full_name ?? ''} onSaved={refresh} />
-      </section>
+      <Carne p={p} />
 
-      {p.accounts.some((a) => a.person_id) && (
-        <section className="pf-card" aria-labelledby="pf-cuentas">
-          <h2 id="pf-cuentas" className="lu-title">
-            Cómo te llaman en cada cuenta
-          </h2>
-          <p className="lu-small lu-muted pf-nota">Es el nombre que ven los demás en los gastos y en Liquidar.</p>
+      <Seccion id="pf-nombre" icono="nombre" tono="morado" titulo="Tu nombre" nota="Así te saludamos y es el que sale cuando creas una cuenta." i={2}>
+        <Nombre actual={p.full_name ?? ''} onSaved={refresh} />
+      </Seccion>
+
+      {conCuentas.length > 0 && (
+        <Seccion
+          id="pf-cuentas"
+          icono="cuentas"
+          tono="naranja"
+          titulo="Cómo te llaman en cada cuenta"
+          nota="Es el nombre que ven los demás en los gastos y en Liquidar."
+          i={3}
+        >
           <ul className="pf-list">
-            {p.accounts
-              .filter((a) => a.person_id)
-              .map((a) => (
-                <NombreEnCuenta key={a.id} cuenta={a} onSaved={refresh} />
-              ))}
+            {conCuentas.map((a) => (
+              <NombreEnCuenta key={a.id} cuenta={a} onSaved={refresh} />
+            ))}
           </ul>
-        </section>
+        </Seccion>
       )}
 
-      <section className="pf-card" aria-labelledby="pf-wa">
-        <h2 id="pf-wa" className="lu-title">
-          Tu WhatsApp
-        </h2>
-        <p className="lu-small lu-muted pf-nota">Con tu número, los gastos que mandas a los grupos quedan a tu nombre en todas tus cuentas.</p>
+      <Seccion
+        id="pf-wa"
+        icono="whatsapp"
+        tono="verde"
+        titulo="Tu WhatsApp"
+        nota="Con tu número, los gastos que mandas a los grupos quedan a tu nombre en todas tus cuentas."
+        i={4}
+      >
         <Whatsapp numeros={p.whatsapp} onChanged={refresh} />
-      </section>
+      </Seccion>
 
-      <section className="pf-card" aria-labelledby="pf-cuenta">
-        <h2 id="pf-cuenta" className="lu-title">
-          Tu cuenta de Luks
-        </h2>
-        <dl className="gd-facts pf-facts">
-          <div>
-            <dt>Correo</dt>
-            <dd>{p.email ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Entras con</dt>
-            <dd>{p.providers.length ? p.providers.map((x) => PROVEEDOR[x] ?? x).join(' · ') : '—'}</dd>
-          </div>
-          <div>
-            <dt>Creaste tu cuenta</dt>
-            <dd>{formatDay(new Date(p.created_at))}</dd>
-          </div>
-          {p.last_sign_in_at && (
-            <div>
-              <dt>Última vez que entraste</dt>
-              <dd>{formatWhen(p.last_sign_in_at)}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Política de datos</dt>
-            <dd>
-              {p.privacy_accepted_at
-                ? `Aceptada el ${formatDay(new Date(p.privacy_accepted_at))}${p.privacy_version ? ` (versión ${p.privacy_version})` : ''}`
-                : 'Sin aceptar'}
-            </dd>
-          </div>
-          <div>
-            <dt>Cuentas</dt>
-            <dd>{p.accounts.length ? p.accounts.map((a) => `${a.name} (${ROLE_LABEL[a.role].toLowerCase()})`).join(', ') : 'Ninguna todavía'}</dd>
-          </div>
-        </dl>
-        <div className="pf-acts">
-          {conCorreo && (
-            <Link href="/cuenta/clave" className="lu-btn lu-btn--sm lu-btn--secondary">
-              Cambiar contraseña
-            </Link>
-          )}
-          <span className="pf-tema">
-            <span className="lu-small">Tema</span>
-            <ThemeToggle />
-          </span>
-        </div>
-      </section>
-
-      <section className="pf-card pf-card--datos" aria-labelledby="pf-datos">
-        <h2 id="pf-datos" className="lu-title">
-          Tus datos
-        </h2>
-        <p className="lu-small lu-muted pf-nota">
-          Puedes descargar todo lo tuyo (perfil, gastos que pagaste, tu parte de cada gasto y tus mensajes) o borrar tu cuenta cuando quieras.
-        </p>
+      <Seccion id="pf-datos" icono="datos" tono="coral" titulo="Tus datos" nota="Son tuyos: llévatelos o bórralos (Ley 1581)." i={5}>
         <MisDatos p={p} />
-      </section>
+      </Seccion>
     </div>
+  );
+}
+
+/** El carné: lo que solo se ve, con el lenguaje de la tarjeta billete del kit. */
+function Carne({ p }: { p: MyProfile }) {
+  const nombre = p.full_name?.trim() || p.email?.split('@')[0] || 'Tú';
+  const desde = new Date(p.created_at);
+  const desdeMes = `${monthName(desde).slice(0, 3).toUpperCase()} ${desde.getFullYear()}`;
+  return (
+    <section className="lu-bill lu-bill--morado pf-carne" aria-labelledby="pf-carne-t" style={{ '--i': 1 } as React.CSSProperties}>
+      <div className="lu-bill__top">
+        <span id="pf-carne-t" className="lu-bill__label">
+          Tu cuenta de Luks
+        </span>
+        <span className="lu-bill__denom">DESDE {desdeMes}</span>
+      </div>
+
+      <div className="pf-carne__id">
+        <span className="pf-carne__avatar">
+          <Avatar name={nombre} size="md" />
+        </span>
+        <span className="pf-carne__nombre">
+          <b>{nombre}</b>
+          <span className="pf-carne__mail">{p.email}</span>
+        </span>
+      </div>
+
+      {p.providers.length > 0 && (
+        <ul className="pf-carne__chips" aria-label="Entras con">
+          {p.providers.map((x) => (
+            <li key={x} className="pf-carne__chip">
+              Entras con {PROVEEDOR[x] ?? x}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <dl className="pf-carne__facts">
+        <div>
+          <dt>Creaste tu cuenta</dt>
+          <dd>{formatDay(desde, '0000-01-01')}</dd>
+        </div>
+        {p.last_sign_in_at && (
+          <div>
+            <dt>Última entrada</dt>
+            <dd>{formatWhen(p.last_sign_in_at)}</dd>
+          </div>
+        )}
+        <div>
+          <dt>Política de datos</dt>
+          <dd>
+            {p.privacy_accepted_at
+              ? `Aceptada el ${formatDay(new Date(p.privacy_accepted_at))}${p.privacy_version ? ` · v${p.privacy_version}` : ''}`
+              : 'Sin aceptar'}
+          </dd>
+        </div>
+        <div>
+          <dt>Cuentas</dt>
+          <dd>{p.accounts.length ? plural(p.accounts.length, 'cuenta', 'cuentas') : 'Ninguna todavía'}</dd>
+        </div>
+      </dl>
+
+      {p.accounts.length > 0 && (
+        <ul className="pf-carne__cuentas" aria-label="Tus cuentas">
+          {p.accounts.map((a) => (
+            <li key={a.id} className="pf-carne__cuenta">
+              <span className="pf-carne__glyph" style={{ background: `var(--tono-${accountTone(a.name)})` }} aria-hidden="true">
+                {accountGlyph(a.name)}
+              </span>
+              {a.name}
+              <span className="pf-carne__rol">{ROLE_LABEL[a.role]}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="pf-carne__acts">
+        {p.providers.includes('email') && (
+          <Link href="/cuenta/clave" className="pf-carne__btn">
+            Cambiar contraseña
+          </Link>
+        )}
+        <span className="pf-carne__tema">
+          Tema <ThemeToggle />
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -137,9 +257,11 @@ function Nombre({ actual, onSaved }: { actual: string; onSaved: () => void }) {
   const guardar = async (e: FormEvent) => {
     e.preventDefault();
     if (!cambio) return;
+    const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
     setEstado({ busy: true });
     const { error } = await supabase.rpc('update_my_name', { p_full_name: v });
     if (error) return setEstado({ error: humanError(error) });
+    chispasEn(boton);
     setEstado({ ok: true });
     onSaved();
   };
@@ -188,21 +310,25 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
   const guardar = async (e: FormEvent) => {
     e.preventDefault();
     if (!cambio) return;
+    const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
     setEstado({ busy: true });
     const { error } = await supabase.rpc('update_my_person_name', { p_person_id: cuenta.person_id, p_name: v });
     if (error) return setEstado({ error: humanError(error) });
+    chispasEn(boton);
     setEstado({});
     onSaved();
   };
 
   return (
-    <li>
+    <li className="pf-alias">
       <form className="pf-row" onSubmit={guardar}>
         <label htmlFor={id} className="pf-cuenta">
-          <Avatar name={actual || cuenta.name} tone={asTone(cuenta.person_tone, actual)} size="sm" />
+          <span className="ap-glyph pf-glyph" style={{ background: `var(--tono-${accountTone(cuenta.name)})` }} aria-hidden="true">
+            {accountGlyph(cuenta.name)}
+          </span>
           <span>
             <b>{cuenta.name}</b>
-            <span className="lu-small lu-muted"> · {ROLE_LABEL[cuenta.role]}</span>
+            <span className={`lu-role lu-role--${cuenta.role}`}>{ROLE_LABEL[cuenta.role]}</span>
           </span>
         </label>
         <input
@@ -231,18 +357,21 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
 function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => void }) {
   const [supabase] = useState(() => createClient());
   const [v, setV] = useState('');
-  const [estado, setEstado] = useState<{ busy?: string; error?: string; aviso?: string }>({});
+  const [estado, setEstado] = useState<{ busy?: string; error?: string; aviso?: string; listo?: boolean }>({});
   const id = useId();
 
   const agregar = async (e: FormEvent) => {
     e.preventDefault();
     if (!v.trim()) return;
+    const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
     setEstado({ busy: 'agregar' });
     const { data, error } = await supabase.rpc('add_my_whatsapp', { p_phone: v });
     if (error) return setEstado({ error: humanError(error) });
     const r = data as { wa_id: string; accounts: number; taken_in: string[] };
     setV('');
+    if (r.accounts) chispasEn(boton);
     setEstado({
+      listo: r.accounts > 0,
       aviso: r.taken_in.length
         ? `En ${r.taken_in.join(', ')} ese número ya es de otra persona: pídele a quien administra que lo arregle en «Conectar WhatsApp».`
         : r.accounts
@@ -263,13 +392,20 @@ function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => 
   return (
     <>
       {numeros.length > 0 && (
-        <ul className="pf-list">
+        <ul className="pf-nums">
           {numeros.map((n) => (
-            <li key={n} className="pf-row">
-              <span className="pf-num">{formatWaNumber(n) ?? n}</span>
-              <Button size="sm" variant="ghost" onClick={() => quitar(n)} disabled={estado.busy === n}>
-                Quitar
-              </Button>
+            <li key={n} className="pf-num">
+              <Icono d="whatsapp" className="pf-num__ico" />
+              <span>{formatWaNumber(n) ?? n}</span>
+              <button
+                type="button"
+                className="pf-num__x"
+                onClick={() => quitar(n)}
+                disabled={estado.busy === n}
+                aria-label={`Quitar ${formatWaNumber(n) ?? n}`}
+              >
+                ×
+              </button>
             </li>
           ))}
         </ul>
@@ -297,9 +433,10 @@ function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => 
         </p>
       )}
       {estado.aviso && (
-        <p className="lu-small pf-msg" role="status">
-          {estado.aviso}
-        </p>
+        <div className="pf-aviso" role="status">
+          {estado.listo && <LottieSlot name="whatsapp-conectado" width={40} height={40} />}
+          <span className="lu-small">{estado.aviso}</span>
+        </div>
       )}
     </>
   );
@@ -348,13 +485,25 @@ function MisDatos({ p }: { p: MyProfile }) {
 
   return (
     <>
-      <div className="pf-acts">
-        <Button size="sm" variant="secondary" onClick={descargar} disabled={bajando}>
-          {bajando ? 'Preparando…' : 'Descargar mis datos'}
-        </Button>
-        <Button size="sm" variant="secondary" className="lu-btn--danger" onClick={() => setAbierto(true)}>
-          Eliminar mi cuenta
-        </Button>
+      <div className="pf-tiles">
+        <button type="button" className="pf-tile" onClick={descargar} disabled={bajando}>
+          <span className="pf-ico pf-ico--azul">
+            <Icono d="bajar" />
+          </span>
+          <span className="pf-tile__txt">
+            <b>{bajando ? 'Preparando…' : 'Descargar mis datos'}</b>
+            <span className="lu-small lu-muted">Tu perfil, lo que pagaste, tu parte de cada gasto y tus mensajes, en un archivo.</span>
+          </span>
+        </button>
+        <button type="button" className="pf-tile pf-tile--peligro" onClick={() => setAbierto(true)}>
+          <span className="pf-ico pf-ico--coral">
+            <Icono d="borrar" />
+          </span>
+          <span className="pf-tile__txt">
+            <b>Eliminar mi cuenta</b>
+            <span className="lu-small lu-muted">Se borra tu usuario. Antes te contamos qué pasa con cada cuenta.</span>
+          </span>
+        </button>
       </div>
       {error && (
         <p className="lu-error pf-msg" role="alert">
