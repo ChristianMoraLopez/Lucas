@@ -139,7 +139,7 @@ Abre <http://localhost:3001>, crea tu usuario y agrega estos monitores:
 |---|---|---|---|
 | WhatsApp contador | HTTP(s) | `http://connector:8080/health` | se cerró la sesión del número contador |
 | Cola del worker | HTTP(s) | `http://connector:8080/health/cola` | un trabajo lleva más de 15 min esperando (worker caído u Ollama colgado) |
-| Web | HTTP(s) | `https://tu-app.vercel.app/login` | la web no responde |
+| Web | HTTP(s) | `https://mrluks.com/login` | la web no responde |
 | Supabase | HTTP(s) | `https://xxxx.supabase.co/auth/v1/health` (código esperado 401) | Supabase no responde |
 
 En **Settings → Notifications** configura cómo te avisa (Telegram, correo, Discord…). Si la sesión del contador se cierra desde el teléfono, además queda un aviso en Sentry y en la pantalla de Conectar WhatsApp.

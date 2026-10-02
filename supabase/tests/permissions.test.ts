@@ -169,7 +169,7 @@ describe('cuentas', () => {
     });
   });
 
-  it('create_account deja al creador de owner, con su persona y 8 categorías', async () => {
+  it('create_account deja al creador de owner, con su persona y las 17 categorías de siempre', async () => {
     await as(db, U.nuevo, async (tx) => {
       const { id } = await one<{ id: string }>(tx, `select public.create_account('Viaje a Medellín', 'evento', '2026-11-01', '2026-11-05', 'Pipe') as id`);
       expect(await one(tx, 'select role from public.account_members where account_id = $1 and user_id = auth.uid()', [id])).toEqual({ role: 'owner' });
@@ -178,7 +178,7 @@ describe('cuentas', () => {
         tone: 'morado',
       });
       const cats = await tx.query<{ name: string; tone: string }>('select name, tone from public.categories where account_id = $1 order by letter', [id]);
-      expect(cats.rows).toHaveLength(8);
+      expect(cats.rows).toHaveLength(17);
       expect(cats.rows).toContainEqual({ name: 'Hospedaje', tone: 'turquesa' });
       // El perfil sin nombre (entró con enlace mágico) toma el que escribió
       expect(await one(tx, 'select full_name from public.profiles where id = auth.uid()')).toEqual({ full_name: 'Pipe' });

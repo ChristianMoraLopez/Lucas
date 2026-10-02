@@ -34,7 +34,7 @@ describe('categorías de siempre', () => {
         'select c.name, c.description from public.categories c where c.account_id = $1 order by c.name',
         [cuenta],
       );
-      expect(rows).toHaveLength(8);
+      expect(rows).toHaveLength(17);
       expect(rows.every((r) => r.description?.length > 10)).toBe(true);
       expect(rows.find((r) => r.name === 'Transporte')?.description).toContain('peajes');
     });
@@ -136,5 +136,33 @@ describe('el worker las ve', () => {
       const ej = ejemplos.find((e) => e.category === 'Salud');
       expect(ej?.account_categories).toEqual([{ name: 'Salud', description: 'droguería, citas médicas' }]);
     });
+  });
+});
+
+// Categorías nuevas de siempre (00000000000110_categorias_nuevas.sql)
+describe('las categorías nuevas de siempre', () => {
+  it('llegan a una cuenta que ya existía; una propia con el mismo nombre se vuelve la de siempre', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const propia = await crear(tx, 'educacion', 'colegio de los niños');
+      await tx.exec('reset role');
+      await tx.exec('set local role service_role');
+      const { nuevas } = await one<{ nuevas: number }>(tx, 'select public.add_default_categories($1) as nuevas', [CASA]);
+      expect(nuevas).toBe(8);
+      const { rows } = await tx.query<{ id: string; name: string; is_default: boolean; description: string }>(
+        'select id, name, is_default, description from public.categories where account_id = $1',
+        [CASA],
+      );
+      expect(rows.filter((r) => r.is_default)).toHaveLength(17);
+      // La propia conserva su id (y sus gastos) y su descripción; ahora se llama como la de siempre
+      expect(rows.find((r) => r.id === propia)).toMatchObject({ name: 'Educación', is_default: true, description: 'colegio de los niños' });
+      expect(rows.find((r) => r.name === 'Ocio')?.description).toContain('Netflix');
+      expect(rows.find((r) => r.name === 'Salud')?.description).toContain('Colsanitas');
+      // Correrla otra vez no repite nada
+      expect(await one(tx, 'select public.add_default_categories($1) as nuevas', [CASA])).toEqual({ nuevas: 0 });
+    });
+  });
+
+  it('nadie desde la web la puede llamar', async () => {
+    await expect(as(db, U.valeria, (tx) => tx.query('select public.add_default_categories($1)', [CASA]))).rejects.toThrow('permission denied');
   });
 });

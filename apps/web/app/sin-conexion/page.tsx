@@ -1,4 +1,5 @@
-import { Logo, LottieSlot } from '@/components/lucas-ui';
+import { LogoLink } from '@/components/logo-link';
+import { LottieSlot } from '@/components/lucas-ui';
 
 export const metadata = { title: 'Sin conexión · Luks' };
 
@@ -7,7 +8,7 @@ export default function SinConexionPage() {
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
-        <Logo />
+        <LogoLink />
       </header>
       <div className="ph">
         <LottieSlot name="sin-conexion" width={120} height={120} label="Sin conexión" />

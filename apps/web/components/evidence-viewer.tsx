@@ -1,15 +1,16 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { type PointerEvent, useState } from 'react';
+import { useState } from 'react';
 import { Avatar, type Tone } from '@/components/lucas-ui';
+import { PhotoViewer } from '@/components/photo-viewer';
 import type { MessageKind } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 const KIND_TEXT: Record<MessageKind, string> = { photo: 'mandó una foto', pdf: 'mandó un PDF', text: 'escribió' };
 
 /**
- * La evidencia de un gasto tal como llegó: foto (con zoom), PDF o mensaje.
+ * La evidencia de un gasto tal como llegó: foto (se abre a pantalla completa), PDF o mensaje.
  * Mismo marco que Evidence del kit (clases lu-evi); los archivos salen del
  * bucket privado con una URL firmada que vence en una hora.
  */
@@ -69,7 +70,7 @@ export function EvidenceViewer({
 
       {efectivo === 'photo' &&
         (signed.data ? (
-          <ZoomPhoto src={signed.data} />
+          <PhotoPreview src={signed.data} />
         ) : (
           <div className="lu-evi__photo ev-missing">
             <span>{signed.isError ? 'La foto no está disponible' : 'Cargando la foto…'}</span>
@@ -101,32 +102,22 @@ export function EvidenceViewer({
   );
 }
 
-/** Foto con zoom: un toque acerca al punto tocado y moverse recorre la foto. */
-function ZoomPhoto({ src }: { src: string }) {
-  const [zoom, setZoom] = useState(false);
-  const [origin, setOrigin] = useState('50% 50%');
-
-  const follow = (e: PointerEvent<HTMLButtonElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width) * 100;
-    const y = ((e.clientY - r.top) / r.height) * 100;
-    setOrigin(`${Math.min(100, Math.max(0, x))}% ${Math.min(100, Math.max(0, y))}%`);
-  };
-
+/** La foto entera en su recuadro; al tocarla se abre a pantalla completa (PhotoViewer). */
+function PhotoPreview({ src }: { src: string }) {
+  const [abierta, setAbierta] = useState(false);
   return (
-    <button
-      type="button"
-      className={`lu-evi__photo ev-photo${zoom ? ' is-zoom' : ''}`}
-      onClick={(e) => {
-        follow(e as unknown as PointerEvent<HTMLButtonElement>);
-        setZoom((z) => !z);
-      }}
-      onPointerMove={(e) => zoom && follow(e)}
-      aria-label={zoom ? 'Alejar la foto' : 'Acercar la foto'}
-    >
-      {/* biome-ignore lint/performance/noImgElement: URL firmada de Storage que vence; next/image no aporta aquí */}
-      <img src={src} alt="Foto del recibo" style={{ transformOrigin: origin }} draggable={false} />
-      <span className="ev-hint">{zoom ? 'Toca para alejar' : 'Toca para acercar'}</span>
-    </button>
+    <>
+      <button type="button" className="lu-evi__photo ev-photo" onClick={() => setAbierta(true)} aria-label="Ver la foto del recibo completa">
+        {/* biome-ignore lint/performance/noImgElement: URL firmada de Storage que vence; next/image no aporta aquí */}
+        <img src={src} alt="Foto del recibo" draggable={false} />
+        <span className="ev-hint">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+          Ver completa
+        </span>
+      </button>
+      {abierta && <PhotoViewer src={src} alt="Foto del recibo" onClose={() => setAbierta(false)} />}
+    </>
   );
 }

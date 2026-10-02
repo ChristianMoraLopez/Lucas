@@ -39,6 +39,7 @@ class ClassifyInput:
 class LayaQuestion:
     definition: dict[str, Any]  # {"type": "choice", "instructions": …, "criteria": {etiqueta: descripción}}
     label_to_category: dict[str, str]  # etiqueta de Laya → nombre de la categoría en la base
+    variant: LayaVariant = LayaVariant.MULTILINGUAL
 
     def restricted_to(self, categories: Iterable[str]) -> LayaQuestion:
         """Solo las opciones que la cuenta tiene."""
@@ -56,11 +57,18 @@ class LayaQuestion:
         crit = {k: v for k, v in self.definition["criteria"].items() if self.label_to_category.get(k) in nombres}
         labels = {k: v for k, v in self.label_to_category.items() if k in crit}
         conocidas = set(self.label_to_category.values())
+        # Las de siempre que la pregunta no conoce (un modelo ajustado antes de
+        # que existieran Salud, Ocio…): con su etiqueta y descripción oficiales
+        for nombre in (n for n in nombres if n in BY_NAME and n not in conocidas):
+            c = BY_NAME[nombre]
+            etiqueta = c.label_en if self.variant == LayaVariant.ENGLISH else c.name
+            crit[etiqueta] = c.desc_en if self.variant == LayaVariant.ENGLISH else c.desc_es
+            labels[etiqueta] = nombre
         for nombre in sorted(n for n in nombres if n not in BY_NAME and n not in conocidas):
             etiqueta = nombre if nombre not in crit else f"{nombre} (propia)"
             crit[etiqueta] = ((descriptions or {}).get(nombre) or "").strip() or nombre
             labels[etiqueta] = nombre
-        return LayaQuestion({**self.definition, "criteria": crit}, labels)
+        return LayaQuestion({**self.definition, "criteria": crit}, labels, self.variant)
 
 
 def default_question(variant: LayaVariant) -> LayaQuestion:
@@ -70,14 +78,15 @@ def default_question(variant: LayaVariant) -> LayaQuestion:
     else:
         criteria = {c.name: c.desc_es for c in CATEGORIES}
         labels = {c.name: c.name for c in CATEGORIES}
-    return LayaQuestion({"type": "choice", "instructions": INSTRUCTIONS[variant], "criteria": criteria}, labels)
+    definition = {"type": "choice", "instructions": INSTRUCTIONS[variant], "criteria": criteria}
+    return LayaQuestion(definition, labels, variant)
 
 
 def load_question(variant: LayaVariant, model_dir: Path | None) -> LayaQuestion:
     """La pregunta con la que se entrenó el modelo (lucas_question.json) o la de siempre."""
     if model_dir and (archivo := model_dir / "lucas_question.json").exists():
         data = json.loads(archivo.read_text(encoding="utf-8"))
-        return LayaQuestion(data["question"], dict(data["label_to_category"]))
+        return LayaQuestion(data["question"], dict(data["label_to_category"]), variant)
     return default_question(variant)
 
 

@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { Logo } from '@/components/lucas-ui';
+import { LogoLink } from '@/components/logo-link';
 import { requireUser } from '@/utils/supabase/server';
 import { NewPasswordForm } from './new-password-form';
 
@@ -9,9 +8,7 @@ export default async function NuevaClavePage() {
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
-        <Link href="/" aria-label="Volver a mis cuentas" className="lu-logo-link">
-          <Logo />
-        </Link>
+        <LogoLink />
       </header>
       <div className="nc">
         <div className="ap-intro">

@@ -64,11 +64,11 @@ def scrub(texto: str | None) -> str | None:
 
 
 def gold(label: str, labels: list[str], smoothing: float) -> dict[str, Any]:
-    otros = max(len(labels) - 1, 1)
-    return {
-        "label": label,
-        "probabilities": {k: round(1 - smoothing if k == label else smoothing / otros, 6) for k in labels},
-    }
+    # Las demás reparten el suavizado; la correcta se queda con el resto, para que
+    # la suma dé 1 aunque el redondeo a 6 decimales no reparta exacto (17 opciones)
+    resto = round(smoothing / max(len(labels) - 1, 1), 6)
+    correcta = round(1 - resto * (len(labels) - 1), 6)
+    return {"label": label, "probabilities": {k: correcta if k == label else resto for k in labels}}
 
 
 def is_test(row_id: str, pct: float) -> bool:

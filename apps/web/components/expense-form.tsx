@@ -6,6 +6,7 @@ import { formatCOP } from '@/components/lucas-core';
 import { Button, Chip, Field } from '@/components/lucas-ui';
 import { formatDateCO } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import { notifyAccountChanged } from '@/lib/realtime';
 import { type AccountCategory, type AccountPerson, asTone, type FieldKey, type ReviewExpense } from '@/lib/types';
 import { NuevaCategoria } from './new-category';
 
@@ -114,6 +115,7 @@ export function ExpenseForm({
     });
     setBusy(false);
     if (error) return setError(humanError(error));
+    notifyAccountChanged(accountId);
     onSaved({ merchant: merchant.trim(), category: catOf(categoryId) || null, total, payer: nameOf(payerId), each, n: split.length, date });
   };
 
@@ -123,6 +125,7 @@ export function ExpenseForm({
     setBusy(false);
     setDeleting(false);
     if (error) return setError(humanError(error));
+    notifyAccountChanged(accountId);
     onDeleted();
   };
 

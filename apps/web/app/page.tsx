@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { LogoLink } from '@/components/logo-link';
 import { lucas } from '@/components/lucas-core';
-import { Amount, Avatar, BillCard, Logo, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { Amount, Avatar, BillCard, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { eventMoment, formatRange, monthName, todayInBogota } from '@/lib/dates';
@@ -25,7 +26,7 @@ export default async function AccountPickerPage() {
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
-        <Logo />
+        <LogoLink />
         <span className="ap-me">
           <ThemeToggle />
           <SignOutButton />

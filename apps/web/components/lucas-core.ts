@@ -36,14 +36,24 @@ export function toneFor(name: string): Tone {
   return TONES[h % TONES.length];
 }
 
+// Las 17 de siempre: mismas letras y tonos que public.default_categories (migración 110)
 export const CATEGORIES: Record<string, [string, Tone]> = {
-  Café: ['C', 'naranja'],
-  Licor: ['L', 'morado'],
-  Mercado: ['M', 'verde'],
   Transporte: ['T', 'azul'],
   Hospedaje: ['H', 'turquesa'],
   Restaurante: ['R', 'coral'],
+  Café: ['C', 'naranja'],
+  Mercado: ['M', 'verde'],
+  Licor: ['L', 'morado'],
+  Ocio: ['O', 'azul'],
+  Salud: ['S', 'verde'],
+  Belleza: ['B', 'rosa'],
   Servicios: ['S', 'amarillo'],
+  Hogar: ['H', 'amarillo'],
+  Mascotas: ['M', 'naranja'],
+  Educación: ['E', 'morado'],
+  Ropa: ['R', 'turquesa'],
+  Deporte: ['D', 'coral'],
+  Regalos: ['R', 'rosa'],
   Otros: ['O', 'rosa'],
 };
 
