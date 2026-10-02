@@ -146,7 +146,7 @@ function LeadAccount({ a }: { a: AccountOverview }) {
           {evento ? (
             <>
               {moment}
-              {ended ? ' · falta liquidar' : ''} · <b>{lucas(share)}</b> por cabeza
+              {a.status === 'settling' ? ' · liquidándose' : ended ? ' · falta liquidar' : ''} · <b>{lucas(share)}</b> por cabeza
             </>
           ) : (
             (budgetNote(a) ?? `${plural(a.people_count, 'persona', 'personas')}`)

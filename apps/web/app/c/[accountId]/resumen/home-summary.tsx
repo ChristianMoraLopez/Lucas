@@ -167,6 +167,18 @@ export function HomeSummary({ d }: { d: Dashboard }) {
           )}
         </section>
 
+        <section className="hd-liq" aria-label="Liquidar el mes">
+          <h2 className="lu-title" style={{ margin: 0 }}>
+            ¿Quién le paga a quién?
+          </h2>
+          <p className="lu-small lu-muted" style={{ margin: 0 }}>
+            Lo que puso cada uno en {monthName(d.month).toLowerCase()} y cómo quedan a mano.
+          </p>
+          <Link href={`/c/${d.account.id}/liquidar?mes=${param(d.month)}`} className="lu-btn lu-btn--sm lu-btn--secondary">
+            Liquidar {monthName(d.month).toLowerCase()}
+          </Link>
+        </section>
+
         <section aria-label="Últimos gastos">
           <div className="hd-sec">
             <h2 className="lu-title">Últimos gastos</h2>

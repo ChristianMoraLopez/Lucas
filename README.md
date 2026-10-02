@@ -12,7 +12,7 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 <br />
 
 ![Fase](https://img.shields.io/badge/fases_1_a_5-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-384_pasando-6A35E6?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-408_pasando-6A35E6?style=flat-square)
 ![Demo](https://img.shields.io/badge/demo-mrluks.com-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
@@ -34,13 +34,13 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 
 1. **Mandan** fotos de recibos, PDFs o mensajes («pagué 100 lucas de taxis») al grupo de WhatsApp de siempre.
 2. **Un número contador** de Luks está en el grupo, lo lee todo y lo vuelve gastos: comercio, fecha, total, ítems, categoría y quién pagó.
-3. **En la web** revisan lo que la IA no leyó seguro, corrigen, ven presupuestos y, al final del paseo, Luks dice **quién le paga a quién** con el mínimo de transferencias.
+3. **En la web** revisan lo que la IA no leyó seguro, corrigen, ven presupuestos y, al final del paseo (o de cada mes en la casa), Luks dice **quién le paga a quién** con el mínimo de transferencias.
 
 Hay dos tipos de cuenta:
 
 | | Para qué | Ejemplo |
 |---|---|---|
-| **Hogar** | Continua, con presupuesto mensual por categoría | «Casa», de Valeria y Andrés |
+| **Hogar** | Continua, con presupuesto mensual por categoría; se liquida mes a mes | «Casa», de Valeria y Andrés |
 | **Evento** | Con inicio y fin; termina en una liquidación | «Paseo Santa Marta», 8 amigos, 24 – 28 sep |
 
 ## Así se ve
@@ -91,7 +91,7 @@ Hay dos tipos de cuenta:
         <source media="(prefers-color-scheme: dark)" srcset="lucas-design-kit/capturas/5-liquidacion-noche.png" />
         <img src="lucas-design-kit/capturas/5-liquidacion-dia.png" alt="Liquidación: quién le paga a quién" />
       </picture>
-      <p align="center"><b>Liquidación</b> · fase 6</p>
+      <p align="center"><b>Liquidación</b> · fase 6 ✓</p>
     </td>
   </tr>
 </table>
@@ -128,7 +128,7 @@ flowchart LR
 - [x] **Fase 3 · Subir, revisar y ver.** Subida de fotos (con la cámara del celular), PDFs o texto con compresión en el navegador; bandeja de revisión con evidencia y zoom, confianza por campo, correcciones y tiempo real; memoria de comercios y ejemplos de entrenamiento; resúmenes de hogar (categorías, 6 meses, presupuestos) y de evento (quién puso más); lista de gastos; PWA instalable; animaciones Lottie.
 - [x] **Fase 4 · Worker.** [`services/worker`](services/worker/README.md) en Python reemplaza al procesador simulado: cola con reintentos y registro de errores, QR DIAN, pdfplumber, OpenCV + RapidOCR, Qwen 2.5 con JSON validado por Pydantic, confianza por campo, pagador según el mensaje, memoria de comercios con RapidFuzz, Laya sobre ONNX Runtime (multilingüe o inglés), duplicados por huella y CUFE, export y notebook para ajustar Laya, Docker para Oracle ARM y Sentry.
 - [x] **Fase 5 · WhatsApp.** [`services/connector`](services/connector/README.md) en Node con Baileys detrás de una interfaz que luego puede implementar la API oficial: número contador y vinculaciones personales, reconexión y aviso si una sesión se cierra, credenciales cifradas (AES-256-GCM) en Postgres, enlace grupo-cuenta con «luks CÓDIGO», ingesta solo de grupos enlazados (fotos comprimidas, PDFs y mensajes con montos, sin repetir), «¿Quién es este número?» para los admins, confirmaciones en el grupo con límite de frecuencia y la pantalla «Conecta el grupo de WhatsApp» con estado en vivo. Categorías propias por cuenta («Salud»…) que Laya elige desde el primer gasto. Todo el servidor con [`deploy/docker-compose.yml`](deploy/README.md): connector, worker, Ollama y Uptime Kuma.
-- [ ] **Fase 6 · Números.** Liquidación (quién le paga a quién), edición de presupuestos y exportes (Excel, CSV, PDF).
+- [ ] **Fase 6 · Números.** ✓ [Liquidación](#cómo-se-liquida): cuánto puso cada uno, quién le paga a quién con el mínimo de transferencias, marcarlas pagadas, congelar y cerrar el paseo; el hogar mes a mes; descarga en CSV. Falta: editar presupuestos y exportar a Excel y PDF.
 - [ ] **Fase 7 · Producción.** Consentimiento y borrado de datos (Ley 1581) y retención de evidencias.
 
 ## Cómo llegan los gastos
@@ -141,6 +141,38 @@ Por el **grupo de WhatsApp** (el connector deja en la cola las fotos, PDFs y men
 4. En **Revisar**, un admin corrige y confirma con Enter. Cada corrección alimenta la memoria de comercios y, si cambió la categoría, queda como ejemplo para reentrenar a Laya. Todo se actualiza en vivo con Supabase Realtime.
 
 El **procesador simulado** de la fase 3 atiende la cola hasta que el worker arranca y lo apaga (`worker_take_over()`). Sus funciones siguen en la base para probar en local sin el worker: `select public.run_simulated_worker();` procesa la cola a mano.
+
+## Cómo se liquida
+
+En **Liquidar** (`/c/[cuenta]/liquidar`) cualquiera de la cuenta ve dos cosas:
+
+| | |
+|---|---|
+| **¿Cuánto puso cada uno?** | Lo que pagó, lo que le tocaba (su parte de cada gasto en que participó) y la diferencia: **+** le deben, **−** debe. Al tocar a alguien se ven los gastos que pagó. |
+| **¿Quién le paga a quién?** | El mínimo de transferencias para que todos queden igual: «Andrés le paga a Valeria $282.400», y debajo «282,4 lucas». |
+
+Un ejemplo con el paseo de la semilla: gastaron $4.816.000 entre 8, así que a cada uno le tocaba $602.000. Mafe pagó $1.400.000, así que le devuelven $798.000. Caro no pagó nada, así que pone $602.000. Luego se cruzan las deudas para que haya las menos transferencias posibles.
+
+1. **Vista previa.** Mientras no se liquida, la pantalla muestra cómo quedarían las transferencias y se actualiza con cada gasto nuevo.
+2. **Liquidar.** Lo hace un admin cuando no queda nada por revisar. `start_settlement` vuelve a calcular los saldos en la base, verifica que las transferencias dejen a todos en cero y las guarda. Desde ahí lo liquidado queda **congelado**: el monto, quién pagó, la fecha y la división de esos gastos no cambian. Un trigger lo impide, también para el worker. El comercio y la categoría sí se siguen corrigiendo.
+3. **Marcar pagadas.** Quien paga, quien recibe o un admin marca cada transferencia, y los demás lo ven al instante.
+4. **Cerrar** (paseo). Con todo pagado, «Cerrar paseo» lo archiva en solo lectura y vence las invitaciones. Un paseo con gastos ya no se puede cerrar sin liquidarlo.
+
+| | Evento | Hogar |
+|---|---|---|
+| Qué se liquida | Todo el paseo | Un mes a la vez (‹ Septiembre 2026 ›) |
+| Mientras se liquida | No entran gastos nuevos, ni por WhatsApp ni por la web | Los demás meses siguen abiertos |
+| Al final | Se cierra y queda archivado | El mes queda saldado |
+
+**¿Se equivocaron?** Mientras nadie haya pagado, un admin puede **reabrir**: se borran las transferencias y todo se vuelve a poder corregir.
+
+**Qué cuenta.** Los gastos por revisar cuentan en la vista previa, pero hay que revisarlos antes de liquidar. Los que no tienen quién pagó o tienen la división incompleta no cuentan hasta corregirlos, y la pantalla avisa cuántos son.
+
+**El algoritmo** ([`apps/web/lib/settlement.ts`](apps/web/lib/settlement.ts)). El mínimo de transferencias es *n − g*: *n* son las personas con saldo y *g* el mayor número de grupos que se saldan entre ellos. Se busca exacto con programación dinámica sobre subconjuntos, que es instantáneo hasta 20 personas con saldo; con más se usa el método voraz, que da como mucho *n − 1*. Todo va en pesos enteros: los pesos que sobran al dividir se reparten uno a uno, así que nada se pierde por redondeo.
+
+**Descargar.** Un CSV para Excel (separado por «;» y con tildes) con los saldos, las transferencias y cada gasto con la parte de cada uno.
+
+Todo está en [`00000000000120_liquidacion.sql`](supabase/migrations/00000000000120_liquidacion.sql): tablas `settlements` y `settlement_transfers`, `settlement_overview`, `start_settlement`, `mark_transfer`, `reopen_settlement` y `close_account`. Las pruebas del flujo completo están en `supabase/tests/liquidacion.test.ts`.
 
 ## Stack
 
@@ -163,13 +195,13 @@ lucas/
 ├── apps/web/              Next.js: lo que ven los usuarios
 │   ├── app/               rutas (login, selector, unirse, /c/[cuenta]/…)
 │   ├── components/        componentes del kit de diseño
-│   ├── lib/               fechas, invitaciones, compresión, tiempo real, tipos (+ pruebas)
+│   ├── lib/               fechas, invitaciones, compresión, liquidación, tiempo real, tipos (+ pruebas)
 │   ├── public/lottie/     animaciones de LottieFiles recoloreadas a la paleta del kit
 │   └── styles/            tokens.css y lucas.css del kit + app.css
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             151 pruebas de permisos, subidas, worker, WhatsApp, categorías y semilla (PGlite)
+│   ├── tests/             160 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -191,8 +223,8 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 151 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
-pnpm test         # todo el monorepo (incluye las pruebas de apps/web/lib)
+pnpm db:test      # 160 pruebas de RLS, RPC, Storage, cola del worker, liquidación y semilla sobre Postgres real (PGlite), sin Docker
+pnpm test         # todo el monorepo (incluye las 37 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
 pnpm typecheck    # tipos de rutas de Next + tsc

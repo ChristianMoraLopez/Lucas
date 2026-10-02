@@ -140,8 +140,8 @@ describe('submit_upload', () => {
   it('nadie sube a una cuenta ajena ni a una cerrada', async () => {
     await expect(as(db, U.santi, (tx) => tx.query(`select public.submit_upload($1, 'text', 'hola 20 lucas')`, [CASA]))).rejects.toThrow('No eres miembro');
     await as(db, U.valeria, async (tx) => {
-      await tx.query('select public.close_account($1)', [PASEO]);
-      await expect(tx.query(`select public.submit_upload($1, 'text', 'hola 20 lucas')`, [PASEO])).rejects.toThrow('cerrada');
+      await tx.query('select public.close_account($1)', [CASA]);
+      await expect(tx.query(`select public.submit_upload($1, 'text', 'hola 20 lucas')`, [CASA])).rejects.toThrow('cerrada');
     });
   });
 

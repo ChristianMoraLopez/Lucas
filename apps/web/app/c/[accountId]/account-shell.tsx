@@ -9,7 +9,7 @@ import { useAccountChanges } from '@/lib/realtime';
 import { type AccountType, accountGlyph, accountTone } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
-// Mismas pestañas que TABS_EVENTO / TABS_HOGAR del kit
+// Las pestañas de TABS_EVENTO / TABS_HOGAR del kit; el hogar también liquida (mes a mes)
 const TABS: Record<AccountType, { id: string; label: string }[]> = {
   evento: [
     { id: 'resumen', label: 'Resumen' },
@@ -22,7 +22,8 @@ const TABS: Record<AccountType, { id: string; label: string }[]> = {
     { id: 'resumen', label: 'Resumen' },
     { id: 'revisar', label: 'Revisar' },
     { id: 'gastos', label: 'Gastos' },
-    { id: 'presupuestos', label: 'Presupuestos' },
+    { id: 'liquidar', label: 'Liquidar' },
+    { id: 'presupuestos', label: 'Presupuesto' },
     { id: 'personas', label: 'Personas' },
   ],
 };
