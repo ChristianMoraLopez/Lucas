@@ -3,6 +3,7 @@ import { CODE_RE, formatCOP, formatCode, lucas } from '@/components/lucas-core';
 import { callbackUrl, nextFromRedirectTo, safeNext } from './auth';
 import { eventMoment, formatDay, formatRange, monthName } from './dates';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from './invite';
+import { normalizarBusqueda, uuidOrNull } from './search';
 import { formatWaNumber, numeroParaCodigo } from './types';
 
 describe('formatCOP / lucas', () => {
@@ -151,5 +152,20 @@ describe('número de WhatsApp para el código de vinculación', () => {
     expect(numeroParaCodigo('1234')).toBeNull();
     expect(numeroParaCodigo('')).toBeNull();
     expect(numeroParaCodigo('1234567890123456')).toBeNull();
+  });
+});
+
+describe('buscar gastos', () => {
+  it('sin tildes ni mayúsculas, como merchant_normalized', () => {
+    expect(normalizarBusqueda('  Panadería LA Espiga ')).toBe('panaderia la espiga');
+    expect(normalizarBusqueda('Droguería (Cruz Verde), 50%')).toBe('drogueria cruz verde 50');
+    expect(normalizarBusqueda('H&M')).toBe('h&m');
+    expect(normalizarBusqueda(null)).toBe('');
+  });
+
+  it('solo ids con forma de uuid en la URL', () => {
+    expect(uuidOrNull('30000000-0000-4000-8000-000000000009')).toBe('30000000-0000-4000-8000-000000000009');
+    expect(uuidOrNull("1' or 1=1")).toBeNull();
+    expect(uuidOrNull(['a'])).toBeNull();
   });
 });

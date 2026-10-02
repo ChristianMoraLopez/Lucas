@@ -12,10 +12,12 @@ import { Button, CodeInput, Divider, Field, Person } from '@/components/lucas-ui
 import { formatDay, isRecent, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
+import { notifyAccountChanged } from '@/lib/realtime';
 import { type AccountType, asTone, type Invitation, type PersonRow, plural, ROLE_HELP, ROLE_LABEL, type Role } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
+import { QuitarPersona } from './quitar-persona';
 
-type Confirm = { kind: 'remove'; userId: string; name: string } | { kind: 'leave' } | null;
+type Confirm = { kind: 'leave' } | null;
 
 const ROLE_ORDER: Record<Role, number> = { owner: 0, admin: 1, member: 2 };
 
@@ -44,6 +46,7 @@ export function MembersScreen({
 
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [quitar, setQuitar] = useState<PersonRow | null>(null);
   const [oldCode, setOldCode] = useState<string | null>(null);
 
   const people = useQuery({
@@ -104,25 +107,39 @@ export function MembersScreen({
     onError,
   });
 
-  const removeOrLeave = useMutation({
-    mutationFn: async (c: NonNullable<Confirm>) => {
-      const { error } =
-        c.kind === 'remove'
-          ? await supabase.rpc('remove_member', { p_account_id: accountId, p_user_id: c.userId })
-          : await supabase.rpc('leave_account', { p_account_id: accountId });
+  const leave = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('leave_account', { p_account_id: accountId });
       if (error) throw error;
-      return c.kind;
     },
     onMutate: () => setError(null),
-    onSuccess: (kind) => {
+    onSuccess: () => {
       setConfirm(null);
-      if (kind === 'leave') {
-        router.push('/');
-        router.refresh();
-      } else refresh();
+      router.push('/');
+      router.refresh();
     },
     onError: (e) => {
       setConfirm(null);
+      onError(e);
+    },
+  });
+
+  // Sacar (deja de ver la cuenta) o eliminar y pasar sus gastos a otra persona
+  const quitarMut = useMutation({
+    mutationFn: async (q: { persona: PersonRow; a?: string; whatsapp?: boolean }) => {
+      const { error } = q.a
+        ? await supabase.rpc('delete_person', { p_person_id: q.persona.person_id, p_reassign_to: q.a, p_move_whatsapp: q.whatsapp ?? false })
+        : await supabase.rpc('remove_member', { p_account_id: accountId, p_user_id: q.persona.user_id });
+      if (error) throw error;
+    },
+    onMutate: () => setError(null),
+    onSuccess: () => {
+      setQuitar(null);
+      refresh();
+      notifyAccountChanged(accountId);
+    },
+    onError: (e) => {
+      setQuitar(null);
       onError(e);
     },
   });
@@ -171,7 +188,7 @@ export function MembersScreen({
                 myRole={myRole}
                 busy={setRole.isPending}
                 onRole={(role) => setRole.mutate({ userId: p.user_id as string, role })}
-                onRemove={() => setConfirm({ kind: 'remove', userId: p.user_id as string, name: p.display_name })}
+                onRemove={closed ? undefined : () => setQuitar(p)}
               />
             </li>
           ))}
@@ -189,6 +206,11 @@ export function MembersScreen({
                     registered={false}
                     sub={p.wa_last4 ? `Solo en WhatsApp · +57 ••• ${p.wa_last4}` : 'Sin cuenta todavía'}
                   />
+                  {isAdmin && !closed && (
+                    <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
+                      Quitar…
+                    </Button>
+                  )}
                   {isAdmin && current && link && (
                     <a
                       className="lu-btn lu-btn--outline lu-btn--sm"
@@ -286,15 +308,25 @@ export function MembersScreen({
       <ConfirmDialog
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title={confirm?.kind === 'remove' ? `¿Sacar a ${confirm.name}?` : '¿Salir de esta cuenta?'}
-        confirmLabel={confirm?.kind === 'remove' ? 'Sacar' : 'Salir'}
-        busy={removeOrLeave.isPending}
-        onConfirm={() => confirm && removeOrLeave.mutate(confirm)}
+        title="¿Salir de esta cuenta?"
+        confirmLabel="Salir"
+        busy={leave.isPending}
+        onConfirm={() => leave.mutate()}
       >
-        {confirm?.kind === 'remove'
-          ? `Deja de ver la cuenta. Sus gastos siguen contando y su nombre queda «sin cuenta», por si vuelve a entrar con un código.`
-          : `Dejas de ver «${accountName}». Tus gastos siguen contando; si vuelves a entrar con un código, eliges tu nombre otra vez.`}
+        {`Dejas de ver «${accountName}». Tus gastos siguen contando; si vuelves a entrar con un código, eliges tu nombre otra vez.`}
       </ConfirmDialog>
+
+      {quitar && (
+        <QuitarPersona
+          key={quitar.person_id ?? quitar.user_id}
+          persona={quitar}
+          otras={rows.filter((r) => r.person_id && r.person_id !== quitar.person_id)}
+          busy={quitarMut.isPending}
+          onClose={() => setQuitar(null)}
+          onSacar={() => quitarMut.mutate({ persona: quitar })}
+          onEliminar={(a, whatsapp) => quitarMut.mutate({ persona: quitar, a, whatsapp })}
+        />
+      )}
     </div>
   );
 }
@@ -308,8 +340,9 @@ function memberSub(p: PersonRow) {
 }
 
 /**
- * Titular: fijo. Quien administra ve un selector con las opciones que el RPC
- * le permite (un admin nombra admins pero no baja ni saca a otro admin).
+ * Titular: fijo. Quien administra ve el selector de rol con lo que el RPC le
+ * permite (un admin nombra admins pero no baja ni quita a otro admin) y el
+ * botón «Quitar…» (sacar de la cuenta, o eliminar y pasar sus gastos).
  */
 function RoleControl({
   person,
@@ -322,23 +355,24 @@ function RoleControl({
   myRole: Role;
   busy: boolean;
   onRole: (role: Role) => void;
-  onRemove: () => void;
+  /** undefined: la cuenta está cerrada y ya no se quita a nadie */
+  onRemove?: () => void;
 }) {
   const role = person.role as Role;
   const canManage = !person.is_me && role !== 'owner' && (myRole === 'owner' || (myRole === 'admin' && role === 'member'));
   if (!canManage) return <span className={`lu-role lu-role--${role}`}>{ROLE_LABEL[role]}</span>;
   return (
-    <select
-      className="mb-role"
-      aria-label={`Rol de ${person.display_name}`}
-      value={role}
-      disabled={busy}
-      onChange={(e) => (e.target.value === 'sacar' ? onRemove() : onRole(e.target.value as Role))}
-    >
-      <option value="admin">Admin</option>
-      <option value="member">Miembro</option>
-      <option value="sacar">Sacar de la cuenta…</option>
-    </select>
+    <span className="mb-manage">
+      <select className="mb-role" aria-label={`Rol de ${person.display_name}`} value={role} disabled={busy} onChange={(e) => onRole(e.target.value as Role)}>
+        <option value="admin">Admin</option>
+        <option value="member">Miembro</option>
+      </select>
+      {onRemove && (
+        <Button variant="ghost" size="sm" onClick={onRemove} aria-label={`Quitar a ${person.display_name}`}>
+          Quitar…
+        </Button>
+      )}
+    </span>
   );
 }
 

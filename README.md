@@ -12,7 +12,7 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 <br />
 
 ![Fase](https://img.shields.io/badge/fases_1_a_5-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-408_pasando-6A35E6?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-416_pasando-6A35E6?style=flat-square)
 ![Demo](https://img.shields.io/badge/demo-mrluks.com-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
@@ -138,7 +138,7 @@ Por el **grupo de WhatsApp** (el connector deja en la cola las fotos, PDFs y men
 1. **Subir** (`/c/[cuenta]/subir` o el atajo «Subir un recibo» de la PWA): la foto se comprime en el navegador (1600 px, WebP o JPEG) y va al bucket privado `evidencias`, en la carpeta de la cuenta. También sirven PDFs o un mensaje como «taxis al aeropuerto 100 lucas, la pagó Santi».
 2. `submit_upload` verifica que el archivo exista y que la persona sea de la cuenta, y crea el **mensaje** y el **trabajo** en la cola (`jobs`).
 3. El **worker** ([`services/worker`](services/worker/README.md), en el servidor ARM) toma el trabajo, lee la foto, el PDF o el texto (QR DIAN, OCR, reglas y Qwen), valida, decide quién pagó, clasifica (memoria de comercios → Laya) y deja el gasto con confianza por campo. Si la cuenta ya conoce el comercio y todo se leyó seguro, lo confirma solo; si no, va a **Revisar**. Si es la misma foto o la misma factura (CUFE), el mensaje queda como «Ya estaba registrado».
-4. En **Revisar**, un admin corrige y confirma con Enter. Cada corrección alimenta la memoria de comercios y, si cambió la categoría, queda como ejemplo para reentrenar a Laya. Todo se actualiza en vivo con Supabase Realtime.
+4. En **Revisar**, un admin corrige y confirma con Enter. En **Gastos** se buscan por comercio (sin importar tildes) y se filtran por categoría, quién pagó, mes o «por revisar». Cada corrección alimenta la memoria de comercios y, si cambió la categoría, queda como ejemplo para reentrenar a Laya. Todo se actualiza en vivo con Supabase Realtime.
 
 El **procesador simulado** de la fase 3 atiende la cola hasta que el worker arranca y lo apaga (`worker_take_over()`). Sus funciones siguen en la base para probar en local sin el worker: `select public.run_simulated_worker();` procesa la cola a mano.
 
@@ -201,7 +201,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             160 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación y semilla (PGlite)
+│   ├── tests/             166 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación, personas y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -223,8 +223,8 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 160 pruebas de RLS, RPC, Storage, cola del worker, liquidación y semilla sobre Postgres real (PGlite), sin Docker
-pnpm test         # todo el monorepo (incluye las 37 de apps/web/lib, entre ellas el mínimo de transferencias)
+pnpm db:test      # 166 pruebas de RLS, RPC, Storage, cola del worker, liquidación y semilla sobre Postgres real (PGlite), sin Docker
+pnpm test         # todo el monorepo (incluye las 39 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
 pnpm typecheck    # tipos de rutas de Next + tsc
