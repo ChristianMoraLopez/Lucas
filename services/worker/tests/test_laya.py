@@ -22,7 +22,7 @@ from lucas_worker.classify import laya_format as lf
 from lucas_worker.classify.categories import BY_NAME, CATEGORIES
 from lucas_worker.classify.classifier import Category, CategoryClassifier
 from lucas_worker.classify.laya import HfLikeTokenizer, LayaOnnx, LayaUnavailable, load_laya
-from lucas_worker.classify.question import ClassifyInput, build_state, default_question
+from lucas_worker.classify.question import ClassifyInput, LayaQuestion, build_state, default_question
 from lucas_worker.config import LayaVariant
 
 from .conftest import make_settings
@@ -133,8 +133,13 @@ def test_modelo_ajustado_trae_su_pregunta_y_sin_techo(carpeta_laya):
     cfg = json.loads((carpeta_laya / "rl_agent_config.json").read_text())
     (carpeta_laya / "rl_agent_config.json").write_text(json.dumps({**cfg, "fine_tuned": True}))
     laya = LayaOnnx(carpeta_laya, LayaVariant.MULTILINGUAL, zero_shot_max_confidence=0.5)
-    pred = laya.predict(ClassifyInput(merchant="x"), [c.name for c in CATEGORIES])
-    assert set(pred.probabilities) == {"Mercado", "Otros"}
+    pred = laya.predict(ClassifyInput(merchant="x"), ["Mercado", "Otros", "Salud"])
+    # Las que conoce van con su pregunta; las de siempre que no conocía, con la oficial
+    assert set(pred.probabilities) == {"Mercado", "Otros", "Salud"}
+    assert laya.question.for_account(["Mercado", "Salud"]).definition["criteria"] == {
+        "Mercado": "tiendas",
+        "Salud": BY_NAME["Salud"].desc_es,
+    }
     assert laya.fine_tuned and pred.confidence > 0.5
 
 
@@ -223,21 +228,39 @@ def test_formato_igual_al_paquete_oficial(carpeta_laya):
 
 def test_categorias_propias_entran_como_opciones_descritas():
     q = default_question(LayaVariant.MULTILINGUAL).for_account(
-        ["Mercado", "Otros", "Salud", "Mascotas"], {"Salud": "droguería, EPS", "Mascotas": None}
+        ["Mercado", "Otros", "Plantas", "Moto"], {"Plantas": "vivero, matas, abono", "Moto": None}
     )
     assert q.definition["criteria"] == {
         "Mercado": BY_NAME["Mercado"].desc_es,
         "Otros": BY_NAME["Otros"].desc_es,
-        "Mascotas": "Mascotas",
-        "Salud": "droguería, EPS",
+        "Moto": "Moto",
+        "Plantas": "vivero, matas, abono",
     }
-    assert q.label_to_category["Salud"] == "Salud"
+    assert q.label_to_category["Plantas"] == "Plantas"
     # En la variante inglesa también (la descripción va como la escribieron)
-    en = default_question(LayaVariant.ENGLISH).for_account(["Mercado", "Salud"], {"Salud": "droguería, EPS"})
-    assert en.label_to_category == {"groceries": "Mercado", "Salud": "Salud"}
+    en = default_question(LayaVariant.ENGLISH).for_account(["Mercado", "Plantas"], {"Plantas": "vivero"})
+    assert en.label_to_category == {"groceries": "Mercado", "Plantas": "Plantas"}
+
+
+def test_las_de_siempre_nuevas_entran_aunque_el_modelo_no_las_conozca():
+    """Un modelo ajustado con las 8 de antes (su lucas_question.json) recibe Salud, Ocio…
+    con la descripción oficial, no como categoría propia sin describir."""
+    viejas = ["Café", "Licor", "Mercado", "Transporte", "Hospedaje", "Restaurante", "Servicios", "Otros"]
+    for variante in (LayaVariant.MULTILINGUAL, LayaVariant.ENGLISH):
+        base = default_question(variante)
+        crit = {k: v for k, v in base.definition["criteria"].items() if base.label_to_category[k] in viejas}
+        vieja = LayaQuestion(
+            {**base.definition, "criteria": crit}, {k: base.label_to_category[k] for k in crit}, variante
+        )
+        q = vieja.for_account(["Mercado", "Salud", "Ocio"], {"Salud": "otra cosa"})
+        assert sorted(q.label_to_category.values()) == ["Mercado", "Ocio", "Salud"]
+        ingles = variante == LayaVariant.ENGLISH
+        assert q.definition["criteria"]["health" if ingles else "Salud"] == (
+            BY_NAME["Salud"].desc_en if ingles else BY_NAME["Salud"].desc_es
+        )
 
 
 def test_laya_elige_una_categoria_propia(carpeta_laya):
     laya = LayaOnnx(carpeta_laya, LayaVariant.MULTILINGUAL)
-    pred = laya.predict(ClassifyInput(merchant="x"), ["Café", "Otros", "Salud"], {"Salud": "droguería"})
-    assert set(pred.probabilities) == {"Café", "Otros", "Salud"}
+    pred = laya.predict(ClassifyInput(merchant="x"), ["Café", "Otros", "Plantas"], {"Plantas": "vivero"})
+    assert set(pred.probabilities) == {"Café", "Otros", "Plantas"}

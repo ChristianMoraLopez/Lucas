@@ -99,10 +99,16 @@ iframe {
   background: var(--coral-texto);
 }
 
+/* El logo de arriba (components/logo-link.tsx): un toque a las cuentas, tres repiten la animación */
 .lu-logo-link {
+  display: inline-flex;
+  align-items: center;
   color: inherit;
   text-decoration: none;
   border-radius: var(--radius-sm);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
 }
 .lu-logo-link:focus-visible {
   outline: 2px solid var(--foco);
@@ -1498,32 +1504,42 @@ iframe {
   cursor: zoom-in;
   color: inherit;
 }
+/* El recibo entero dentro del recuadro (alto fijo en Revisar, 300 px mínimo en
+   el detalle): con max-height: 100% la grilla crecía con la foto y la cortaba */
 .ev-photo img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  transition: transform var(--dur-base) var(--ease-out);
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
-}
-.ev-photo.is-zoom {
-  cursor: zoom-out;
-}
-.ev-photo.is-zoom img {
-  transform: scale(2.4);
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2);
+  box-sizing: border-box;
+  object-fit: contain;
 }
 .ev-hint {
   position: absolute;
   z-index: 2;
   bottom: 10px;
   right: 10px;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--tinta-fija) 70%, transparent);
+  background: color-mix(in srgb, var(--tinta-fija) 72%, transparent);
   color: var(--on-verde);
+}
+.ev-hint svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .ev-missing {
   color: var(--borde);
@@ -1539,11 +1555,6 @@ iframe {
 .ev-open {
   color: var(--verde);
   font-weight: 800;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ev-photo img {
-    transition: none;
-  }
 }
 
 /* ---------- subir un gasto ---------- */
@@ -2406,4 +2417,156 @@ iframe {
   font-family: var(--font-display);
   font-weight: 800;
   color: var(--morado);
+}
+
+/* ---------- visor de fotos a pantalla completa (components/photo-viewer.tsx) ---------- */
+/* Siempre oscuro, como cualquier visor de fotos: el recibo es lo que se ve */
+.pv {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #120e1a;
+  color: #fff;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.pv::backdrop {
+  background: #120e1a;
+}
+/* La foto vive entre las dos barras: entera, no queda nada tapado */
+.pv-stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(env(safe-area-inset-top) + 62px);
+  bottom: calc(env(safe-area-inset-bottom) + 78px);
+  overflow: hidden;
+  touch-action: none;
+  cursor: zoom-in;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pv-stage.is-zoom {
+  cursor: grab;
+}
+.pv-stage.is-zoom.is-drag {
+  cursor: grabbing;
+}
+.pv-img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+  -webkit-user-drag: none;
+  will-change: transform;
+}
+.pv-img.is-cargando {
+  max-width: 100%;
+  max-height: 100%;
+  opacity: 0;
+}
+.pv-img.is-suave {
+  transition: transform 200ms var(--ease-out);
+}
+.pv-top,
+.pv-tools {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  pointer-events: none;
+}
+.pv-top > *,
+.pv-tools > * {
+  pointer-events: auto;
+}
+.pv-top {
+  top: 0;
+  justify-content: space-between;
+  height: calc(env(safe-area-inset-top) + 62px);
+  padding-top: env(safe-area-inset-top);
+}
+.pv-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+.pv-tools {
+  bottom: 0;
+  justify-content: center;
+  height: calc(env(safe-area-inset-bottom) + 78px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pv-btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  min-width: 46px;
+  height: 46px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.pv-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+.pv-btn:focus-visible {
+  outline: 3px solid var(--amarillo);
+  outline-offset: 2px;
+}
+.pv-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pv-btn--txt {
+  min-width: 84px;
+  font-variant-numeric: tabular-nums;
+}
+.pv-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pv-hint {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(18, 14, 26, 0.8);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-img.is-suave {
+    transition: none;
+  }
 }

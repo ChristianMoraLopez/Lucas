@@ -12,8 +12,8 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 <br />
 
 ![Fase](https://img.shields.io/badge/fases_1_a_5-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-352_pasando-6A35E6?style=flat-square)
-![Demo](https://img.shields.io/badge/demo-lucas--tau--black.vercel.app-1C1433?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-384_pasando-6A35E6?style=flat-square)
+![Demo](https://img.shields.io/badge/demo-mrluks.com-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
 
@@ -169,7 +169,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             148 pruebas de permisos, subidas, worker, WhatsApp, categorías y semilla (PGlite)
+│   ├── tests/             151 pruebas de permisos, subidas, worker, WhatsApp, categorías y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -191,10 +191,10 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 148 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 151 pruebas de RLS, RPC, Storage, cola del worker y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las pruebas de apps/web/lib)
-pnpm worker:test  # 125 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
-pnpm --filter @lucas/connector test   # 59 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
+pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
+pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
 pnpm typecheck    # tipos de rutas de Next + tsc
 pnpm lint         # Biome
 ```
@@ -225,8 +225,8 @@ En **Authentication → URL Configuration** ([atajo al proyecto Luks](https://su
 
 | Campo | Valor |
 |---|---|
-| **Site URL** | `https://lucas-tau-black.vercel.app` (o tu dominio propio). **Nunca** `localhost` en el proyecto remoto. |
-| **Redirect URLs** | `https://lucas-tau-black.vercel.app/**` · `http://localhost:3000/**` · y, si usas previews de Vercel, `https://lucas-*-tu-equipo.vercel.app/**` |
+| **Site URL** | `https://mrluks.com`. **Nunca** `localhost` en el proyecto remoto. |
+| **Redirect URLs** | `https://mrluks.com/**` · `https://www.mrluks.com/**` · `https://lucas-tau-black.vercel.app/**` · `http://localhost:3000/**` · y, si usas previews de Vercel, `https://lucas-*-tu-equipo.vercel.app/**` |
 
 > **¿Google o el enlace del correo te llevan a `localhost` en el celular?** Es esto. La web le pide a Supabase volver a `https://<donde-estés>/auth/callback`; si esa URL no está en *Redirect URLs*, Supabase la ignora y usa la *Site URL*. Si la Site URL quedó en `http://localhost:3000`, en tu PC parece que funciona (ahí corre la app) y en cualquier otro lado falla. Los correos de entrar, confirmar y recuperar contraseña también usan la Site URL (`{{ .SiteURL }}` en las plantillas), así que se arreglan con el mismo cambio. En Google Cloud no hay que tocar nada: su URI de redirección es la de Supabase (`https://<project-ref>.supabase.co/auth/v1/callback`).
 

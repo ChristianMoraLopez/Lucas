@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Logo } from '@/components/lucas-ui';
+import { LogoLink } from '@/components/logo-link';
 import { type AccountOverview, accountGlyph, accountTone } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
@@ -14,9 +14,7 @@ export default async function SubirAtajoPage() {
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
-        <Link href="/" aria-label="Volver a mis cuentas" className="lu-logo-link">
-          <Logo />
-        </Link>
+        <LogoLink />
       </header>
       <div className="nc">
         <div className="ap-intro">

@@ -817,6 +817,7 @@ export function AppShell({
   onTab,
   children,
   onAccount,
+  brand,
 }: {
   account?: string;
   accountTone?: Tone;
@@ -826,6 +827,8 @@ export function AppShell({
   onTab?: (id: string) => void;
   onAccount?: () => void;
   children?: React.ReactNode;
+  /** Lo que va a la izquierda de la barra; por defecto el logo */
+  brand?: React.ReactNode;
 }) {
   const tabEls = tabs.map((t) => (
     <button type="button" key={t.id} className="lu-tab" aria-current={t.id === active ? 'page' : undefined} onClick={() => onTab?.(t.id)}>
@@ -837,7 +840,7 @@ export function AppShell({
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
-        <Logo />
+        {brand ?? <Logo />}
         {account && (
           <button type="button" className="lu-app__acct" onClick={onAccount} aria-label={`${account}: cambiar de cuenta`}>
             <span className="lu-cat__glyph" style={toneVars(accountTone)} aria-hidden="true">

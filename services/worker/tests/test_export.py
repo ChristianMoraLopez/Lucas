@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import export_training as ex
 
 from lucas_worker.classify import laya_format as lf
+from lucas_worker.classify.categories import CATEGORIES
 from lucas_worker.config import LayaVariant
 
 EJEMPLOS = [
@@ -36,7 +37,7 @@ EJEMPLOS = [
         "extracted_text": "PANADERIA LA ESPIGA\nNIT 900.123.456-7\nTOTAL 11.300",
         "items": [],
     },
-    {"id": "ex:3", "category": "Mascotas", "merchant": "Veterinaria"},  # categoría propia de una cuenta
+    {"id": "ex:3", "category": "Plantas", "merchant": "Vivero"},  # categoría propia de una cuenta
     {"id": "ex:4", "category": "Otros", "merchant": None, "description": None},
 ]
 
@@ -44,14 +45,14 @@ EJEMPLOS = [
 def test_filas_en_formato_typed_decisions():
     filas, saltados = ex.build_rows(EJEMPLOS, LayaVariant.MULTILINGUAL, smoothing=0.05)
     assert [f["id"] for f in filas] == ["te:1", "ex:2"]
-    assert saltados == {"categoria propia: Mascotas": 1, "sin texto": 1}
+    assert saltados == {"categoria propia: Plantas": 1, "sin texto": 1}
     fila = filas[0]
     state, questions, gold = (json.loads(fila[k]) for k in ("state", "questions", "gold"))
     assert fila["workflow"] == "lucas-categoria"
     assert questions["category"]["type"] == "choice" and "Mercado" in questions["category"]["criteria"]
     assert gold["category"]["label"] == "Mercado"
     assert abs(sum(gold["category"]["probabilities"].values()) - 1) < 1e-6
-    assert gold["category"]["probabilities"]["Mercado"] == 0.95
+    assert abs(gold["category"]["probabilities"]["Mercado"] - 0.95) < 1e-4
     assert state["comercio"] == "Tienda Doña Rosa" and state["items"] == ["Agua x6", "Papas"]
 
 
@@ -80,7 +81,7 @@ def test_el_notebook_puede_leer_cada_fila_como_el_oficial():
         interna = {"t": q["type"], "ins": q["instructions"], "crit": q["criteria"]}
         opciones = lf.render_options(interna)
         probs = json.loads(f["gold"])["category"]["probabilities"]
-        assert len(opciones) == len(probs) == 8
+        assert len(opciones) == len(probs) == len(CATEGORIES)
         assert list(q["criteria"]) == list(probs)
 
 
@@ -90,7 +91,7 @@ def test_archivos_y_particion_estable(tmp_path):
     d = tmp_path / "multilingual"
     assert {p.name for p in d.iterdir()} == {"train.jsonl", "test.jsonl", "lucas_question.json", "stats.json"}
     assert stats["train"] + stats["test"] == 2
-    pregunta = json.loads((d / "lucas_question.json").read_text())
+    pregunta = json.loads((d / "lucas_question.json").read_text(encoding="utf-8"))
     assert pregunta["label_to_category"]["Café"] == "Café"
     assert ex.is_test("te:1", 0.5) == ex.is_test("te:1", 0.5)
 
@@ -106,14 +107,14 @@ def test_desde_json_sin_supabase(tmp_path):
 def test_categorias_propias_entran_con_las_opciones_de_su_cuenta():
     ejemplo = {
         "id": "te:9",
-        "category": "Mascotas",
-        "merchant": "Veterinaria Patitas",
-        "account_categories": [{"name": "Mascotas", "description": "veterinaria, concentrado"}],
+        "category": "Plantas",
+        "merchant": "Vivero El Edén",
+        "account_categories": [{"name": "Plantas", "description": "vivero, matas, abono"}],
     }
     filas, saltados = ex.build_rows([ejemplo], LayaVariant.MULTILINGUAL, smoothing=0.05)
     assert not saltados
     questions, gold = (json.loads(filas[0][k]) for k in ("questions", "gold"))
     criterios = questions["category"]["criteria"]
-    assert criterios["Mascotas"] == "veterinaria, concentrado" and "Mercado" in criterios
-    assert gold["category"]["label"] == "Mascotas"
+    assert criterios["Plantas"] == "vivero, matas, abono" and "Mercado" in criterios
+    assert gold["category"]["label"] == "Plantas"
     assert abs(sum(gold["category"]["probabilities"].values()) - 1) < 1e-6

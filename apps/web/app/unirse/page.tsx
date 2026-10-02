@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { Logo } from '@/components/lucas-ui';
+import { LogoLink } from '@/components/logo-link';
 import { requireUser } from '@/utils/supabase/server';
 import { JoinFlow } from './join-flow';
 
@@ -14,9 +13,7 @@ export default async function JoinPage({ searchParams }: PageProps<'/unirse'>) {
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
-        <Link href="/" aria-label="Volver a mis cuentas" className="lu-logo-link">
-          <Logo />
-        </Link>
+        <LogoLink />
       </header>
       <JoinFlow initialCode={initialCode} myName={myName} />
     </div>
