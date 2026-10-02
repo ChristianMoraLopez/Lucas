@@ -37,7 +37,7 @@ export function NuevaCategoria({ accountId, onCreated, onCancel }: { accountId: 
   };
 
   return (
-    <div className="nc" role="group" aria-labelledby="nc-t">
+    <div className="ncat" role="group" aria-labelledby="nc-t">
       <span className="lu-label" id="nc-t">
         Nueva categoría
       </span>

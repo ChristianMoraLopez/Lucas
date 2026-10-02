@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button, ConnectionStatus, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { formatDay, formatWhen, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
-import { type AccountPerson, type AccountType, formatWaNumber, type MyWhatsappLink, plural, type WhatsappOverview } from '@/lib/types';
+import { type AccountPerson, type AccountType, formatWaNumber, type MyWhatsappLink, numeroParaCodigo, plural, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 type Grupo = WhatsappOverview['groups'][number];
@@ -65,19 +65,37 @@ function Step({ n, title, done, children }: { n: number; title: string; done: bo
   );
 }
 
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copiado, setCopiado] = useState(false);
+/** Copia al portapapeles; si el navegador no deja (p. ej. dentro de otra app), con el método viejo */
+async function copiar(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+}
+
+function CopyButton({ text, label, variant = 'secondary' }: { text: string; label: string; variant?: 'primary' | 'secondary' }) {
+  const [estado, setEstado] = useState<'listo' | 'copiado' | 'fallo'>('listo');
   return (
     <Button
       size="sm"
-      variant="secondary"
+      variant={variant}
       onClick={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopiado(true);
-        setTimeout(() => setCopiado(false), 2000);
+        setEstado((await copiar(text)) ? 'copiado' : 'fallo');
+        setTimeout(() => setEstado('listo'), 2500);
       }}
     >
-      {copiado ? '¡Copiado!' : label}
+      {estado === 'copiado' ? '¡Copiado!' : estado === 'fallo' ? 'Cópialo a mano' : label}
     </Button>
   );
 }
@@ -226,7 +244,7 @@ export function WhatsappScreen({
         <Step n={3} title="Espera la confirmación" done={conectado}>
           <div className={`wa-live wa-live--${estado}`}>
             <LottieSlot name={conectado ? 'whatsapp-conectado' : 'conectando-whatsapp'} width={64} height={64} />
-            <div style={{ display: 'grid', gap: 4 }}>
+            <div className="wa-live__txt">
               {estado === 'esperando' && <ConnectionStatus state="esperando" sub={`revisado ${hace}`} />}
               {estado === 'conectado' && principal && (
                 <ConnectionStatus
@@ -491,9 +509,10 @@ function MiWhatsapp() {
       .catch(() => setQrImg(null));
   }, [l?.qr, l?.code]);
 
-  const pedir = async () => {
+  const telefono = numeroParaCodigo(numero);
+  const pedir = async (conCodigo: boolean) => {
     setError(null);
-    const { error } = await supabase.rpc('request_personal_whatsapp', { p_phone: numero.trim() || null });
+    const { error } = await supabase.rpc('request_personal_whatsapp', { p_phone: conCodigo ? telefono : null });
     if (error) return setError(humanError(error));
     queryClient.invalidateQueries({ queryKey: ['mi-whatsapp'] });
   };
@@ -534,22 +553,31 @@ function MiWhatsapp() {
         <h2 className="lu-title" id="wa-mio" style={{ margin: 0 }}>
           Vincula tu WhatsApp
         </h2>
-        <p className="lu-small" style={{ margin: 0 }}>
-          En tu celular: WhatsApp → <b>Dispositivos vinculados</b> → <b>Vincular un dispositivo</b>
-          {l.code ? (
-            <>
-              {' '}
-              → <b>Vincular con el número de teléfono</b>, y escribe:
-            </>
-          ) : (
-            ', y escanea este código:'
-          )}
-        </p>
         {l.code ? (
-          <div className="wa-code lu-num">
-            {l.code.slice(0, 4)}-{l.code.slice(4)}
-          </div>
-        ) : qrImg ? (
+          <>
+            <div className="wa-code lu-num">
+              {l.code.slice(0, 4)}-{l.code.slice(4)}
+            </div>
+            <CopyButton text={l.code} label="Copiar código" variant="primary" />
+            <ol className="wa-howto lu-small">
+              <li>
+                Abre WhatsApp → <b>Dispositivos vinculados</b> → <b>Vincular un dispositivo</b>.
+              </li>
+              <li>
+                Abajo, toca <b>Vincular con el número de teléfono</b> (o abre la notificación que te manda WhatsApp).
+              </li>
+              <li>Escribe o pega el código.</li>
+            </ol>
+            <p className="lu-small lu-muted" style={{ margin: 0 }}>
+              El código cambia cada 2 o 3 minutos. Si WhatsApp dice que no sirve, vuelve aquí y usa el nuevo.
+            </p>
+          </>
+        ) : (
+          <p className="lu-small" style={{ margin: 0 }}>
+            Desde otro celular o con la cámara de tu WhatsApp: <b>Dispositivos vinculados</b> → <b>Vincular un dispositivo</b>, y escanea este código:
+          </p>
+        )}
+        {l.code ? null : qrImg ? (
           // biome-ignore lint/performance/noImgElement: es un QR generado en el navegador, no una imagen para optimizar
           <img className="wa-qr" src={qrImg} alt="Código QR para vincular tu WhatsApp con Luks" width={240} height={240} />
         ) : (
@@ -580,21 +608,33 @@ function MiWhatsapp() {
       )}
       {abierto ? (
         <>
-          <label className="lu-small" htmlFor="wa-numero">
-            Tu número con indicativo, si vas a vincular desde este mismo celular (te damos un código en vez del QR):
+          <label className="lu-label" htmlFor="wa-numero">
+            Tu número de WhatsApp
           </label>
           <input
             id="wa-numero"
             className="wa-input lu-num"
+            type="tel"
             inputMode="tel"
             autoComplete="tel"
-            placeholder="573001234567"
+            placeholder="300 123 4567"
             value={numero}
             onChange={(e) => setNumero(e.target.value)}
+            aria-describedby="wa-numero-ayuda"
           />
+          <p className="lu-small lu-muted" id="wa-numero-ayuda" style={{ margin: 0 }}>
+            {numero.trim() && !telefono
+              ? 'Escribe el número completo. Si no es de Colombia, con su indicativo (p. ej. 34 612 345 678).'
+              : telefono
+                ? `Te damos un código de 8 letras para ${formatWaNumber(telefono)}: sirve desde este mismo celular.`
+                : 'Desde este celular: escribe tu número y te damos un código de 8 letras. Desde un computador: usa el QR.'}
+          </p>
           <div className="wa-row">
-            <Button size="sm" onClick={pedir}>
-              {numero.trim() ? 'Pedir código' : 'Mostrar QR'}
+            <Button size="sm" onClick={() => pedir(true)} disabled={!telefono}>
+              Pedir código
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => pedir(false)}>
+              Mostrar QR
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setAbierto(false)}>
               Cancelar

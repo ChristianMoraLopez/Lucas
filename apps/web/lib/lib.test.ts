@@ -3,6 +3,7 @@ import { CODE_RE, formatCOP, formatCode, lucas } from '@/components/lucas-core';
 import { callbackUrl, nextFromRedirectTo, safeNext } from './auth';
 import { eventMoment, formatDay, formatRange, monthName } from './dates';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from './invite';
+import { formatWaNumber, numeroParaCodigo } from './types';
 
 describe('formatCOP / lucas', () => {
   it('pesos con punto de miles y sin decimales', () => {
@@ -134,5 +135,21 @@ describe('fechas de listas', async () => {
     expect(formatRecent('2026-09-29', undefined, '2026-09-30')).toBe('Ayer');
     expect(formatRecent('2026-09-27', undefined, '2026-09-30')).toBe('27 sep');
     expect(formatDateCO('2026-09-28')).toBe('28/09/2026');
+  });
+});
+
+describe('número de WhatsApp para el código de vinculación', () => {
+  it('acepta el celular como lo escribe la gente en Colombia', () => {
+    expect(numeroParaCodigo('300 123 4567')).toBe('573001234567');
+    expect(numeroParaCodigo('+57 300-123-4567')).toBe('573001234567');
+    expect(numeroParaCodigo('573001234567')).toBe('573001234567');
+    expect(formatWaNumber(numeroParaCodigo('3001234567'))).toBe('+57 300 123 4567');
+  });
+
+  it('otros países con su indicativo; lo incompleto no sirve', () => {
+    expect(numeroParaCodigo('34 612 345 678')).toBe('34612345678');
+    expect(numeroParaCodigo('1234')).toBeNull();
+    expect(numeroParaCodigo('')).toBeNull();
+    expect(numeroParaCodigo('1234567890123456')).toBeNull();
   });
 });
