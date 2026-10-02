@@ -107,7 +107,7 @@ docker compose exec connector node dist/cli.js vincular-contador              # 
 docker compose exec connector node dist/cli.js vincular-contador 573001234567 # o un código de 8 letras
 ```
 
-En el celular del contador: **WhatsApp → Dispositivos vinculados → Vincular un dispositivo**. Escanea el QR o toca *Vincular con el número de teléfono* y escribe el código. Al quedar listo, el comando lo dice.
+En el celular del contador: **WhatsApp → Dispositivos vinculados → Vincular un dispositivo**. Escanea el QR o toca *Vincular con el número de teléfono* y escribe el código. Al quedar listo, el comando lo dice. El código cambia cada 2 o 3 minutos: si WhatsApp dice que no sirve, usa el que muestre el comando en ese momento.
 
 ```bash
 docker compose exec connector node dist/cli.js estado

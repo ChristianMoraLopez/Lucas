@@ -8,6 +8,7 @@ import { SessionManager } from '../src/manager.js';
 import { RateLimiter } from '../src/replies.js';
 import type { SessionRow } from '../src/store.js';
 import { useDbAuthState } from '../src/whatsapp/auth-state.js';
+import { olvidarEmparejamiento, vinculada } from '../src/whatsapp/baileys.js';
 import { FakeConnector, FakeStore, GRUPO, silentLog } from './fakes.js';
 
 describe('credenciales en la base', () => {
@@ -40,6 +41,35 @@ describe('credenciales en la base', () => {
     // Una sesión sin creds arranca de cero
     const nueva = await useDbAuthState(store, new SessionCipher(key), 's2');
     expect(nueva.state.creds.registered).toBe(initAuthCreds().registered);
+  });
+});
+
+describe('vincular con código', () => {
+  it('un código que nadie usó se olvida para que la reconexión pida otro', () => {
+    const creds = initAuthCreds();
+    expect(olvidarEmparejamiento(creds)).toBe(false);
+    // Lo que deja requestPairingCode
+    creds.pairingCode = 'ABCD1234';
+    creds.me = { id: '573001234567@s.whatsapp.net', name: '~' };
+    expect(vinculada(creds)).toBe(false);
+    expect(olvidarEmparejamiento(creds)).toBe(true);
+    expect(creds.me).toBeUndefined();
+    expect(creds.pairingCode).toBeUndefined();
+  });
+
+  it('una sesión vinculada (por QR no marca registered) no se toca', () => {
+    const qr = initAuthCreds();
+    qr.me = { id: '573001234567:12@s.whatsapp.net', name: 'Vale' };
+    qr.account = { details: new Uint8Array([1]) };
+    expect(qr.registered).toBe(false);
+    expect(vinculada(qr)).toBe(true);
+    expect(olvidarEmparejamiento(qr)).toBe(false);
+    expect(qr.me?.id).toBe('573001234567:12@s.whatsapp.net');
+
+    const codigo = initAuthCreds();
+    codigo.me = { id: '573001234567@s.whatsapp.net', name: '~' };
+    codigo.registered = true;
+    expect(olvidarEmparejamiento(codigo)).toBe(false);
   });
 });
 
@@ -120,7 +150,32 @@ describe('gestor de sesiones', () => {
     await creados.get('contador')?.handlers.onState({ status: 'closed', loggedOut: false, reason: 'Se cayó la conexión (408)' });
     expect(store.cleared).toEqual([]);
     expect(store.statuses.at(-1)).toMatchObject({ id: 'contador', status: 'connecting' });
+    // El código de esa conexión ya no sirve: la web deja de mostrarlo
+    expect(store.pairings.at(-1)).toEqual({ id: 'contador', qr: null, code: null });
     expect(alertas).toEqual([]);
+  });
+
+  it('si piden el código mientras se mostraba el QR, la sesión arranca otra vez con el número', async () => {
+    store.rows = [fila({ id: 'p1', kind: 'personal', owner_id: 'u1' })];
+    await manager.sync();
+    const conQr = creados.get('p1');
+    await conQr?.handlers.onState({ status: 'pairing', qr: '2@abc', code: null, expiresAt: new Date() });
+
+    store.rows = [fila({ id: 'p1', kind: 'personal', owner_id: 'u1', pairing_phone: '573001234567' })];
+    await manager.sync();
+    expect(conQr?.stopped).toBe(1);
+    expect(conQr?.loggedOut).toBe(0);
+    expect(creados.get('p1')).not.toBe(conQr);
+    expect(creados.get('p1')?.session.pairingPhone).toBe('573001234567');
+    expect(creados.get('p1')?.started).toBe(1);
+
+    // Ya conectada, cambiar el número no la reinicia
+    await creados.get('p1')?.handlers.onState({ status: 'connected', jid: null, lid: null, phone: '573001234567' });
+    const conectada = creados.get('p1');
+    store.rows = [fila({ id: 'p1', kind: 'personal', owner_id: 'u1', pairing_phone: null })];
+    await manager.sync();
+    expect(creados.get('p1')).toBe(conectada);
+    expect(conectada?.stopped).toBe(0);
   });
 
   it('desvincular desde la web cierra la sesión en WhatsApp', async () => {
