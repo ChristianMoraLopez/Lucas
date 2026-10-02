@@ -49,6 +49,11 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
                 : 'Las cuentas del hogar y de los paseos, sin pelear con el Excel.'}
             </p>
           </div>
+          {params.eliminada === '1' && (
+            <p className="lu-success" role="status" style={{ margin: 0 }}>
+              Tu cuenta quedó eliminada. Gracias por usar Luks.
+            </p>
+          )}
           <LoginForm next={next} initialError={error} initialMode={modo} />
         </section>
 

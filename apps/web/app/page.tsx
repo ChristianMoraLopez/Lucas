@@ -30,7 +30,9 @@ export default async function AccountPickerPage() {
         <span className="ap-me">
           <ThemeToggle />
           <SignOutButton />
-          {fullName && <Avatar name={fullName} size="sm" />}
+          <Link href="/perfil" className="ap-perfil" aria-label="Tu perfil">
+            <Avatar name={fullName || 'Tú'} size="sm" />
+          </Link>
         </span>
       </header>
       <div className="ap">

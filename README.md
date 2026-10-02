@@ -12,7 +12,7 @@ dividido y listo para liquidar. En pesos colombianos, sin decimales y sin Excel.
 <br />
 
 ![Fase](https://img.shields.io/badge/fases_1_a_5-listas-0A7A4C?style=flat-square)
-![Pruebas](https://img.shields.io/badge/pruebas-416_pasando-6A35E6?style=flat-square)
+![Pruebas](https://img.shields.io/badge/pruebas-423_pasando-6A35E6?style=flat-square)
 ![Demo](https://img.shields.io/badge/demo-mrluks.com-1C1433?style=flat-square)
 ![Stack](https://img.shields.io/badge/Next.js_16_·_Supabase_·_Baileys_·_Python-1C1433?style=flat-square)
 ![Costo](https://img.shields.io/badge/costo-%240%2C_todo_gratis-FFC53D?style=flat-square&labelColor=1C1433)
@@ -129,7 +129,7 @@ flowchart LR
 - [x] **Fase 4 · Worker.** [`services/worker`](services/worker/README.md) en Python reemplaza al procesador simulado: cola con reintentos y registro de errores, QR DIAN, pdfplumber, OpenCV + RapidOCR, Qwen 2.5 con JSON validado por Pydantic, confianza por campo, pagador según el mensaje, memoria de comercios con RapidFuzz, Laya sobre ONNX Runtime (multilingüe o inglés), duplicados por huella y CUFE, export y notebook para ajustar Laya, Docker para Oracle ARM y Sentry.
 - [x] **Fase 5 · WhatsApp.** [`services/connector`](services/connector/README.md) en Node con Baileys detrás de una interfaz que luego puede implementar la API oficial: número contador y vinculaciones personales, reconexión y aviso si una sesión se cierra, credenciales cifradas (AES-256-GCM) en Postgres, enlace grupo-cuenta con «luks CÓDIGO», ingesta solo de grupos enlazados (fotos comprimidas, PDFs y mensajes con montos, sin repetir), «¿Quién es este número?» para los admins, confirmaciones en el grupo con límite de frecuencia y la pantalla «Conecta el grupo de WhatsApp» con estado en vivo. Categorías propias por cuenta («Salud»…) que Laya elige desde el primer gasto. Todo el servidor con [`deploy/docker-compose.yml`](deploy/README.md): connector, worker, Ollama y Uptime Kuma.
 - [ ] **Fase 6 · Números.** ✓ [Liquidación](#cómo-se-liquida): cuánto puso cada uno, quién le paga a quién con el mínimo de transferencias, marcarlas pagadas, congelar y cerrar el paseo; el hogar mes a mes; descarga en CSV. Falta: editar presupuestos y exportar a Excel y PDF.
-- [ ] **Fase 7 · Producción.** Consentimiento y borrado de datos (Ley 1581) y retención de evidencias.
+- [ ] **Fase 7 · Producción.** ✓ Perfil: cambiar el nombre (y cómo te llaman en cada cuenta), tus números de WhatsApp, ver correo, con qué entras y la política aceptada, descargar tus datos y eliminar tu cuenta (Ley 1581: acceso, rectificación, portabilidad y supresión). Falta: retención de evidencias.
 
 ## Cómo llegan los gastos
 
@@ -201,7 +201,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             166 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación, personas y semilla (PGlite)
+│   ├── tests/             173 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación, personas, perfil y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -223,7 +223,7 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 166 pruebas de RLS, RPC, Storage, cola del worker, liquidación y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 173 pruebas de RLS, RPC, Storage, cola del worker, liquidación y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las 39 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
