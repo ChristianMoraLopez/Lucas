@@ -5,6 +5,8 @@ import { TONES, type Tone, toneFor } from '@/components/lucas-core';
 
 export type Role = 'owner' | 'admin' | 'member';
 export type AccountType = 'hogar' | 'evento';
+/** Un evento se está liquidando (settling): ya no recibe gastos */
+export type AccountStatus = 'active' | 'settling' | 'closed';
 
 export const ROLE_LABEL: Record<Role, string> = { owner: 'Titular', admin: 'Admin', member: 'Miembro' };
 
@@ -19,7 +21,7 @@ export interface AccountOverview {
   id: string;
   name: string;
   type: AccountType;
-  status: 'active' | 'closed';
+  status: AccountStatus;
   role: Role;
   starts_on: string | null;
   ends_on: string | null;
@@ -73,7 +75,7 @@ export interface InvitationPreview {
 
 /** public.account_dashboard(p_account_id, p_month) */
 export interface Dashboard {
-  account: { id: string; name: string; type: AccountType; status: 'active' | 'closed'; starts_on: string | null; ends_on: string | null };
+  account: { id: string; name: string; type: AccountType; status: AccountStatus; starts_on: string | null; ends_on: string | null };
   today: string;
   month: string;
   total: number;
@@ -99,6 +101,59 @@ export interface Dashboard {
     payer_tone: string | null;
     payer_registered: boolean | null;
   }[];
+}
+
+/** public.settlement_overview(p_account_id, p_month) */
+export interface SettlementPerson {
+  id: string;
+  name: string;
+  tone: string;
+  registered: boolean;
+  /** Lo que pagó, lo que le tocaba (su parte de cada gasto) y la diferencia: + le deben, − debe */
+  paid: number;
+  share: number;
+  balance: number;
+  /** Cuántos gastos pagó */
+  expenses: number;
+}
+
+export interface SettlementExpense {
+  id: string;
+  merchant: string;
+  expense_date: string;
+  total_cop: number;
+  status: 'pending_review' | 'confirmed';
+  payer_person_id: string | null;
+  category: string | null;
+  category_letter: string | null;
+  category_tone: string | null;
+  shares: { person_id: string; amount_cop: number }[];
+}
+
+export interface SettlementTransfer {
+  id: string;
+  from: string;
+  to: string;
+  amount: number;
+  paid_at: string | null;
+  /** Quién la marcó como pagada */
+  paid_by: string | null;
+}
+
+export interface SettlementOverview {
+  account: { id: string; name: string; type: AccountType; status: AccountStatus; starts_on: string | null; ends_on: string | null };
+  is_admin: boolean;
+  my_person_id: string | null;
+  today: string;
+  /** Mes liquidado (día 1) en un hogar; null en un evento (se liquida completo) */
+  month: string | null;
+  pending_count: number;
+  /** Gastos sin quién pagó o con la división incompleta: no cuentan hasta corregirlos */
+  incomplete_count: number;
+  people: SettlementPerson[];
+  expenses: SettlementExpense[];
+  settlement: null | { id: string; created_at: string; created_by: string | null; transfers: SettlementTransfer[] };
+  settled_months: string[] | null;
 }
 
 export type MessageKind = 'photo' | 'pdf' | 'text';

@@ -15,24 +15,26 @@ export function notifyAccountChanged(accountId: string) {
 }
 
 /**
- * Escucha los cambios de gastos y mensajes de una cuenta (Supabase Realtime) y
- * los avisos de esta misma pestaña. Realtime respeta RLS: solo llegan los
+ * Escucha los cambios de una cuenta en esas tablas (por defecto gastos y
+ * mensajes; todas filtran por account_id) con Supabase Realtime, y los avisos
+ * de esta misma pestaña. Realtime respeta RLS: solo llegan los
  * cambios de cuentas donde uno es miembro.
  */
-export function useAccountChanges(accountId: string, onChange: () => void) {
+export function useAccountChanges(accountId: string, onChange: () => void, tables: readonly string[] = ['expenses', 'messages']) {
   const [supabase] = useState(() => createClient());
   const callback = useRef(onChange);
   callback.current = onChange;
   // Un canal por componente: dos con el mismo nombre se pisan
   const id = useId();
+  const tablas = tables.join(',');
 
   useEffect(() => {
     const filter = `account_id=eq.${accountId}`;
-    const channel = supabase
-      .channel(`cuenta-${accountId}-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter }, () => callback.current())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter }, () => callback.current())
-      .subscribe();
+    let channel = supabase.channel(`cuenta-${accountId}-${id}`);
+    for (const table of tablas.split(',')) {
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter }, () => callback.current());
+    }
+    channel.subscribe();
     const local = (e: Event) => {
       if ((e as CustomEvent<string>).detail === accountId) callback.current();
     };
@@ -41,5 +43,5 @@ export function useAccountChanges(accountId: string, onChange: () => void) {
       window.removeEventListener(EVENTO, local);
       supabase.removeChannel(channel);
     };
-  }, [accountId, supabase, id]);
+  }, [accountId, supabase, id, tablas]);
 }
