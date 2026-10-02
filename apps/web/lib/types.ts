@@ -216,3 +216,13 @@ export function formatWaNumber(waId: string | null | undefined): string | null {
   const m = waId.match(/^57(\d{3})(\d{3})(\d{4})$/);
   return m ? `+57 ${m[1]} ${m[2]} ${m[3]}` : `+${waId}`;
 }
+
+/**
+ * Número para pedir el código de vinculación de WhatsApp: solo dígitos, con
+ * indicativo. Un celular colombiano escrito sin el 57 («300 123 4567») se completa.
+ */
+export function numeroParaCodigo(raw: string): string | null {
+  const d = raw.replace(/\D/g, '');
+  if (/^3\d{9}$/.test(d)) return `57${d}`;
+  return /^\d{8,15}$/.test(d) ? d : null;
+}

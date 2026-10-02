@@ -47,6 +47,11 @@ export class SessionManager {
         await this.#close(row, 'Se desvinculó desde Luks');
       } else if (!this.#running.has(row.id)) {
         await this.#start(row);
+      } else if (this.#otroNumero(row)) {
+        // Pidieron código en vez de QR (o cambiaron el número) mientras se vinculaba: se empieza de nuevo
+        await this.#running.get(row.id)?.conn.stop();
+        this.#running.delete(row.id);
+        await this.#start(row);
       }
     }
     // Las que ya no están pedidas (las desconectaron desde la base) se apagan sin desvincular
@@ -57,6 +62,11 @@ export class SessionManager {
       }
     }
     await this.store.heartbeat([...this.#running.values()].filter((r) => r.state === 'connected').map((r) => r.info.id));
+  }
+
+  #otroNumero(row: SessionRow) {
+    const r = this.#running.get(row.id);
+    return Boolean(r && r.state !== 'connected' && (r.info.pairingPhone ?? null) !== (row.pairing_phone ?? null));
   }
 
   async #start(row: SessionRow) {
@@ -119,6 +129,8 @@ export class SessionManager {
             reason: s.reason,
           });
         } else {
+          // El código o el QR de la conexión que se cayó ya no sirven: la web no los muestra hasta que llegue uno nuevo
+          await this.store.setPairing(id, null, null, null);
           await this.store.setStatus(id, 'connecting');
           this.log.warn({ session: id.slice(0, 8), reason: s.reason }, 'Sesión caída: reconectando');
         }

@@ -1,4 +1,5 @@
 import makeWASocket, {
+  type AuthenticationCreds,
   areJidsSameUser,
   Browsers,
   type ConnectionState,
@@ -22,7 +23,9 @@ import { type Me, normalizeMessage } from './normalize.js';
  * MessagingConnector con Baileys: Luks entra como «dispositivo vinculado» de
  * un número de WhatsApp (el contador, o el de alguien que vincula el suyo).
  *
- *   · Vincular: QR, o código de 8 letras si la sesión trae número.
+ *   · Vincular: QR, o código de 8 letras si la sesión trae número. Cada
+ *     conexión pide su propio código: el de una conexión que ya se cerró no
+ *     sirve, y WhatsApp cierra la conexión si nadie vincula en ~2,5 min.
  *   · Si se cae, se reconecta solo con espera creciente (2 s … 1 min).
  *   · Si la cierran desde el teléfono (o no la vinculan a tiempo), avisa con
  *     { status: 'closed', loggedOut: true } y no insiste.
@@ -42,6 +45,25 @@ export interface BaileysDeps {
 const usuario = (jid: string | null | undefined) => (jid ? (jidDecode(jid)?.user ?? null) : null);
 const statusCode = (err: unknown) => (err as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
 const info = (g: GroupMetadata): GroupInfo => ({ chatId: g.id, name: g.subject ?? null, participants: g.size ?? g.participants?.length ?? null });
+
+/**
+ * Ya quedó vinculada, por QR o por código. Ojo: `registered` solo lo marca el
+ * código; una sesión vinculada por QR lo deja en false para siempre.
+ */
+export const vinculada = (creds: AuthenticationCreds) => creds.registered || Boolean(creds.account);
+
+/**
+ * Borra lo que dejó un código de vinculación que nadie usó. Pedir el código
+ * guarda `me` con el número; si la conexión se cierra antes de vincular y se
+ * reconecta con eso, Baileys entra como si ya estuviera vinculada, WhatsApp la
+ * rechaza y la sesión se pierde. Devuelve si había algo que borrar.
+ */
+export function olvidarEmparejamiento(creds: AuthenticationCreds): boolean {
+  if (vinculada(creds) || (!creds.me && !creds.pairingCode)) return false;
+  creds.me = undefined;
+  creds.pairingCode = undefined;
+  return true;
+}
 
 export class BaileysConnector implements MessagingConnector {
   #sock: WASocket | null = null;
@@ -110,6 +132,9 @@ export class BaileysConnector implements MessagingConnector {
 
   async #connect() {
     const { state, saveCreds } = await useDbAuthState(this.deps.store, this.deps.cipher, this.session.id);
+    // Sin vincular todavía: arranca sin el código de la conexión anterior y pide uno nuevo
+    this.#pairingCode = null;
+    if (olvidarEmparejamiento(state.creds)) await saveCreds();
     // Baileys habla mucho; solo sus advertencias y errores llegan a los logs
     const logger = this.#log.child({ lib: 'baileys' }, { level: 'warn' });
     let version: [number, number, number] | undefined;
@@ -204,7 +229,7 @@ export class BaileysConnector implements MessagingConnector {
 
   async #onConnection(u: Partial<ConnectionState>, sock: WASocket) {
     if (u.qr) {
-      if (this.session.pairingPhone && !sock.authState.creds.registered && !this.#pairingCode) {
+      if (this.session.pairingPhone && !vinculada(sock.authState.creds) && !this.#pairingCode) {
         try {
           this.#pairingCode = await sock.requestPairingCode(this.session.pairingPhone);
         } catch (e) {
@@ -246,7 +271,7 @@ export class BaileysConnector implements MessagingConnector {
       this.#schedule(0);
       return;
     }
-    if (!sock.authState.creds.registered) {
+    if (!vinculada(sock.authState.creds)) {
       this.#unpairedCloses += 1;
       if (this.#unpairedCloses >= MAX_UNPAIRED_CLOSES) {
         await this.handlers.onState({ status: 'closed', loggedOut: true, reason: 'No se vinculó a tiempo. Pide un código nuevo.' });

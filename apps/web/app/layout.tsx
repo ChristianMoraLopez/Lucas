@@ -5,16 +5,47 @@ import '@/styles/tokens.css';
 import '@/styles/lucas.css';
 import '@/styles/app.css';
 
+const description = 'Luks vuelve gastos lo que mandan al grupo de WhatsApp: fotos de recibos, PDFs y mensajes, clasificados y divididos.';
+
+/**
+ * Dominio con el que se arman las URLs absolutas de la vista previa (WhatsApp,
+ * redes) y de los íconos: el de producción, también en los previews de Vercel.
+ */
+function siteUrl() {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '');
+  if (fromEnv) return new URL(fromEnv);
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return new URL(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  return new URL('http://localhost:3000');
+}
+
+// Íconos e imagen para compartir salen de los archivos de app/: favicon.ico
+// (Safari, buscadores), icon.svg (pestaña), apple-icon.png (pantalla de inicio
+// del iPhone) y opengraph-image.png / twitter-image.png (vista previa del link).
 export const metadata: Metadata = {
+  metadataBase: siteUrl(),
   title: 'Luks — cuentas compartidas',
-  description: 'Luks vuelve gastos lo que mandan al grupo de WhatsApp: fotos de recibos, PDFs y mensajes, clasificados y divididos.',
+  description,
   applicationName: 'Luks',
   appleWebApp: { capable: true, title: 'Luks', statusBarStyle: 'default' },
-  icons: { apple: '/icons/apple-touch-icon.png' },
+  openGraph: {
+    type: 'website',
+    siteName: 'Luks',
+    locale: 'es_CO',
+    title: 'Luks — las cuentas del grupo, sin pelear',
+    description,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Luks — las cuentas del grupo, sin pelear',
+    description,
+  },
 };
 
-// Colores de la barra del navegador: fondo del tema Día y Noche (tokens.css)
+// Colores de la barra del navegador: fondo del tema Día y Noche (tokens.css).
+// viewportFit cover: en iPhone la app usa toda la pantalla y las pestañas de
+// abajo se corren por encima de la barra de inicio (env(safe-area-inset-*)).
 export const viewport: Viewport = {
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#FFFBF6' },
     { media: '(prefers-color-scheme: dark)', color: '#15111F' },
