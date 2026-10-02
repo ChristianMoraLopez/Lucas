@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { formatCOP } from '@/components/lucas-core';
 import { Button, Chip, Field } from '@/components/lucas-ui';
@@ -98,6 +99,8 @@ export function ExpenseForm({
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    // El botón que lo envió (también con Enter): ahí salen las chispas si queda guardado
+    const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
     if (!canEdit || busy) return;
     if (!split.length) return setError('Elige al menos una persona para dividir el gasto');
     if (!payerId) return setError('Elige quién pagó');
@@ -115,6 +118,10 @@ export function ExpenseForm({
     });
     setBusy(false);
     if (error) return setError(humanError(error));
+    if (boton) {
+      const r = boton.getBoundingClientRect();
+      lanzarChispas({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, currentTarget: null });
+    }
     notifyAccountChanged(accountId);
     onSaved({ merchant: merchant.trim(), category: catOf(categoryId) || null, total, payer: nameOf(payerId), each, n: split.length, date });
   };

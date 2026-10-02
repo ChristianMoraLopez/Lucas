@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { formatCOP } from '@/components/lucas-core';
+import { Segmento } from '@/components/segmento';
 import { monthName } from '@/lib/dates';
 import { plural } from '@/lib/types';
 
@@ -123,14 +124,15 @@ export function GastosFiltros({
       </div>
 
       <div className="gf-foot">
-        <div className="gf-chips">
-          <button type="button" className="lu-chip" aria-pressed={!filtros.ver} onClick={() => ir({ ver: '' })}>
-            Todos
-          </button>
-          <button type="button" className="lu-chip" aria-pressed={filtros.ver === 'pendientes'} onClick={() => ir({ ver: 'pendientes' })}>
-            Por revisar
-          </button>
-        </div>
+        <Segmento
+          label="Qué gastos ver"
+          value={filtros.ver === 'pendientes' ? 'pendientes' : 'todos'}
+          onChange={(v) => ir({ ver: v === 'pendientes' ? 'pendientes' : '' })}
+          opciones={[
+            { value: 'todos', label: 'Todos' },
+            { value: 'pendientes', label: 'Por revisar' },
+          ]}
+        />
         <span className="lu-small lu-muted gf-n" aria-live="polite">
           {buscando ? 'Buscando…' : `${plural(total, 'gasto', 'gastos')} · ${formatCOP(suma)}${tope ? ' (los más recientes)' : ''}`}
         </span>
