@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
+import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { formatCOP, lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, Button, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
@@ -174,13 +175,21 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
           </BillCard>
         )}
 
+        {total === 0 && (
+          <div className="ap-empty">
+            <LottieSlot name="vacio" width={72} height={72} />
+            <span className="lu-small lu-muted">
+              {evento ? 'Cuando lleguen gastos al paseo, aquí sale quién le paga a quién.' : 'Cuando lleguen gastos este mes, aquí sale quién le paga a quién.'}
+            </span>
+          </div>
+        )}
         {transfers.length > 0 ? (
-          <ol className="st-list" aria-label={s ? 'Transferencias' : 'Así quedarían las transferencias'}>
+          <ol className="st-list lu-stagger" aria-label={s ? 'Transferencias' : 'Así quedarían las transferencias'}>
             {transfers.map((t, i) => {
               const de = people.get(t.from);
               const para = people.get(t.to);
               return (
-                <li key={t.id} className={`st-t${t.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}`}>
+                <li key={t.id} className={`st-t${t.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}`} style={{ '--i': i } as React.CSSProperties}>
                   <div className="st-pair" aria-hidden="true">
                     <Avatar name={nombre(t.from)} tone={asTone(de?.tone, nombre(t.from))} registered={de?.registered} size="sm" />
                     <svg className="st-arrow" viewBox="0 0 40 16" aria-hidden="true">
@@ -207,7 +216,14 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
                           )}
                         </>
                       ) : puedeMarcar(t) ? (
-                        <Button size="sm" onClick={() => marcar(t, true)} disabled={busy === t.id}>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            lanzarChispas(e);
+                            marcar(t, true);
+                          }}
+                          disabled={busy === t.id}
+                        >
                           {busy === t.id ? 'Guardando…' : 'Marcar pagada'}
                         </Button>
                       ) : (
@@ -243,9 +259,9 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
             ? `A cada uno le tocaba ${formatCOP(porCabeza)}. Toca a alguien para ver qué pagó.`
             : 'A cada quien le toca su parte de los gastos en que participó. Toca a alguien para ver qué pagó.'}
         </p>
-        <ul className="st-pp">
-          {d.people.map((p) => (
-            <Persona key={p.id} p={p} yo={p.id === d.my_person_id} gastos={d.expenses.filter((e) => e.payer_person_id === p.id)} />
+        <ul className="st-pp lu-stagger">
+          {d.people.map((p, i) => (
+            <Persona key={p.id} i={i} p={p} yo={p.id === d.my_person_id} gastos={d.expenses.filter((e) => e.payer_person_id === p.id)} />
           ))}
         </ul>
       </section>
@@ -373,9 +389,9 @@ function MesNav({ accountId, mes, hoy, liquidados }: { accountId: string; mes: s
 }
 
 /** Una persona: lo que pagó, lo que le tocaba y su saldo; al tocarla, qué pagó. */
-function Persona({ p, yo, gastos }: { p: SettlementPerson; yo: boolean; gastos: SettlementOverview['expenses'] }) {
+function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boolean; gastos: SettlementOverview['expenses'] }) {
   return (
-    <li>
+    <li style={{ '--i': i } as React.CSSProperties}>
       <details className="st-p">
         <summary>
           <Avatar name={p.name} tone={asTone(p.tone, p.name)} size="sm" registered={p.registered} />
@@ -466,6 +482,7 @@ function Cierre({
   if (!s) {
     return (
       <section className="st-close">
+        <LottieSlot name="transferencia" width={64} height={64} />
         <p className="lu-small" style={{ margin: 0 }}>
           <b>¿Listos?</b> Al liquidar {queSe} sus gastos quedan congelados
           {evento ? ' y ya no entran gastos nuevos' : ''}. Si falta algo, se puede reabrir mientras nadie haya pagado.

@@ -7,12 +7,14 @@ import { useEffect, useState } from 'react';
 /* Animaciones de LottieFiles (Lottie Simple License) recoloreadas a la paleta
    del kit, para los momentos que importan: vacío, cargando, subiendo,
    procesando, registrado, todo revisado, conectando WhatsApp, cierre de
-   evento, sin conexión y no encontrado.
+   evento, sin conexión, no encontrado, buscar sin resultados, transferencia
+   y error.
    Fuentes: «Empty» de Ali Azgar, «Scan a receipt» de Musa, «success» de
    Biswajit Rout, «Chat» de Mahendra, «Success» de Mildred, «Money stack» de
    JuanMakes, «coin» de Nook, «success confetti» de Deepesh Reddy,
    «uploading» de Avinash Reddy, «no internet» de Twinkle Sharma, «not found»
-   de Tùng Hoàng Hữu y «Money Bag» de Mahendra Bhunwal. */
+   de Tùng Hoàng Hữu, «Money Bag» de Mahendra Bhunwal, «Empty» de Mahmoud
+   Madkour, «Money Transfer» de Musa Adanur y «error» de Thais Roese. */
 export const LOTTIES = {
   vacio: { loop: true },
   escaneo: { loop: true },
@@ -26,6 +28,9 @@ export const LOTTIES = {
   'sin-conexion': { loop: true },
   'no-encontrado': { loop: true },
   bienvenida: { loop: true },
+  buscar: { loop: true },
+  transferencia: { loop: false },
+  error: { loop: false },
 } as const;
 export type LottieName = keyof typeof LOTTIES;
 

@@ -509,7 +509,14 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
             {isAdmin && !g.left_at && (
               <div className="wa-groups__acts">
                 <label className="wa-switch">
-                  <input type="checkbox" checked={g.confirm_in_group} onChange={(e) => confirmaciones(g, e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-checked={g.confirm_in_group}
+                    className="lu-switch"
+                    checked={g.confirm_in_group}
+                    onChange={(e) => confirmaciones(g, e.target.checked)}
+                  />
                   <span>Confirmar en el grupo</span>
                 </label>
                 <Button size="sm" variant="ghost" onClick={() => setQuitar(g)}>

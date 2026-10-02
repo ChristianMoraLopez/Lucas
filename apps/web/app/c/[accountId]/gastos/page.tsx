@@ -103,7 +103,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
 
       {rows.length === 0 ? (
         <div className="ap-empty">
-          <LottieSlot name="vacio" width={72} height={72} />
+          <LottieSlot name={busqueda || cat || quien ? 'buscar' : 'vacio'} width={72} height={72} />
           <span className="lu-small lu-muted">
             {busqueda || cat || quien
               ? 'Ningún gasto coincide con la búsqueda.'
@@ -128,9 +128,9 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
               </h2>
               <span className="lu-amount lu-amount--sm">{formatCOP(lista.reduce((s, r) => s + r.total_cop, 0))}</span>
             </div>
-            <ul className="hd-recent">
-              {lista.map((r) => (
-                <li key={r.id} className="gs-row">
+            <ul className="hd-recent lu-stagger">
+              {lista.map((r, i) => (
+                <li key={r.id} className="gs-row" style={{ '--i': i } as React.CSSProperties}>
                   <CategoryTag
                     name={r.categories?.name ?? 'Otros'}
                     letter={r.categories?.letter}
