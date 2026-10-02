@@ -3199,3 +3199,118 @@ iframe {
     transition: none;
   }
 }
+
+/* ---------- Perfil (app/perfil) ---------- */
+.pf {
+  padding: var(--space-6) var(--space-4) var(--space-10);
+  max-width: 680px;
+  display: grid;
+  gap: var(--space-5);
+}
+.pf-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.pf-head > div {
+  display: grid;
+  min-width: 0;
+}
+.pf-head .lu-small {
+  overflow-wrap: anywhere;
+}
+.pf-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+}
+.pf-card .lu-title {
+  margin: 0;
+}
+.pf-card--datos {
+  border-color: var(--coral-suave);
+}
+.pf-nota {
+  margin: 0;
+}
+.pf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.pf-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pf-input {
+  font: inherit;
+  font-size: 16px;
+  flex: 1;
+  min-width: 160px;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-md);
+  background: var(--superficie);
+  color: var(--tinta);
+}
+.pf-input:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 1px;
+}
+.pf-cuenta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-basis: 100%;
+}
+.pf-num {
+  flex: 1;
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pf-msg {
+  flex-basis: 100%;
+  margin: 0;
+}
+.pf-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.pf-tema {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pf-facts {
+  margin: 0;
+}
+/* Etiqueta arriba y dato abajo, siempre igual (en el detalle de gasto van en línea) */
+.pf-facts div {
+  display: grid;
+  gap: 2px;
+}
+.pf-consecuencias {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: var(--space-2);
+}
+.ap-perfil {
+  display: inline-flex;
+  border-radius: var(--radius-pill);
+}
+.ap-perfil:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}

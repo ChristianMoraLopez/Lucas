@@ -156,6 +156,31 @@ export interface SettlementOverview {
   settled_months: string[] | null;
 }
 
+/** public.my_profile() */
+export interface MyProfile {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  /** 'email' (contraseña o enlace al correo), 'google'… */
+  providers: string[];
+  privacy_accepted_at: string | null;
+  privacy_version: string | null;
+  accounts: {
+    id: string;
+    name: string;
+    type: AccountType;
+    status: AccountStatus;
+    role: Role;
+    person_id: string | null;
+    person_name: string | null;
+    person_tone: string | null;
+  }[];
+  /** Sus números de WhatsApp (E.164 sin «+») */
+  whatsapp: string[];
+}
+
 export type MessageKind = 'photo' | 'pdf' | 'text';
 export type FieldKey = 'merchant' | 'date' | 'total' | 'category' | 'payer';
 
