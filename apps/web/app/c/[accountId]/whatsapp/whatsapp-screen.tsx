@@ -166,10 +166,17 @@ export function WhatsappScreen({
   const d = overview.data;
   const enlazados = d.groups.filter((g) => !g.left_at);
   const conectado = enlazados.length > 0;
+  // Cada grupo lo lee una sesión: el número de Luks o el WhatsApp vinculado de alguien
+  const leidos = enlazados.filter((g) => g.connection_ok);
   const contadorOk = Boolean(d.contador?.connected);
-  const estado = !contadorOk ? 'error' : conectado ? 'conectado' : 'esperando';
-  const principal = enlazados[0];
+  const lectores = d.lectores ?? [];
+  const yoLeo = lectores.some((l) => l.is_me);
+  const otrosLectores = lectores.filter((l) => !l.is_me).map((l) => l.name);
+  const alguienLee = contadorOk || lectores.length > 0;
+  const estado: 'conectado' | 'esperando' | 'error' = conectado ? (leidos.length > 0 ? 'conectado' : 'error') : alguienLee ? 'esperando' : 'error';
+  const principal = leidos[0] ?? enlazados[0];
   const telefono = d.contador?.phone ?? null;
+  const caido = principal?.connection_kind === 'personal' ? 'el WhatsApp vinculado que lo lee está desconectado' : 'el número de Luks está desconectado';
 
   return (
     <div className="wa">
@@ -187,7 +194,11 @@ export function WhatsappScreen({
       )}
 
       <ol className="wa-steps">
-        <Step n={1} title="Agrega a Luks al grupo" done={conectado}>
+        <Step
+          n={1}
+          title={telefono || !lectores.length ? 'Agrega a Luks al grupo' : 'Luks ya lee tus grupos'}
+          done={conectado || (!telefono && lectores.length > 0)}
+        >
           {telefono ? (
             <>
               <div className="wa-num lu-num">{formatWaNumber(telefono)}</div>
@@ -205,9 +216,15 @@ export function WhatsappScreen({
                 </a>
               </div>
             </>
+          ) : lectores.length > 0 ? (
+            <p className="lu-small lu-muted" style={{ margin: 0 }}>
+              {yoLeo
+                ? 'Luks lee desde tu WhatsApp los grupos donde estás: no hay que agregar a nadie.'
+                : `Luks lee desde el WhatsApp de ${listaNombres(otrosLectores)}: ${otrosLectores.length > 1 ? 'alguien de ellos tiene' : 'tiene'} que estar en el grupo.`}
+            </p>
           ) : (
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              El número de Luks todavía no está listo. Mientras tanto, abajo puedes vincular tu propio WhatsApp.
+              El número de Luks todavía no está listo. Vincula tu WhatsApp aquí abajo: Luks leerá desde ahí los grupos donde estás.
             </p>
           )}
         </Step>
@@ -259,8 +276,11 @@ export function WhatsappScreen({
                 </ConnectionStatus>
               )}
               {estado === 'error' && (
-                <ConnectionStatus state="error" sub={d.contador ? 'el número de Luks está desconectado' : 'el número de Luks todavía no está vinculado'}>
-                  {conectado ? 'Luks no está leyendo el grupo ahora' : 'Todavía no vemos el código'}
+                <ConnectionStatus
+                  state="error"
+                  sub={conectado ? caido : d.contador ? 'el número de Luks está desconectado' : 'todavía no hay un WhatsApp vinculado que lo lea'}
+                >
+                  {conectado ? 'Luks no está leyendo el grupo ahora' : 'Nadie está leyendo el grupo todavía'}
                 </ConnectionStatus>
               )}
               {conectado && principal && (
@@ -269,7 +289,16 @@ export function WhatsappScreen({
                   {plural(principal.expenses, 'mensaje con gasto', 'mensajes con gastos')} desde el {dia(principal.linked_at)}
                 </span>
               )}
-              {estado === 'error' && <span className="lu-small">Ya avisamos a quien opera Luks. Lo que manden al grupo se lee cuando vuelva.</span>}
+              {estado === 'error' && conectado && (
+                <span className="lu-small">
+                  {principal?.connection_kind === 'personal'
+                    ? 'Puede que el servidor de Luks esté apagado, o que desvincularan ese WhatsApp (si es así, vuelve a vincularlo aquí abajo). Lo que manden mientras tanto se lee cuando vuelva.'
+                    : 'Ya avisamos a quien opera Luks. Lo que manden al grupo se lee cuando vuelva.'}
+                </span>
+              )}
+              {estado === 'error' && !conectado && !d.contador && (
+                <span className="lu-small">Vincula tu WhatsApp aquí abajo y después escribe el mensaje del paso 2 en el grupo.</span>
+              )}
             </div>
           </div>
         </Step>
@@ -291,11 +320,37 @@ export function WhatsappScreen({
             {error}
           </p>
         )}
+        {/* Sin número de Luks ni WhatsApp vinculado, vincular el propio es lo primero que toca */}
+        {!telefono && !yoLeo && <MiWhatsapp />}
         {d.is_admin && d.unknown_senders.length > 0 && <QuienEs accountId={accountId} remitentes={d.unknown_senders} onDone={refrescar} onError={setError} />}
         {d.groups.length > 0 && <Grupos grupos={d.groups} isAdmin={d.is_admin} onDone={refrescar} onError={setError} />}
-        <MiWhatsapp />
+        {conectado && <OtrosGrupos />}
+        {(telefono || yoLeo) && <MiWhatsapp />}
       </aside>
     </div>
+  );
+}
+
+/** «Vale», «Vale y Santi», «Vale, Santi y Mafe» */
+function listaNombres(nombres: string[]) {
+  return nombres.length <= 1 ? (nombres[0] ?? '') : `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}`;
+}
+
+/** Un grupo de WhatsApp por cuenta: otro plan con otra gente es otra cuenta con su propio código */
+function OtrosGrupos() {
+  return (
+    <section className="wa-card wa-card--muted" aria-labelledby="wa-otros">
+      <h2 className="lu-label" id="wa-otros" style={{ margin: 0 }}>
+        ¿Otro plan con otro grupo?
+      </h2>
+      <p className="lu-small" style={{ margin: 0 }}>
+        Cada grupo de WhatsApp va con una cuenta. Para un paseo o una fiesta, crea otra cuenta y escribe su código en el grupo de ese plan: cada una lleva sus
+        gastos y sus personas aparte. Tu WhatsApp vinculado sirve para todas.
+      </p>
+      <Link href="/cuentas/nueva" className="lu-btn lu-btn--sm lu-btn--secondary">
+        Crear otra cuenta
+      </Link>
+    </section>
   );
 }
 
@@ -448,7 +503,7 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
               <span className="lu-small lu-muted">
                 {g.left_at
                   ? `Sacaron a Luks del grupo el ${dia(g.left_at)}`
-                  : `desde el ${dia(g.linked_at)} · ${plural(g.expenses, 'gasto', 'gastos')}${g.connection_kind === 'personal' ? ' · por un WhatsApp personal' : ''}`}
+                  : `desde el ${dia(g.linked_at)} · ${plural(g.expenses, 'gasto', 'gastos')}${g.connection_kind === 'personal' ? ' · por un WhatsApp vinculado' : ''}${g.connection_ok ? '' : ' · nadie lo lee ahora'}`}
               </span>
             </div>
             {isAdmin && !g.left_at && (
@@ -529,7 +584,10 @@ function MiWhatsapp() {
         <h2 className="lu-title" id="wa-mio" style={{ margin: 0 }}>
           Tu WhatsApp
         </h2>
-        <ConnectionStatus state={l.alive === false ? 'error' : 'conectado'} sub={l.connected_at ? `desde el ${dia(l.connected_at)}` : undefined}>
+        <ConnectionStatus
+          state={l.alive === false ? 'error' : 'conectado'}
+          sub={l.alive === false ? 'sin señal: el servidor de Luks puede estar apagado' : l.connected_at ? `desde el ${dia(l.connected_at)}` : undefined}
+        >
           {l.stopping ? 'Desvinculando…' : `Vinculado${l.phone ? ` (${formatWaNumber(l.phone)})` : ''}`}
         </ConnectionStatus>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
