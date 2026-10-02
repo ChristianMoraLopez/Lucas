@@ -400,6 +400,37 @@ describe('sesiones', () => {
     });
   });
 
+  it('la pantalla de conectar sabe quién de la cuenta lee los grupos con su WhatsApp', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const { r: id } = await one<{ r: string }>(tx, `select public.request_personal_whatsapp(null) as r`);
+      // Pedido pero sin vincular: todavía no lee nada
+      type Lectores = { lectores: { name: string; is_me: boolean }[] };
+      expect((await rpc<Lectores>(tx, 'public.whatsapp_overview($1)', [PASEO])).lectores).toEqual([]);
+
+      await comoConnector(tx);
+      await tx.query(`select public.connector_set_status($1, 'connected', '573001112233@s.whatsapp.net', null, '573001112233')`, [id]);
+      await impersonate(tx, U.valeria);
+      expect((await rpc<Lectores>(tx, 'public.whatsapp_overview($1)', [PASEO])).lectores).toEqual([{ name: 'Valeria', is_me: true }]);
+      // Otro miembro de la cuenta ve que Valeria lee los grupos
+      await impersonate(tx, U.mafe);
+      expect((await rpc<Lectores>(tx, 'public.whatsapp_overview($1)', [PASEO])).lectores).toEqual([{ name: 'Valeria', is_me: false }]);
+
+      // Si el connector deja de dar señales (o piden desvincular), ya no cuenta
+      await comoConnector(tx);
+      await tx.query(`update public.whatsapp_connections set last_seen_at = now() - interval '10 minutes' where id = $1`, [id]);
+      await impersonate(tx, U.valeria);
+      expect((await rpc<Lectores>(tx, 'public.whatsapp_overview($1)', [PASEO])).lectores).toEqual([]);
+    });
+    // El WhatsApp de alguien que no es de la cuenta no aparece
+    await as(db, U.nuevo, async (tx) => {
+      const { r: id } = await one<{ r: string }>(tx, `select public.request_personal_whatsapp(null) as r`);
+      await comoConnector(tx);
+      await tx.query(`select public.connector_set_status($1, 'connected', null, null, '573009990000')`, [id]);
+      await impersonate(tx, U.valeria);
+      expect((await rpc<{ lectores: unknown[] }>(tx, 'public.whatsapp_overview($1)', [PASEO])).lectores).toEqual([]);
+    });
+  });
+
   it('nadie más que el connector toca las sesiones, las llaves ni la ingesta', async () => {
     await as(db, U.valeria, async (tx) => {
       for (const sql of [

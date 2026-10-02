@@ -195,6 +195,8 @@ export interface WhatsappOverview {
     last_sender: string | null;
   }[];
   unknown_senders: { wa_id: string; push_name: string | null; message_count: number; last_seen_at: string }[];
+  /** WhatsApp personales vinculados (y vivos) de miembros de la cuenta: cada uno lee los grupos donde está (migración 100) */
+  lectores?: { name: string; is_me: boolean }[];
 }
 
 /** public.my_whatsapp_link(): vincular el WhatsApp propio */
