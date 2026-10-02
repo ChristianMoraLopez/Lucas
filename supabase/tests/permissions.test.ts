@@ -185,11 +185,12 @@ describe('cuentas', () => {
     });
   });
 
-  it('close_account: member no; admin sí, y revoca las invitaciones', async () => {
+  it('close_account: member no; un paseo con gastos primero se liquida (liquidacion.test.ts); un hogar cuando quieran', async () => {
     await expect(as(db, U.santi, (tx) => tx.query('select public.close_account($1)', [PASEO]))).rejects.toThrow('No tienes permisos de administrador');
-    await as(db, U.laura, async (tx) => {
-      await tx.query('select public.close_account($1)', [PASEO]);
-      expect(await count(tx, 'select 1 from public.invitations where account_id = $1 and revoked_at is null', [PASEO])).toBe(0);
+    await expect(as(db, U.laura, (tx) => tx.query('select public.close_account($1)', [PASEO]))).rejects.toThrow('Primero liquiden el paseo');
+    await as(db, U.andres, async (tx) => {
+      await tx.query('select public.close_account($1)', [CASA]);
+      expect(await one(tx, 'select status from public.accounts where id = $1', [CASA])).toEqual({ status: 'closed' });
     });
   });
 });

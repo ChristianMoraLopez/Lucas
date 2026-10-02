@@ -5,8 +5,8 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/lucas-ui';
 
 /**
- * Confirmación para acciones que no se deshacen (sacar a alguien, salir de la
- * cuenta). Radix pone el foco, el Escape y el aria; el estilo sale de tokens.css.
+ * Confirmación para acciones importantes (sacar a alguien, salir de la cuenta,
+ * liquidar). Radix pone el foco, el Escape y el aria; el estilo sale de tokens.css.
  */
 export function ConfirmDialog({
   open,
@@ -15,6 +15,7 @@ export function ConfirmDialog({
   children,
   confirmLabel,
   busy = false,
+  danger = true,
   onConfirm,
 }: {
   open: boolean;
@@ -23,6 +24,8 @@ export function ConfirmDialog({
   children: ReactNode;
   confirmLabel: string;
   busy?: boolean;
+  /** false: la acción no destruye nada (liquidar), el botón va en el color principal */
+  danger?: boolean;
   onConfirm: () => void;
 }) {
   return (
@@ -40,8 +43,8 @@ export function ConfirmDialog({
             </AlertDialog.Cancel>
             <Button
               size="sm"
-              variant="secondary"
-              className="lu-btn--danger"
+              variant={danger ? 'secondary' : 'primary'}
+              className={danger ? 'lu-btn--danger' : undefined}
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();
