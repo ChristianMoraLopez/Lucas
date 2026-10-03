@@ -2,15 +2,18 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { formatCOP, lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, Button, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { copiar } from '@/lib/clipboard';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import { whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
 import { minTransfers } from '@/lib/settlement';
+import { cobroMessage, displayShare, resumenMessage, sharedLink } from '@/lib/share';
 import { asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -32,13 +35,27 @@ const mesLargo = (mes: string) => `${monthName(mes)} ${mes.slice(0, 4)}`;
  * guardadas y cada una se marca cuando se paga. Un paseo se liquida completo;
  * un hogar, mes a mes.
  */
-export function SettleScreen({ d }: { d: SettlementOverview }) {
+export function SettleScreen({
+  d,
+  shareToken,
+  phones,
+  origin,
+}: {
+  d: SettlementOverview;
+  /** El link público de la cuenta (/r/TOKEN), si ya lo crearon */
+  shareToken: string | null;
+  /** WhatsApp de cada persona (person_id → 573001234567), para cobrarle directo */
+  phones: Record<string, string>;
+  origin: string;
+}) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [, startRefresh] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<Accion | null>(null);
+  const [token, setToken] = useState(shareToken);
+  useEffect(() => setToken(shareToken), [shareToken]);
 
   const accountId = d.account.id;
   const evento = d.account.type === 'evento';
@@ -72,6 +89,48 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
   const bloqueos = d.pending_count + d.incomplete_count;
   const queSe = evento ? 'el paseo' : monthName(d.month as string).toLowerCase();
   const puedeMarcar = (t: SettlementTransfer) => !cerrada && (d.is_admin || t.from === d.my_person_id || t.to === d.my_person_id);
+
+  // Cobrar por WhatsApp: el admin, o a quien le deben. El mensaje lleva el link
+  // donde esa persona ve lo suyo (sin instalar nada) y la publicidad de Luks.
+  const puedeCobrar = (t: SettlementTransfer) => !cerrada && !t.paid_at && (d.is_admin || t.to === d.my_person_id);
+  const mesDelLink = evento ? null : d.month;
+  const cobro = (t: SettlementTransfer, tk: string | null) =>
+    whatsappUrl(
+      cobroMessage({
+        debtor: nombre(t.from),
+        creditor: nombre(t.to),
+        amount: t.amount,
+        accountName: d.account.name,
+        link: tk ? sharedLink(origin, tk, { person: t.from, month: mesDelLink }) : null,
+        creditorIsMe: t.to === d.my_person_id,
+      }),
+      phones[t.from],
+    );
+  /** El link público; si no existe y es admin, se crea (cobrar es compartir) */
+  const asegurarLink = async () => {
+    if (token || !d.is_admin) return token;
+    const { data, error } = await supabase.rpc('create_share_link', { p_account_id: accountId });
+    if (error) {
+      setError(humanError(error));
+      return null;
+    }
+    setToken(data as string);
+    return data as string;
+  };
+  const cobrar = async (e: React.MouseEvent<HTMLAnchorElement>, t: SettlementTransfer) => {
+    if (token || !d.is_admin) return; // el enlace ya va listo
+    e.preventDefault();
+    // La ventana se abre ya (si se abre después de esperar, el celular la bloquea) y luego va a WhatsApp
+    const w = window.open('', '_blank');
+    const url = cobro(t, await asegurarLink());
+    if (w) w.location.href = url;
+    else window.location.href = url;
+  };
+  const botonCobrar = (t: SettlementTransfer) => (
+    <a className="lu-btn lu-btn--sm lu-btn--secondary" href={cobro(t, token)} target="_blank" rel="noreferrer" onClick={(e) => cobrar(e, t)}>
+      {t.to === d.my_person_id ? 'Cobrarle' : 'Recordarle'} por WhatsApp
+    </a>
+  );
 
   const correr = async (clave: string, fn: () => PromiseLike<{ error: { message?: string } | null }>) => {
     setBusy(clave);
@@ -189,7 +248,11 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
               const de = people.get(t.from);
               const para = people.get(t.to);
               return (
-                <li key={t.id} className={`st-t${t.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}`} style={{ '--i': i } as React.CSSProperties}>
+                <li
+                  key={t.id}
+                  className={`st-t${t.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}${!s && puedeCobrar(t) ? ' has-act' : ''}`}
+                  style={{ '--i': i } as React.CSSProperties}
+                >
                   <div className="st-pair" aria-hidden="true">
                     <Avatar name={nombre(t.from)} tone={asTone(de?.tone, nombre(t.from))} registered={de?.registered} size="sm" />
                     <svg className="st-arrow" viewBox="0 0 40 16" aria-hidden="true">
@@ -204,8 +267,10 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
                     <span className="st-lucas">{lucas(t.amount)}</span>
                   </div>
                   <Amount value={t.amount} size="lg" className="st-amt" />
+                  {!s && puedeCobrar(t) && <div className="st-act">{botonCobrar(t)}</div>}
                   {s && (
                     <div className="st-act">
+                      {puedeCobrar(t) && botonCobrar(t)}
                       {t.paid_at ? (
                         <>
                           <Sticker tone="pagado" rotate={i % 2 ? 5 : -5} sub={formatDay(new Date(t.paid_at))} />
@@ -285,6 +350,18 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
           </p>
         )}
 
+        <Compartir
+          accountId={accountId}
+          accountName={d.account.name}
+          isAdmin={d.is_admin}
+          token={token}
+          link={token ? sharedLink(origin, token, { month: mesDelLink }) : null}
+          total={total}
+          personas={d.people.length}
+          onToken={setToken}
+          onError={(e) => setError(humanError(e))}
+        />
+
         <section>
           <h2 className="lu-title" style={{ marginBottom: 12 }}>
             Descargar
@@ -357,6 +434,116 @@ export function SettleScreen({ d }: { d: SettlementOverview }) {
         Queda archivado con su liquidación, en solo lectura. Ya no entran gastos ni personas.
       </ConfirmDialog>
     </div>
+  );
+}
+
+/**
+ * Compartir las cuentas con quien no usa la app: un link (/r/TOKEN) donde cada
+ * uno ve cuánto puso, cuánto le toca y a quién le paga. Lo crea un admin; con
+ * «Cambiar el link» el anterior deja de servir.
+ */
+function Compartir({
+  accountId,
+  accountName,
+  isAdmin,
+  token,
+  link,
+  total,
+  personas,
+  onToken,
+  onError,
+}: {
+  accountId: string;
+  accountName: string;
+  isAdmin: boolean;
+  token: string | null;
+  link: string | null;
+  total: number;
+  personas: number;
+  onToken: (t: string | null) => void;
+  onError: (e: { message?: string }) => void;
+}) {
+  const [supabase] = useState(() => createClient());
+  const [busy, setBusy] = useState(false);
+  const [copiado, setCopiado] = useState<'si' | 'no' | null>(null);
+  const [quitar, setQuitar] = useState(false);
+
+  const crear = async (renovar: boolean) => {
+    setBusy(true);
+    const { data, error } = await supabase.rpc('create_share_link', { p_account_id: accountId, p_renew: renovar });
+    setBusy(false);
+    if (error) return onError(error);
+    onToken(data as string);
+  };
+  const dejar = async () => {
+    setBusy(true);
+    const { error } = await supabase.rpc('delete_share_link', { p_account_id: accountId });
+    setBusy(false);
+    setQuitar(false);
+    if (error) return onError(error);
+    onToken(null);
+  };
+
+  return (
+    <section className="st-share" aria-labelledby="st-share-t">
+      <h2 id="st-share-t" className="lu-title" style={{ margin: 0 }}>
+        Compartir las cuentas
+      </h2>
+      {token && link ? (
+        <>
+          <p className="lu-small" style={{ margin: 0 }}>
+            Cada uno ve cuánto puso, cuánto le toca y a quién le paga, sin instalar nada. Al cobrarle a alguien, el mensaje le lleva directo a lo suyo.
+          </p>
+          <div className="st-share__link lu-num">{displayShare(link)}</div>
+          <div className="st-exp">
+            <Button
+              size="sm"
+              onClick={async () => {
+                setCopiado((await copiar(link)) ? 'si' : 'no');
+                setTimeout(() => setCopiado(null), 2200);
+              }}
+            >
+              {copiado === 'si' ? '¡Copiado!' : copiado === 'no' ? 'Cópialo a mano' : 'Copiar link'}
+            </Button>
+            <a
+              className="lu-btn lu-btn--sm lu-btn--secondary"
+              href={whatsappUrl(resumenMessage({ accountName, total, people: personas, link }))}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Mandar al grupo
+            </a>
+          </div>
+          {isAdmin && (
+            <div className="st-exp">
+              <button type="button" className="st-undo" onClick={() => crear(true)} disabled={busy}>
+                Cambiar el link
+              </button>
+              <button type="button" className="st-undo" onClick={() => setQuitar(true)} disabled={busy}>
+                Dejar de compartir
+              </button>
+            </div>
+          )}
+          <ConfirmDialog open={quitar} onOpenChange={setQuitar} title="¿Dejar de compartir?" confirmLabel="Dejar de compartir" busy={busy} onConfirm={dejar}>
+            El link deja de funcionar para todos. Si después lo vuelven a crear, sale uno nuevo.
+          </ConfirmDialog>
+        </>
+      ) : isAdmin ? (
+        <>
+          <p className="lu-small" style={{ margin: 0 }}>
+            Un link para que cada uno vea cuánto puso, cuánto le toca y a quién le paga, aunque nunca haya abierto Luks. Lo ve cualquiera que tenga el link; no
+            muestra fotos ni números.
+          </p>
+          <Button size="sm" onClick={() => crear(false)} disabled={busy}>
+            {busy ? 'Creando…' : 'Crear el link'}
+          </Button>
+        </>
+      ) : (
+        <p className="lu-small lu-muted" style={{ margin: 0 }}>
+          Quien administra la cuenta puede crear un link para que todos vean las cuentas, aunque no usen Luks.
+        </p>
+      )}
+    </section>
   );
 }
 

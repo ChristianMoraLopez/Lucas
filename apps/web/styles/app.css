@@ -3595,3 +3595,215 @@ iframe {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
 }
+
+/* ---------- cuentas compartidas (/r/TOKEN): se ven sin entrar ---------- */
+.sh {
+  padding: var(--space-4) var(--space-4) var(--space-10);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  max-width: 760px;
+  width: 100%;
+  margin-inline: auto;
+}
+.sh-bar-cta {
+  margin-left: auto;
+}
+.sh-head {
+  display: grid;
+  gap: 6px;
+}
+.sh-yo {
+  display: grid;
+  gap: var(--space-3);
+}
+.sh-deudas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.sh-deuda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--naranja-suave);
+  font-size: 16px;
+  font-weight: 600;
+}
+.sh-deuda.is-paid {
+  background: var(--verde-suave);
+}
+.sh-nota {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.sh-nota--ok {
+  background: var(--verde-suave);
+}
+.sh-link {
+  justify-self: start;
+  font-weight: 700;
+  color: var(--tinta);
+  text-underline-offset: 4px;
+}
+.sh-quien {
+  display: grid;
+  gap: var(--space-2);
+}
+.sh-chip {
+  text-decoration: none;
+}
+.sh-sec {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+/* Lo de la persona que abrió su link, resaltado */
+.st-t.sh-mia {
+  border-color: var(--morado);
+  border-style: solid;
+}
+.st-pp > li.sh-mia {
+  background: var(--morado-suave);
+}
+.sh-p {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: inherit;
+  text-decoration: none;
+}
+.sh-p:hover {
+  background: var(--superficie-2);
+}
+.sh-p:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: -2px;
+}
+.sh-gastos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+}
+.sh-gasto {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.sh-gasto + .sh-gasto {
+  border-top: 1px solid var(--borde);
+}
+.sh-g {
+  display: grid;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+.sh-g b {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.sh-g__amt {
+  display: grid;
+  justify-items: end;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: right;
+}
+.sh-sin {
+  width: 32px;
+}
+.sh-promo {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--amarillo);
+  color: var(--tinta-fija);
+}
+.sh-promo__t {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 24px;
+}
+.sh-promo__url {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+@container app (min-width: 760px) {
+  .sh {
+    padding: var(--space-6) var(--space-8) var(--space-10);
+  }
+}
+
+/* Liquidar: cobrar por WhatsApp y compartir las cuentas */
+.st-t.is-previa.has-act {
+  grid-template-areas: "pair amt" "txt txt" "act act";
+}
+.st-act {
+  flex-wrap: wrap;
+}
+.st-share {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--morado-suave);
+}
+.st-share__link {
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--superficie);
+  font-weight: 700;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+@container app (min-width: 760px) {
+  .st-t.is-previa.has-act {
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas: "pair txt amt act";
+  }
+}
+
+/* Invitar por WhatsApp (Personas y Resumen) */
+.lu-invite {
+  display: inline-grid;
+  gap: 4px;
+  justify-items: start;
+}
+.mb-head__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ed-invite {
+  margin-top: var(--space-3);
+}
+/* En la página pública el detalle de cada persona se lee completo */
+.sh-p .st-p__sub {
+  white-space: normal;
+}

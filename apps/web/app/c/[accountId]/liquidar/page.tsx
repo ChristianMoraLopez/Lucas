@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { SettlementOverview } from '@/lib/types';
+import { siteOrigin } from '@/utils/site';
 import { requireUser } from '@/utils/supabase/server';
 import { SettleScreen } from './settle-screen';
 
@@ -16,6 +17,26 @@ export default async function LiquidarPage({ params, searchParams }: PageProps<'
     throw error;
   }
 
+  const d = data as SettlementOverview;
+
+  // Para cobrar por WhatsApp: el link público (si ya lo crearon) y el número de cada quien
+  const [link, numeros, origin] = await Promise.all([
+    supabase.rpc('share_link', { p_account_id: accountId }),
+    supabase
+      .from('person_whatsapp_ids')
+      .select('person_id, wa_id')
+      .in(
+        'person_id',
+        d.people.map((p) => p.id),
+      ),
+    siteOrigin(),
+  ]);
+  const phones: Record<string, string> = {};
+  for (const n of numeros.data ?? []) {
+    // «lid:…» es un id interno de WhatsApp, no un número al que se pueda escribir
+    if (/^\d{8,15}$/.test(n.wa_id) && !phones[n.person_id]) phones[n.person_id] = n.wa_id;
+  }
+
   // La pantalla escucha sola los gastos y las transferencias (tiempo real)
-  return <SettleScreen d={data as SettlementOverview} />;
+  return <SettleScreen d={d} shareToken={(link.data as string | null) ?? null} phones={phones} origin={origin} />;
 }
