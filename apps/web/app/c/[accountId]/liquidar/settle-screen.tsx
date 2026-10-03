@@ -2,18 +2,18 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { type ReactNode, useEffect, useMemo, useState, useTransition } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { formatCOP, lucas } from '@/components/lucas-core';
-import { Amount, Avatar, BillCard, Button, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
-import { copiar } from '@/lib/clipboard';
+import { Amount, Avatar, BillCard, Button, CategoryTag, ICONS, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { copiar, copiarLuego } from '@/lib/clipboard';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
 import { minTransfers } from '@/lib/settlement';
-import { cobroMessage, displayShare, resumenMessage, sharedLink } from '@/lib/share';
+import { cobroMessage, displayShare, grupoMessage, sharedLink } from '@/lib/share';
 import { asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -117,20 +117,41 @@ export function SettleScreen({
     setToken(data as string);
     return data as string;
   };
-  const cobrar = async (e: React.MouseEvent<HTMLAnchorElement>, t: SettlementTransfer) => {
+  /** Abre WhatsApp con un mensaje que lleva el link; si el link no existe todavía, lo crea antes */
+  const abrirConLink = async (e: React.MouseEvent<HTMLAnchorElement>, url: (tk: string | null) => string) => {
     if (token || !d.is_admin) return; // el enlace ya va listo
     e.preventDefault();
     // La ventana se abre ya (si se abre después de esperar, el celular la bloquea) y luego va a WhatsApp
     const w = window.open('', '_blank');
-    const url = cobro(t, await asegurarLink());
-    if (w) w.location.href = url;
-    else window.location.href = url;
+    const destino = url(await asegurarLink());
+    if (w) w.location.href = destino;
+    else window.location.href = destino;
   };
   const botonCobrar = (t: SettlementTransfer) => (
-    <a className="lu-btn lu-btn--sm lu-btn--secondary" href={cobro(t, token)} target="_blank" rel="noreferrer" onClick={(e) => cobrar(e, t)}>
+    <a
+      className="lu-btn lu-btn--sm lu-btn--secondary"
+      href={cobro(t, token)}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => abrirConLink(e, (tk) => cobro(t, tk))}
+    >
       {t.to === d.my_person_id ? 'Cobrarle' : 'Recordarle'} por WhatsApp
     </a>
   );
+
+  // Para todo el grupo: cuánto fue y quién le paga a quién, en un solo mensaje
+  const mensajeGrupo = (tk: string | null) =>
+    grupoMessage({
+      accountName: d.account.name,
+      periodo: evento ? null : mesLargo(d.month as string),
+      total,
+      people: d.people.length,
+      porCabeza,
+      transfers,
+      nombre,
+      liquidada: Boolean(s),
+      link: tk ? sharedLink(origin, tk, { month: mesDelLink }) : null,
+    });
 
   const correr = async (clave: string, fn: () => PromiseLike<{ error: { message?: string } | null }>) => {
     setBusy(clave);
@@ -313,6 +334,21 @@ export function SettleScreen({
             Los saldos no cuadran ({calculo.error}). Recarguen la página; si sigue, revisen los gastos.
           </p>
         )}
+
+        {total > 0 && (calculo.ok || s) && (
+          <MandarAlGrupo
+            mensaje={mensajeGrupo(token)}
+            // Si falta el link y es admin, se crea al mandarlo: en la vista previa ya va
+            vista={mensajeGrupo(token ?? (d.is_admin ? '…' : null))}
+            conLink={Boolean(token) || d.is_admin}
+            imagen={`/c/${accountId}/liquidar/imagen?${new URLSearchParams({
+              ...(mesDelLink ? { mes: mesDelLink.slice(0, 7) } : {}),
+              v: `${total}-${transfers.length}-${pagadas}`,
+            })}`}
+            onMandar={(e) => abrirConLink(e, (tk) => whatsappUrl(mensajeGrupo(tk)))}
+            onCopiar={() => copiarLuego(asegurarLink().then(mensajeGrupo))}
+          />
+        )}
       </div>
 
       <section className="st-people" aria-labelledby="st-people-t">
@@ -352,12 +388,9 @@ export function SettleScreen({
 
         <Compartir
           accountId={accountId}
-          accountName={d.account.name}
           isAdmin={d.is_admin}
           token={token}
           link={token ? sharedLink(origin, token, { month: mesDelLink }) : null}
-          total={total}
-          personas={d.people.length}
           onToken={setToken}
           onError={(e) => setError(humanError(e))}
         />
@@ -438,28 +471,116 @@ export function SettleScreen({
 }
 
 /**
+ * Al final de la lista: un solo mensaje para todo el grupo de WhatsApp con
+ * cuánto fue y quién le paga a quién (aparte de los cobros de cada uno). Se ve
+ * antes como les llega: la imagen del link y el texto con su formato.
+ */
+function MandarAlGrupo({
+  mensaje,
+  vista,
+  conLink,
+  imagen,
+  onMandar,
+  onCopiar,
+}: {
+  /** El mensaje como va ya (sin link, si todavía no existe) */
+  mensaje: string;
+  /** El mensaje como les llega */
+  vista: string;
+  /** Si el mensaje lleva (o va a llevar) el link de las cuentas */
+  conLink: boolean;
+  /** La imagen de las cuentas, la misma de la vista previa del link */
+  imagen: string;
+  onMandar: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  onCopiar: () => Promise<boolean>;
+}) {
+  const [copiado, setCopiado] = useState<'si' | 'no' | null>(null);
+  return (
+    <section className="st-grupo" aria-labelledby="st-grupo-t">
+      <div className="st-grupo__txt">
+        <span className="st-grupo__kicker">
+          {ICONS.whatsapp}
+          Para todo el grupo
+        </span>
+        <h2 id="st-grupo-t" className="lu-title" style={{ margin: 0 }}>
+          Mándenle las cuentas a todos
+        </h2>
+        <p className="lu-small" style={{ margin: 0 }}>
+          Un solo mensaje con cuánto fue y quién le paga a quién{conLink ? ', y el link donde cada uno ve lo suyo' : ''}. Escojan el grupo en WhatsApp y listo.
+        </p>
+        <div className="st-exp">
+          <a className="lu-btn lu-btn--primary st-grupo__btn" href={whatsappUrl(mensaje)} target="_blank" rel="noreferrer" onClick={onMandar}>
+            {ICONS.whatsapp}
+            Mandar al grupo
+          </a>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={async () => {
+              setCopiado((await onCopiar()) ? 'si' : 'no');
+              setTimeout(() => setCopiado(null), 2200);
+            }}
+          >
+            {copiado === 'si' ? '¡Copiado!' : copiado === 'no' ? 'No se pudo copiar' : 'Copiar mensaje'}
+          </Button>
+        </div>
+      </div>
+
+      <figure className="st-grupo__chat">
+        <figcaption className="lu-label">Así les llega</figcaption>
+        <div className="st-grupo__burbuja">
+          {conLink && (
+            // biome-ignore lint/performance/noImgElement: la imagen la genera una ruta propia (next/og); next/image no le suma nada
+            <img className="st-grupo__img" src={imagen} alt="Imagen con el total y quién le paga a quién" width={1200} height={630} loading="lazy" />
+          )}
+          <p className="st-grupo__msg">{formatoWhatsapp(vista)}</p>
+        </div>
+      </figure>
+    </section>
+  );
+}
+
+/** *negrilla*, _cursiva_, ~tachado~ y links, como los muestra WhatsApp */
+function formatoWhatsapp(texto: string) {
+  const partes: ReactNode[] = [];
+  let desde = 0;
+  for (const m of texto.matchAll(/https?:\/\/\S+|\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~/g)) {
+    const i = m.index ?? 0;
+    if (i > desde) partes.push(texto.slice(desde, i));
+    const t = m[0];
+    const dentro = t.slice(1, -1);
+    if (t.startsWith('http')) {
+      partes.push(
+        <span key={i} className="st-grupo__url">
+          {t}
+        </span>,
+      );
+    } else if (t[0] === '*') partes.push(<b key={i}>{dentro}</b>);
+    else if (t[0] === '_') partes.push(<i key={i}>{dentro}</i>);
+    else partes.push(<s key={i}>{dentro}</s>);
+    desde = i + t.length;
+  }
+  if (desde < texto.length) partes.push(texto.slice(desde));
+  return partes;
+}
+
+/**
  * Compartir las cuentas con quien no usa la app: un link (/r/TOKEN) donde cada
  * uno ve cuánto puso, cuánto le toca y a quién le paga. Lo crea un admin; con
  * «Cambiar el link» el anterior deja de servir.
  */
 function Compartir({
   accountId,
-  accountName,
   isAdmin,
   token,
   link,
-  total,
-  personas,
   onToken,
   onError,
 }: {
   accountId: string;
-  accountName: string;
   isAdmin: boolean;
   token: string | null;
   link: string | null;
-  total: number;
-  personas: number;
   onToken: (t: string | null) => void;
   onError: (e: { message?: string }) => void;
 }) {
@@ -505,14 +626,6 @@ function Compartir({
             >
               {copiado === 'si' ? '¡Copiado!' : copiado === 'no' ? 'Cópialo a mano' : 'Copiar link'}
             </Button>
-            <a
-              className="lu-btn lu-btn--sm lu-btn--secondary"
-              href={whatsappUrl(resumenMessage({ accountName, total, people: personas, link }))}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Mandar al grupo
-            </a>
           </div>
           {isAdmin && (
             <div className="st-exp">
