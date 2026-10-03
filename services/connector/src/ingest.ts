@@ -39,6 +39,11 @@ export class Ingestor {
   /** Luks quedó en un grupo (lo agregaron, o ya estaba al conectar) */
   async onGroupJoined(session: SessionInfo, connector: MessagingConnector, group: GroupInfo): Promise<void> {
     const g = await this.store.upsertGroup(session.id, group.chatId, group.name, group.participants);
+    // Quiénes están: si el grupo ya es de una cuenta, cada uno queda como persona de ella
+    if (group.members?.length) {
+      const r = await this.store.setGroupMembers(g.group_id, group.members);
+      if (r.people_added) this.log.info({ group: g.group_id, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
+    }
     // Solo el número contador escribe; una sesión personal es el WhatsApp de alguien
     if (g.say_hello && session.kind === 'contador' && this.limiter.allow(group.chatId)) {
       try {
@@ -115,7 +120,7 @@ export class Ingestor {
       const text = r.ok
         ? r.already
           ? MSG.alreadyLinked(r.account_name)
-          : MSG.linked(r.account_name)
+          : MSG.linked(r.account_name, r.members)
         : r.error === 'otra_cuenta'
           ? MSG.otherAccount
           : MSG.badCode;

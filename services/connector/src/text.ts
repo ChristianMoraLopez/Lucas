@@ -81,8 +81,8 @@ export function formatReplies(items: PendingReply[]): string {
 export const MSG = {
   hello:
     'Hola, soy Luks. Para anotar los gastos de este grupo, quien administra la cuenta escribe aquí «luks» y el código de la cuenta (está en la app, en Conectar WhatsApp). Solo leo fotos de recibos, PDFs y mensajes con montos.',
-  linked: (account: string) =>
-    `Listo: este grupo quedó conectado a «${account}». Manden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto.`,
+  linked: (account: string, members?: number) =>
+    `Listo: este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta` : ''}. Manden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto.`,
   alreadyLinked: (account: string) => `Este grupo ya está conectado a «${account}».`,
   badCode: 'Ese código no sirve: puede que esté mal escrito o que ya venció. Búsquenlo en la app, en Conectar WhatsApp.',
   otherAccount: 'Este grupo ya está conectado a otra cuenta de Luks. Para cambiarlo, desconéctenlo primero desde la app.',

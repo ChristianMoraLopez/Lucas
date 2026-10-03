@@ -267,7 +267,7 @@ export function WhatsappScreen({
               )}
               {conectado && principal && (
                 <span className="lu-small">
-                  {principal.participants ? `${principal.participants} personas · ` : ''}
+                  {(principal.members ?? principal.participants) ? `${principal.members ?? principal.participants} integrantes · ` : ''}
                   {plural(principal.expenses, 'mensaje con gasto', 'mensajes con gastos')} desde el {dia(principal.linked_at)}
                 </span>
               )}
@@ -477,6 +477,9 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
       <h2 className="lu-title" id="wa-grupos" style={{ margin: 0 }}>
         {grupos.length === 1 ? 'Grupo conectado' : 'Grupos conectados'}
       </h2>
+      <p className="lu-small lu-muted" style={{ margin: 0 }}>
+        La gente del grupo es la gente de la cuenta: quien entra al grupo aparece solo en Personas, con su nombre de WhatsApp.
+      </p>
       <ul className="wa-groups">
         {grupos.map((g) => (
           <li key={g.group_id}>
@@ -485,7 +488,7 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
               <span className="lu-small lu-muted">
                 {g.left_at
                   ? `Sacaron a Luks del grupo el ${dia(g.left_at)}`
-                  : `desde el ${dia(g.linked_at)} · ${plural(g.expenses, 'gasto', 'gastos')}${g.connection_kind === 'personal' ? ' · por un WhatsApp vinculado' : ''}${g.connection_ok ? '' : ' · nadie lo lee ahora'}`}
+                  : `desde el ${dia(g.linked_at)}${g.members != null ? ` · ${plural(g.members, 'integrante', 'integrantes')}` : ''} · ${plural(g.expenses, 'gasto', 'gastos')}${g.connection_kind === 'personal' ? ' · por un WhatsApp vinculado' : ''}${g.connection_ok ? '' : ' · nadie lo lee ahora'}`}
               </span>
             </div>
             {isAdmin && !g.left_at && (

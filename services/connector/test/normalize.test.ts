@@ -1,6 +1,6 @@
-import type { WAMessage } from 'baileys';
+import type { GroupMetadata, WAMessage } from 'baileys';
 import { describe, expect, it } from 'vitest';
-import { normalizeMessage } from '../src/whatsapp/normalize.js';
+import { membersOf, normalizeMessage } from '../src/whatsapp/normalize.js';
 
 const ME = { phone: '573150000000', lid: '99887766', name: 'Luks' };
 const GRUPO = '120363040123456789@g.us';
@@ -100,5 +100,34 @@ describe('mensajes de Baileys → IncomingMessage', () => {
     expect(normalizeMessage(msg({ message: { stickerMessage: {} } as WAMessage['message'] }), 's1', ME, bajar)).toBeNull();
     expect(normalizeMessage(msg({ message: { conversation: '   ' } }), 's1', ME, bajar)).toBeNull();
     expect(normalizeMessage(msg({ message: null }), 's1', ME, bajar)).toBeNull();
+  });
+});
+
+describe('integrantes de un grupo', () => {
+  const grupoCon = (participants: GroupMetadata['participants']) => ({ id: GRUPO, subject: 'Paseo', participants }) as GroupMetadata;
+
+  it('cada uno con su número si se ve, si no con «lid:…», como quien escribe', () => {
+    const ms = membersOf(
+      grupoCon([
+        { id: '573016667788@s.whatsapp.net', notify: 'Mafe', admin: 'admin' },
+        { id: '11112222@lid', phoneNumber: '573128880365@s.whatsapp.net' },
+        { id: '33334444@lid' },
+        { id: '573016667788@s.whatsapp.net' }, // repetido
+      ]),
+    );
+    expect(ms).toEqual([
+      { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: true },
+      { id: '573128880365', phone: '573128880365', lid: '11112222', name: null, admin: false },
+      { id: 'lid:33334444', phone: null, lid: '33334444', name: null, admin: false },
+    ]);
+  });
+
+  it('el nombre sale de WhatsApp o de los contactos de quien vinculó', () => {
+    const contactos = new Map([
+      ['573128880365', { notify: 'Santi 🏄', name: 'Santiago Herrera' }],
+      ['33334444', { name: 'Caro trabajo' }],
+    ]);
+    const ms = membersOf(grupoCon([{ id: '573128880365@s.whatsapp.net' }, { id: '33334444@lid' }]), contactos);
+    expect(ms.map((m) => m.name)).toEqual(['Santi 🏄', 'Caro trabajo']);
   });
 });

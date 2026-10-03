@@ -1,5 +1,5 @@
-import { getContentType, isJidGroup, isLidUser, isPnUser, jidDecode, normalizeMessageContent, type WAMessage } from 'baileys';
-import type { IncomingMedia, IncomingMessage, Sender } from '../connector.js';
+import { type GroupMetadata, getContentType, isJidGroup, isLidUser, isPnUser, jidDecode, normalizeMessageContent, type WAMessage } from 'baileys';
+import type { GroupMember, IncomingMedia, IncomingMessage, Sender } from '../connector.js';
 
 /* Un mensaje de Baileys → IncomingMessage (sin nada propio de Baileys). */
 
@@ -38,6 +38,30 @@ export function senderOf(raw: WAMessage, me: Me): Sender {
   const phone = usuario(jids.find((j) => isPnUser(j)));
   const lid = usuario(jids.find((j) => isLidUser(j)));
   return { id: phone ?? (lid ? `lid:${lid}` : null), phone, name: raw.pushName?.trim() || null };
+}
+
+/** Nombres que se conocen de cada número o LID (eventos contacts.* de Baileys) */
+export type Contactos = Map<string, { notify?: string | null; name?: string | null }>;
+
+/**
+ * Los integrantes de un grupo, identificados igual que quien escribe: el
+ * número si se ve, si no «lid:…». El nombre: el que cada quien se puso en
+ * WhatsApp; si no se sabe, como lo tiene guardado quien vinculó.
+ */
+export function membersOf(g: GroupMetadata, contactos: Contactos = new Map()): GroupMember[] {
+  const out = new Map<string, GroupMember>();
+  for (const p of g.participants ?? []) {
+    const phone = usuario([p.phoneNumber, p.id].find((j) => j && isPnUser(j)));
+    const lid = usuario([p.lid, p.id].find((j) => j && isLidUser(j)));
+    const id = phone ?? (lid ? `lid:${lid}` : null);
+    if (!id) continue;
+    const c = (phone && contactos.get(phone)) || (lid && contactos.get(lid)) || undefined;
+    const name = [p.notify, c?.notify, p.name, c?.name, p.verifiedName].map((n) => n?.trim()).find(Boolean) ?? null;
+    // Si viene repetido, se queda con lo que se sepa de cada vez
+    const antes = out.get(id);
+    out.set(id, { id, phone, lid: lid ?? antes?.lid ?? null, name: name ?? antes?.name ?? null, admin: Boolean(p.admin) || Boolean(antes?.admin) });
+  }
+  return [...out.values()];
 }
 
 export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, download: Downloader): IncomingMessage | null {

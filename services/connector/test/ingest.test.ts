@@ -46,6 +46,23 @@ describe('cuando agregan a Luks a un grupo', () => {
     expect(wa.sent).toEqual([{ chatId: GRUPO, text: MSG.hello }]);
   });
 
+  it('manda quiénes están en el grupo; enlazado, quedan como personas de la cuenta', async () => {
+    const members = [
+      { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: true },
+      { id: 'lid:33334444', phone: null, lid: '33334444', name: null, admin: false },
+    ];
+    await ing.onGroupJoined(contador, wa, grupo({ members }));
+    const g = store.groups.get(GRUPO);
+    expect(store.members.get(g?.group_id as string)).toEqual(members);
+
+    // Al enlazar, el mensaje dice cuántos quedaron en la cuenta
+    wa.sent = [];
+    reloj += 60_000;
+    await ing.onMessage(contador, wa, m({ text: 'luks PASEO-7K2Q' }));
+    expect(wa.sent[0].text).toBe(MSG.linked('Paseo Santa Marta', 2));
+    expect(wa.sent[0].text).toContain('sus 2 integrantes ya están en la cuenta');
+  });
+
   it('una sesión personal no escribe en el grupo', async () => {
     const mio = new FakeConnector(personal);
     await ing.onGroupJoined(personal, mio, grupo());

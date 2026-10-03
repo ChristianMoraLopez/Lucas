@@ -3,6 +3,7 @@ import makeWASocket, {
   areJidsSameUser,
   Browsers,
   type ConnectionState,
+  type Contact,
   DisconnectReason,
   downloadMediaMessage,
   fetchLatestBaileysVersion,
@@ -17,7 +18,7 @@ import type { SessionCipher } from '../crypto.js';
 import type { Logger } from '../log.js';
 import type { Store } from '../store.js';
 import { useDbAuthState } from './auth-state.js';
-import { type Me, normalizeMessage } from './normalize.js';
+import { type Contactos, type Me, membersOf, normalizeMessage } from './normalize.js';
 
 /*
  * MessagingConnector con Baileys: Luks entra como «dispositivo vinculado» de
@@ -44,7 +45,6 @@ export interface BaileysDeps {
 
 const usuario = (jid: string | null | undefined) => (jid ? (jidDecode(jid)?.user ?? null) : null);
 const statusCode = (err: unknown) => (err as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
-const info = (g: GroupMetadata): GroupInfo => ({ chatId: g.id, name: g.subject ?? null, participants: g.size ?? g.participants?.length ?? null });
 
 /**
  * Ya quedó vinculada, por QR o por código. Ojo: `registered` solo lo marca el
@@ -74,6 +74,8 @@ export class BaileysConnector implements MessagingConnector {
   #pairingCode: string | null = null;
   #timer: NodeJS.Timeout | null = null;
   #groups = new Map<string, GroupMetadata>();
+  /** Nombres de la gente (los que se pusieron en WhatsApp o como los guardó quien vinculó) */
+  #contactos: Contactos = new Map();
   /** Los mensajes de una sesión se procesan de a uno (las fotos se bajan en orden) */
   #cola: Promise<void> = Promise.resolve();
   readonly #log: Logger;
@@ -169,10 +171,23 @@ export class BaileysConnector implements MessagingConnector {
       if (type !== 'notify' && type !== 'append') return;
       for (const raw of messages) this.#encolar(() => this.#onRaw(raw, sock));
     });
+    const recordar = (cs: Partial<Contact>[]) => {
+      for (const c of cs) {
+        const datos = { notify: c.notify ?? null, name: c.name ?? null };
+        for (const jid of [c.id, c.lid, c.phoneNumber]) {
+          const u = usuario(jid);
+          if (!u) continue;
+          const antes = this.#contactos.get(u);
+          this.#contactos.set(u, { notify: datos.notify ?? antes?.notify ?? null, name: datos.name ?? antes?.name ?? null });
+        }
+      }
+    };
+    sock.ev.on('contacts.upsert', recordar);
+    sock.ev.on('contacts.update', recordar);
     sock.ev.on('groups.upsert', (grupos) => {
       for (const g of grupos) {
         this.#groups.set(g.id, g);
-        this.#encolar(() => this.handlers.onGroupJoined(info(g)));
+        this.#encolar(async () => this.handlers.onGroupJoined(await this.#info(g, sock)));
       }
     });
     sock.ev.on('groups.update', (cambios) => {
@@ -180,7 +195,7 @@ export class BaileysConnector implements MessagingConnector {
         const g = c.id ? this.#groups.get(c.id) : undefined;
         if (g && c.subject) {
           g.subject = c.subject;
-          this.#encolar(() => this.handlers.onGroupJoined(info(g)));
+          this.#encolar(async () => this.handlers.onGroupJoined(await this.#info(g, sock)));
         }
       }
     });
@@ -190,18 +205,38 @@ export class BaileysConnector implements MessagingConnector {
         const id = typeof p === 'string' ? p : p.id;
         return areJidsSameUser(id, me?.id) || areJidsSameUser(id, me?.lid);
       });
-      if (!soyYo) return;
-      if (ev.action === 'add') {
-        this.#encolar(async () => {
-          const g = await sock.groupMetadata(ev.id);
-          this.#groups.set(g.id, g);
-          await this.handlers.onGroupJoined(info(g));
-        });
-      } else if (ev.action === 'remove') {
+      if (soyYo && ev.action === 'remove') {
         this.#groups.delete(ev.id);
         this.#encolar(() => this.handlers.onGroupLeft(ev.id));
+        return;
       }
+      // Agregaron a Luks, o alguien entró, salió o cambió en un grupo donde está:
+      // se vuelve a leer el grupo para que las personas de la cuenta sean las del grupo
+      if ((soyYo && ev.action !== 'add') || (!soyYo && !this.#groups.has(ev.id))) return;
+      this.#encolar(async () => {
+        const g = await sock.groupMetadata(ev.id);
+        this.#groups.set(g.id, g);
+        await this.handlers.onGroupJoined(await this.#info(g, sock));
+      });
     });
+  }
+
+  /** El grupo con sus integrantes; si de alguien solo se ve el LID, se intenta saber su número */
+  async #info(g: GroupMetadata, sock: WASocket): Promise<GroupInfo> {
+    const members = membersOf(g, this.#contactos);
+    for (const m of members) {
+      if (m.phone || !m.lid) continue;
+      try {
+        const phone = usuario(await sock.signalRepository.lidMapping.getPNForLID(`${m.lid}@lid`));
+        if (phone) {
+          m.phone = phone;
+          m.id = phone;
+        }
+      } catch {
+        // se queda con el LID
+      }
+    }
+    return { chatId: g.id, name: g.subject ?? null, participants: g.size ?? g.participants?.length ?? null, members };
   }
 
   #encolar(tarea: () => Promise<void>) {
@@ -250,7 +285,7 @@ export class BaileysConnector implements MessagingConnector {
       try {
         const todos = await sock.groupFetchAllParticipating();
         this.#groups = new Map(Object.entries(todos));
-        for (const g of this.#groups.values()) await this.handlers.onGroupJoined(info(g));
+        for (const g of this.#groups.values()) await this.handlers.onGroupJoined(await this.#info(g, sock));
       } catch (e) {
         this.#log.warn({ err: (e as Error).message }, 'No se pudieron leer los grupos');
       }

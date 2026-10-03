@@ -181,6 +181,12 @@ Todo está en [`00000000000120_liquidacion.sql`](supabase/migrations/00000000000
 - **Invitar por WhatsApp** (Resumen y Personas): manda el link de invitación; si la cuenta no tiene un código vigente, se crea uno.
 - **Recibos en retrospectiva.** «Pagué yo y después agrego a la gente»: en Personas se agregan varias de una vez («Mafe, Santi y Caro») y, si se quiere, se suman a los gastos que estaban divididos entre todos.
 
+### La gente del grupo es la gente de la cuenta
+
+Al conectar el grupo con «luks CÓDIGO», cada integrante queda como persona de la cuenta, y quien entra después al grupo aparece solo ([`00000000000160_integrantes_del_grupo.sql`](supabase/migrations/00000000000160_integrantes_del_grupo.sql)). Si su número ya es de alguien, no se repite; si es el WhatsApp vinculado de alguien de la cuenta, es esa persona; si alguien agregado a mano tiene el mismo nombre y no tiene WhatsApp, se le pone el número; si no, se crea con el nombre que se puso en WhatsApp (o «WhatsApp 4567»). El número de Luks no cuenta, y quien sale del grupo no se borra porque sus gastos siguen contando.
+
+**WhatsApp siempre a la vista.** Es el motor de Luks, así que tiene un botón arriba en todas las pantallas de la cuenta (verde si Luks está leyendo el grupo, rojo si se cayó, «Conectar WhatsApp» si todavía no hay grupo), un lugar en el menú lateral, una tarjeta grande en el Resumen mientras la cuenta no tenga grupo, y una cuenta nueva lleva directo a conectarlo.
+
 Está en [`00000000000150_compartir.sql`](supabase/migrations/00000000000150_compartir.sql) (`account_shares`, `shared_overview`, `create_share_link`, `add_people`) y [`apps/web/lib/share.ts`](apps/web/lib/share.ts); pruebas en `supabase/tests/compartir.test.ts`.
 
 ## Stack
@@ -210,7 +216,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             182 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación, compartir, personas, perfil y semilla (PGlite)
+│   ├── tests/             190 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, categorías, liquidación, compartir, personas, perfil y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -232,7 +238,7 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 182 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 190 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las 39 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones

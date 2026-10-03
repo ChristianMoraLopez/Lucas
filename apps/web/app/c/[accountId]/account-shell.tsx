@@ -1,12 +1,13 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { LogoLink } from '@/components/logo-link';
-import { AppShell } from '@/components/lucas-ui';
+import { AppShell, ICONS } from '@/components/lucas-ui';
 import { useAccountChanges } from '@/lib/realtime';
-import { type AccountType, accountGlyph, accountTone } from '@/lib/types';
+import { type AccountType, accountGlyph, accountTone, type EstadoWhatsapp, estadoWhatsapp, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 // Las pestañas de TABS_EVENTO / TABS_HOGAR del kit; el hogar también liquida (mes a mes)
@@ -71,20 +72,73 @@ function usePendingCount(accountId: string, initial: number) {
   return query.data;
 }
 
+/** El grupo de WhatsApp de la cuenta: el mismo dato que usa la pantalla de conectar (se comparte la caché) */
+function useWhatsapp(accountId: string, initial: WhatsappOverview | null) {
+  const [supabase] = useState(() => createClient());
+  const query = useQuery({
+    queryKey: ['whatsapp', accountId],
+    initialData: initial ?? undefined,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('whatsapp_overview', { p_account_id: accountId });
+      if (error) throw error;
+      return data as WhatsappOverview;
+    },
+  });
+  return estadoWhatsapp(query.data);
+}
+
+const DOT: Record<EstadoWhatsapp, 'ok' | 'warn' | 'off'> = { leyendo: 'ok', caido: 'warn', 'sin-grupo': 'off' };
+
+/**
+ * WhatsApp es el motor de Luks: el botón está siempre arriba. Verde con punto
+ * si Luks está leyendo el grupo; con punto rojo si se cayó; y si la cuenta
+ * todavía no tiene grupo, «Conectar WhatsApp» resaltado.
+ */
+function WhatsappPill({ accountId, wa, here }: { accountId: string; wa: ReturnType<typeof estadoWhatsapp>; here: boolean }) {
+  const label =
+    wa.estado === 'leyendo'
+      ? `WhatsApp: Luks está leyendo «${wa.grupo ?? 'el grupo'}»`
+      : wa.estado === 'caido'
+        ? 'WhatsApp: Luks no está leyendo el grupo ahora'
+        : 'Conectar el grupo de WhatsApp';
+  return (
+    <Link href={`/c/${accountId}/whatsapp`} className={`lu-wa-pill lu-wa-pill--${wa.estado}`} aria-label={label} aria-current={here ? 'page' : undefined}>
+      {ICONS.whatsapp}
+      <span className="lu-wa-pill__txt">
+        {wa.estado === 'sin-grupo' ? (
+          <>
+            Conectar<span className="lu-wa-pill__mas"> WhatsApp</span>
+          </>
+        ) : (
+          'WhatsApp'
+        )}
+      </span>
+      {wa.estado !== 'sin-grupo' && <span className="lu-wa-pill__dot" aria-hidden="true" />}
+    </Link>
+  );
+}
+
 export function AccountShell({
   account,
   pending,
+  whatsapp,
   children,
 }: {
   account: { id: string; name: string; type: AccountType };
   pending: number;
+  /** whatsapp_overview del servidor (para no parpadear al abrir) */
+  whatsapp: WhatsappOverview | null;
   children: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const active = pathname.split('/').filter(Boolean)[2] ?? 'resumen';
   const count = usePendingCount(account.id, pending);
-  const tabs = TABS[account.type].map((t) => (t.id === 'revisar' ? { ...t, count } : t));
+  const wa = useWhatsapp(account.id, whatsapp);
+  // En escritorio, WhatsApp también va en el menú lateral, justo después de Resumen
+  const base = TABS[account.type].map((t) => (t.id === 'revisar' ? { ...t, count } : t));
+  const tabs = [base[0], { id: 'whatsapp', label: 'WhatsApp', railOnly: true, dot: DOT[wa.estado] }, ...base.slice(1)];
 
   return (
     <AppShell
@@ -96,6 +150,7 @@ export function AccountShell({
       onTab={(id) => router.push(`/c/${account.id}/${id}`)}
       onAccount={() => router.push('/')}
       brand={<LogoLink />}
+      barExtra={<WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />}
     >
       {children}
     </AppShell>

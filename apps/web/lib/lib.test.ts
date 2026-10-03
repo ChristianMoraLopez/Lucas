@@ -4,7 +4,7 @@ import { callbackUrl, nextFromRedirectTo, safeNext } from './auth';
 import { eventMoment, formatDay, formatRange, monthName } from './dates';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from './invite';
 import { normalizarBusqueda, uuidOrNull } from './search';
-import { formatWaNumber, numeroParaCodigo, separarNombres } from './types';
+import { accountGlyph, formatWaNumber, numeroParaCodigo, separarNombres } from './types';
 
 describe('formatCOP / lucas', () => {
   it('pesos con punto de miles y sin decimales', () => {
@@ -176,5 +176,13 @@ describe('agregar varias personas', () => {
     expect(separarNombres(' Juan  Camilo \nMafe;mafe,, ')).toEqual(['Juan Camilo', 'Mafe']);
     expect(separarNombres('Ana Yepes')).toEqual(['Ana Yepes']);
     expect(separarNombres('   ')).toEqual([]);
+  });
+});
+
+describe('nombres con emojis (los de WhatsApp)', () => {
+  it('la letra de la cuenta salta los emojis', () => {
+    expect(accountGlyph('🏖️ Paseo')).toBe('P');
+    expect(accountGlyph('casa')).toBe('C');
+    expect(accountGlyph('🎉')).toBe('L');
   });
 });
