@@ -1,6 +1,6 @@
 import type { GroupMetadata, WAMessage } from 'baileys';
 import { describe, expect, it } from 'vitest';
-import { membersOf, normalizeMessage } from '../src/whatsapp/normalize.js';
+import { type Contactos, gruposCon, membersOf, normalizeMessage, recordarNombres } from '../src/whatsapp/normalize.js';
 
 const ME = { phone: '573150000000', lid: '99887766', name: 'Luks' };
 const GRUPO = '120363040123456789@g.us';
@@ -129,5 +129,28 @@ describe('integrantes de un grupo', () => {
     ]);
     const ms = membersOf(grupoCon([{ id: '573128880365@s.whatsapp.net' }, { id: '33334444@lid' }]), contactos);
     expect(ms.map((m) => m.name)).toEqual(['Santi 🏄', 'Caro trabajo']);
+  });
+
+  it('guarda los nombres que llegan y dice de quiénes cambió', () => {
+    const contactos: Contactos = new Map();
+    // El teléfono manda el nombre que cada quien se puso; un mensaje trae el de quien escribe
+    expect([...recordarNombres(contactos, [{ id: '573128880365@s.whatsapp.net', lid: '11112222@lid', notify: ' Santi 🏄 ' }])]).toEqual([
+      '573128880365',
+      '11112222',
+    ]);
+    expect(contactos.get('11112222')).toEqual({ notify: 'Santi 🏄', name: null });
+    // Lo mismo otra vez, o algo sin nombre (una foto nueva): nada cambió
+    expect(recordarNombres(contactos, [{ id: '573128880365@s.whatsapp.net', notify: 'Santi 🏄' }, { id: '573016667788@s.whatsapp.net' }]).size).toBe(0);
+    // Como lo guardó quien vinculó: se suma, sin borrar el del perfil
+    expect([...recordarNombres(contactos, [{ id: '573128880365@s.whatsapp.net', name: 'Santiago Herrera' }])]).toEqual(['573128880365']);
+    expect(contactos.get('573128880365')).toEqual({ notify: 'Santi 🏄', name: 'Santiago Herrera' });
+  });
+
+  it('los grupos donde está alguien, por su número o su LID', () => {
+    const paseo = grupoCon([{ id: '573016667788@s.whatsapp.net' }, { id: '11112222@lid', phoneNumber: '573128880365@s.whatsapp.net' }]);
+    const casa = { ...grupoCon([{ id: '573001112233@s.whatsapp.net' }]), id: '120363000000000001@g.us' } as GroupMetadata;
+    expect(gruposCon([paseo, casa], new Set(['573128880365']))).toEqual([GRUPO]);
+    expect(gruposCon([paseo, casa], new Set(['11112222', '573001112233']))).toEqual([GRUPO, '120363000000000001@g.us']);
+    expect(gruposCon([paseo, casa], new Set())).toEqual([]);
   });
 });

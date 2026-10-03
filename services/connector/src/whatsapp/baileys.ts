@@ -10,6 +10,7 @@ import makeWASocket, {
   type GroupMetadata,
   jidDecode,
   makeCacheableSignalKeyStore,
+  proto,
   type WAMessage,
   type WASocket,
 } from 'baileys';
@@ -18,7 +19,7 @@ import type { SessionCipher } from '../crypto.js';
 import type { Logger } from '../log.js';
 import type { Store } from '../store.js';
 import { useDbAuthState } from './auth-state.js';
-import { type Contactos, type Me, membersOf, normalizeMessage } from './normalize.js';
+import { type Contactos, gruposCon, type Me, membersOf, normalizeMessage, recordarNombres } from './normalize.js';
 
 /*
  * MessagingConnector con Baileys: Luks entra como «dispositivo vinculado» de
@@ -36,6 +37,10 @@ const PAIRING_TTL_MS = 60_000;
 /** Cuántas veces se renueva el QR sin que nadie lo escanee antes de rendirse (~3 min) */
 const MAX_UNPAIRED_CLOSES = 3;
 const MAX_BACKOFF_MS = 60_000;
+/** Al saber un nombre nuevo se espera un poco, para juntar los que llegan seguidos… */
+const NOMBRES_ESPERA_MS = 15_000;
+/** …y un grupo se vuelve a mandar por eso como mucho cada 10 min */
+const NOMBRES_CADA_MS = 10 * 60_000;
 
 export interface BaileysDeps {
   store: Store;
@@ -76,6 +81,10 @@ export class BaileysConnector implements MessagingConnector {
   #groups = new Map<string, GroupMetadata>();
   /** Nombres de la gente (los que se pusieron en WhatsApp o como los guardó quien vinculó) */
   #contactos: Contactos = new Map();
+  /** Grupos donde alguien tiene un nombre nuevo: se vuelven a mandar para que la cuenta lo vea */
+  #porNombres = new Set<string>();
+  #nombresEnviados = new Map<string, number>();
+  #relojNombres: NodeJS.Timeout | null = null;
   /** Los mensajes de una sesión se procesan de a uno (las fotos se bajan en orden) */
   #cola: Promise<void> = Promise.resolve();
   readonly #log: Logger;
@@ -104,6 +113,7 @@ export class BaileysConnector implements MessagingConnector {
   async stop() {
     this.#stopped = true;
     if (this.#timer) clearTimeout(this.#timer);
+    this.#pararNombres();
     this.#open = false;
     await this.#sock?.end(undefined).catch(() => {});
     this.#sock = null;
@@ -112,6 +122,7 @@ export class BaileysConnector implements MessagingConnector {
   async logout() {
     this.#stopped = true;
     if (this.#timer) clearTimeout(this.#timer);
+    this.#pararNombres();
     try {
       await this.#sock?.logout('Luks');
     } catch {
@@ -153,7 +164,9 @@ export class BaileysConnector implements MessagingConnector {
       browser: Browsers.ubuntu('Chrome'),
       markOnlineOnConnect: false,
       syncFullHistory: false,
-      shouldSyncHistoryMessage: () => false,
+      // Del historial solo los nombres que la gente se puso en WhatsApp (llegan
+      // una vez, al vincular): ningún mensaje viejo
+      shouldSyncHistoryMessage: ({ syncType }) => syncType === proto.HistorySync.HistorySyncType.PUSH_NAME,
       generateHighQualityLinkPreview: false,
       cachedGroupMetadata: async (jid) => this.#groups.get(jid),
       getMessage: async () => undefined,
@@ -171,19 +184,16 @@ export class BaileysConnector implements MessagingConnector {
       if (type !== 'notify' && type !== 'append') return;
       for (const raw of messages) this.#encolar(() => this.#onRaw(raw, sock));
     });
+    // Los nombres: el del perfil llega con cada mensaje; al vincular, el teléfono
+    // manda los que conoce; y los contactos guardados de quien vinculó
     const recordar = (cs: Partial<Contact>[]) => {
-      for (const c of cs) {
-        const datos = { notify: c.notify ?? null, name: c.name ?? null };
-        for (const jid of [c.id, c.lid, c.phoneNumber]) {
-          const u = usuario(jid);
-          if (!u) continue;
-          const antes = this.#contactos.get(u);
-          this.#contactos.set(u, { notify: datos.notify ?? antes?.notify ?? null, name: datos.name ?? antes?.name ?? null });
-        }
-      }
+      const cambiaron = recordarNombres(this.#contactos, cs);
+      for (const jid of gruposCon(this.#groups.values(), cambiaron)) this.#porNombres.add(jid);
+      this.#programarNombres(sock);
     };
     sock.ev.on('contacts.upsert', recordar);
     sock.ev.on('contacts.update', recordar);
+    sock.ev.on('messaging-history.set', ({ contacts }) => recordar(contacts));
     sock.ev.on('groups.upsert', (grupos) => {
       for (const g of grupos) {
         this.#groups.set(g.id, g);
@@ -237,6 +247,44 @@ export class BaileysConnector implements MessagingConnector {
       }
     }
     return { chatId: g.id, name: g.subject ?? null, participants: g.size ?? g.participants?.length ?? null, members };
+  }
+
+  /** Manda otra vez (con espera y sin repetir seguido) los grupos donde alguien tiene un nombre nuevo */
+  #programarNombres(sock: WASocket) {
+    if (this.#relojNombres || this.#porNombres.size === 0) return;
+    const ahora = Date.now();
+    let cuando = Number.POSITIVE_INFINITY;
+    for (const jid of this.#porNombres) cuando = Math.min(cuando, Math.max(ahora + NOMBRES_ESPERA_MS, (this.#nombresEnviados.get(jid) ?? 0) + NOMBRES_CADA_MS));
+    this.#relojNombres = setTimeout(() => {
+      this.#relojNombres = null;
+      this.#mandarNombres(sock);
+    }, cuando - ahora);
+    this.#relojNombres.unref?.();
+  }
+
+  #mandarNombres(sock: WASocket) {
+    // Se reconectó: al conectar ya se mandaron todos los grupos con los nombres que había
+    if (this.#sock !== sock || !this.#open) {
+      this.#porNombres.clear();
+      return;
+    }
+    const ahora = Date.now();
+    for (const jid of [...this.#porNombres]) {
+      if ((this.#nombresEnviados.get(jid) ?? 0) + NOMBRES_CADA_MS > ahora) continue;
+      this.#porNombres.delete(jid);
+      this.#nombresEnviados.set(jid, ahora);
+      this.#encolar(async () => {
+        const g = this.#groups.get(jid);
+        if (g) await this.handlers.onGroupJoined(await this.#info(g, sock));
+      });
+    }
+    this.#programarNombres(sock);
+  }
+
+  #pararNombres() {
+    if (this.#relojNombres) clearTimeout(this.#relojNombres);
+    this.#relojNombres = null;
+    this.#porNombres.clear();
   }
 
   #encolar(tarea: () => Promise<void>) {

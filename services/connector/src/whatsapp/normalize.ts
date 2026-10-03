@@ -1,4 +1,4 @@
-import { type GroupMetadata, getContentType, isJidGroup, isLidUser, isPnUser, jidDecode, normalizeMessageContent, type WAMessage } from 'baileys';
+import { type Contact, type GroupMetadata, getContentType, isJidGroup, isLidUser, isPnUser, jidDecode, normalizeMessageContent, type WAMessage } from 'baileys';
 import type { GroupMember, IncomingMedia, IncomingMessage, Sender } from '../connector.js';
 
 /* Un mensaje de Baileys → IncomingMessage (sin nada propio de Baileys). */
@@ -42,6 +42,45 @@ export function senderOf(raw: WAMessage, me: Me): Sender {
 
 /** Nombres que se conocen de cada número o LID (eventos contacts.* de Baileys) */
 export type Contactos = Map<string, { notify?: string | null; name?: string | null }>;
+
+/**
+ * Guarda los nombres que llegan (cada mensaje trae el nombre del perfil de
+ * quien lo manda; al vincular, el teléfono manda los que conoce; y los
+ * contactos guardados) y dice de qué números o LID cambió el nombre.
+ */
+export function recordarNombres(contactos: Contactos, cs: Partial<Contact>[]): Set<string> {
+  const cambiaron = new Set<string>();
+  for (const c of cs) {
+    const notify = c.notify?.trim() || null;
+    const name = c.name?.trim() || null;
+    if (!notify && !name) continue;
+    for (const jid of [c.id, c.lid, c.phoneNumber]) {
+      const u = usuario(jid);
+      if (!u) continue;
+      const antes = contactos.get(u);
+      const ahora = { notify: notify ?? antes?.notify ?? null, name: name ?? antes?.name ?? null };
+      if (ahora.notify !== (antes?.notify ?? null) || ahora.name !== (antes?.name ?? null)) cambiaron.add(u);
+      contactos.set(u, ahora);
+    }
+  }
+  return cambiaron;
+}
+
+/** Los grupos donde está alguno de esos números o LID */
+export function gruposCon(grupos: Iterable<GroupMetadata>, usuarios: ReadonlySet<string>): string[] {
+  if (usuarios.size === 0) return [];
+  const out: string[] = [];
+  for (const g of grupos) {
+    const esta = g.participants?.some((p) =>
+      [p.id, p.lid, p.phoneNumber].some((j) => {
+        const u = usuario(j);
+        return u !== null && usuarios.has(u);
+      }),
+    );
+    if (esta) out.push(g.id);
+  }
+  return out;
+}
 
 /**
  * Los integrantes de un grupo, identificados igual que quien escribe: el

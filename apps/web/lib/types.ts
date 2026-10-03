@@ -45,7 +45,11 @@ export interface PersonRow {
   paid_count: number;
   corrections_count: number;
   wa_last4: string | null;
+  /** De dónde salió el nombre (people.name_source): «WhatsApp 4567», el de WhatsApp, un alias o el que eligió */
+  name_source?: NameSource | null;
 }
+
+export type NameSource = 'auto' | 'whatsapp' | 'manual' | 'user';
 
 /** public.invitations */
 export interface Invitation {
