@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
-import { Button, CodeInput, Divider, Field, Person } from '@/components/lucas-ui';
+import { Button, CodeInput, Divider, Field, ICONS, Person } from '@/components/lucas-ui';
 import { formatDay, isRecent, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
@@ -18,6 +18,7 @@ import {
   type AccountType,
   asTone,
   type Invitation,
+  type NameSource,
   type PersonRow,
   plural,
   ROLE_HELP,
@@ -28,6 +29,7 @@ import {
 } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { AgregarConocidos } from './agregar-conocidos';
+import { CambiarNombre } from './cambiar-nombre';
 import { QuitarPersona } from './quitar-persona';
 
 type Confirm = { kind: 'leave' } | null;
@@ -61,13 +63,19 @@ export function MembersScreen({
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [quitar, setQuitar] = useState<PersonRow | null>(null);
   const [oldCode, setOldCode] = useState<string | null>(null);
+  const [editando, setEditando] = useState<string | null>(null);
 
   const people = useQuery({
     queryKey: ['people', accountId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('account_people', { p_account_id: accountId });
+      const [{ data, error }, fuentes] = await Promise.all([
+        supabase.rpc('account_people', { p_account_id: accountId }),
+        // De dónde salió cada nombre (si falla, la lista se ve igual)
+        supabase.from('people').select('id, name_source').eq('account_id', accountId),
+      ]);
       if (error) throw error;
-      return data as PersonRow[];
+      const origen = new Map((fuentes.data ?? []).map((r) => [r.id as string, r.name_source as NameSource]));
+      return (data as PersonRow[]).map((p) => ({ ...p, name_source: p.person_id ? (origen.get(p.person_id) ?? null) : null }));
     },
   });
 
@@ -131,6 +139,11 @@ export function MembersScreen({
     queryClient.invalidateQueries({ queryKey: ['conocidos', accountId] });
   };
   const onError = (e: unknown) => setError(humanError(e as { message?: string }));
+  const renombrado = () => {
+    setEditando(null);
+    refresh();
+    notifyAccountChanged(accountId);
+  };
 
   const setRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: Role }) => {
@@ -246,8 +259,13 @@ export function MembersScreen({
 
         <ul>
           {members.map((p) => (
-            <li key={p.user_id}>
-              <Person name={p.display_name} tone={asTone(p.tone, p.display_name)} sub={memberSub(p)} />
+            <li key={p.user_id} className={editando && editando === p.person_id ? 'mb-editando' : undefined}>
+              <Person
+                name={p.display_name}
+                tone={asTone(p.tone, p.display_name)}
+                sub={memberSub(p)}
+                aside={p.is_me && p.person_id && editando !== p.person_id && <Lapiz label="Cambiar mi nombre" onClick={() => setEditando(p.person_id)} />}
+              />
               <RoleControl
                 person={p}
                 myRole={myRole}
@@ -255,6 +273,16 @@ export function MembersScreen({
                 onRole={(role) => setRole.mutate({ userId: p.user_id as string, role })}
                 onRemove={closed ? undefined : () => setQuitar(p)}
               />
+              {p.is_me && p.person_id && editando === p.person_id && (
+                <CambiarNombre
+                  personId={p.person_id}
+                  actual={p.display_name}
+                  sinNombre={false}
+                  propio
+                  onListo={renombrado}
+                  onCerrar={() => setEditando(null)}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -265,8 +293,10 @@ export function MembersScreen({
             <ul>
               {unclaimed.map((p) => {
                 const invitacion = p.person_id ? pendientes.data?.[p.person_id] : undefined;
+                const sinNombre = p.name_source === 'auto';
+                const abierto = editando !== null && editando === p.person_id;
                 return (
-                  <li key={p.person_id}>
+                  <li key={p.person_id} className={abierto ? 'mb-editando' : undefined}>
                     <Person
                       name={p.display_name}
                       tone={asTone(p.tone, p.display_name)}
@@ -275,39 +305,66 @@ export function MembersScreen({
                         invitacion
                           ? 'Ya usa Luks · le llegó la invitación, falta que acepte'
                           : p.wa_last4
-                            ? `Solo en WhatsApp · +57 ••• ${p.wa_last4}`
+                            ? `${sinNombre ? 'Sin nombre en WhatsApp' : p.name_source === 'whatsapp' ? 'Nombre de WhatsApp' : 'Solo en WhatsApp'} · +57 ••• ${p.wa_last4}`
                             : 'Sin cuenta todavía'
                       }
+                      aside={
+                        isAdmin &&
+                        p.person_id &&
+                        !abierto &&
+                        !sinNombre && <Lapiz label={`Cambiar el nombre de ${p.display_name}`} onClick={() => setEditando(p.person_id)} />
+                      }
                     />
-                    {isAdmin && !closed && (
-                      <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
-                        Quitar…
-                      </Button>
-                    )}
-                    {isAdmin && invitacion && (
-                      <Button variant="ghost" size="sm" onClick={() => cancelar.mutate(invitacion)} disabled={cancelar.isPending}>
-                        Cancelar invitación
-                      </Button>
-                    )}
-                    {isAdmin && !invitacion && current && link && (
-                      <a
-                        className="lu-btn lu-btn--outline lu-btn--sm"
-                        href={whatsappUrl(
-                          inviteMessage({ accountName, code: current.code, link, name: p.display_name }),
-                          p.person_id ? phones.data?.[p.person_id] : undefined,
+                    {isAdmin && !abierto && (
+                      <span className="mb-manage">
+                        {p.person_id && sinNombre && (
+                          <Button variant="secondary" size="sm" className="mb-poner" onClick={() => setEditando(p.person_id)}>
+                            {ICONS.lapiz}
+                            Ponerle nombre
+                          </Button>
                         )}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Invitar
-                      </a>
+                        {isAdmin && !closed && (
+                          <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
+                            Quitar…
+                          </Button>
+                        )}
+                        {isAdmin && invitacion && (
+                          <Button variant="ghost" size="sm" onClick={() => cancelar.mutate(invitacion)} disabled={cancelar.isPending}>
+                            Cancelar invitación
+                          </Button>
+                        )}
+                        {isAdmin && !invitacion && current && link && (
+                          <a
+                            className="lu-btn lu-btn--outline lu-btn--sm"
+                            href={whatsappUrl(
+                              inviteMessage({ accountName, code: current.code, link, name: p.display_name }),
+                              p.person_id ? phones.data?.[p.person_id] : undefined,
+                            )}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Invitar
+                          </a>
+                        )}
+                      </span>
+                    )}
+                    {abierto && p.person_id && (
+                      <CambiarNombre
+                        personId={p.person_id}
+                        actual={p.display_name}
+                        sinNombre={sinNombre}
+                        propio={false}
+                        onListo={renombrado}
+                        onCerrar={() => setEditando(null)}
+                      />
                     )}
                   </li>
                 );
               })}
             </ul>
             <p className="lu-small lu-muted" style={{ margin: 'var(--space-3) 0 0' }}>
-              Sus gastos ya cuentan. Cuando entren con el código, eligen su nombre y quedan enlazados.
+              Sus gastos ya cuentan. Se ven con su nombre de WhatsApp{isAdmin ? ' o el que les pongas' : ''}; cuando entren con el código, eligen el suyo y
+              quedan enlazados.
             </p>
           </>
         )}
@@ -408,6 +465,15 @@ export function MembersScreen({
         />
       )}
     </div>
+  );
+}
+
+/** El lápiz al lado del nombre: cambiarlo ahí mismo */
+function Lapiz({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className="mb-lapiz" onClick={onClick} aria-label={label} title={label}>
+      {ICONS.lapiz}
+    </button>
   );
 }
 

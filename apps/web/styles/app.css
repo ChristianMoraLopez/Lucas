@@ -626,10 +626,16 @@ iframe {
 }
 .mb-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
   padding: 10px 0;
+}
+/* Si las acciones no caben al lado del nombre, bajan juntas a la línea de abajo */
+.mb-list li > .lu-person {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 .mb-list .lu-divider--label {
   margin: var(--space-4) 0 var(--space-2);
@@ -659,6 +665,65 @@ iframe {
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--superficie-2);
+}
+/* Personas: ponerle nombre a alguien (personas/cambiar-nombre.tsx) */
+.mb-manage {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.mb-poner svg {
+  width: 16px;
+  height: 16px;
+}
+.mb-lapiz {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: var(--space-1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tinta-2);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.mb-lapiz svg {
+  width: 17px;
+  height: 17px;
+}
+.mb-lapiz:hover {
+  background: var(--superficie-2);
+  color: var(--tinta);
+}
+.mb-lapiz:active {
+  transform: scale(0.92);
+}
+.mb-lapiz:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.mb-nombre {
+  flex: 1 1 100%;
+  display: grid;
+  gap: var(--space-2);
+  max-width: 420px;
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+  animation: lu-appear var(--dur-base) var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mb-nombre {
+    animation: none;
+  }
 }
 .mb-leave {
   margin-top: var(--space-6);

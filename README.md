@@ -198,6 +198,8 @@ Los montos se calculan en [`apps/web/lib/consumo.ts`](apps/web/lib/consumo.ts) (
 
 Al conectar el grupo con «luks CÓDIGO», cada integrante queda como persona de la cuenta, y quien entra después al grupo aparece solo ([`00000000000160_integrantes_del_grupo.sql`](supabase/migrations/00000000000160_integrantes_del_grupo.sql)). Si su número ya es de alguien, no se repite; si es el WhatsApp vinculado de alguien de la cuenta, es esa persona; si alguien agregado a mano tiene el mismo nombre y no tiene WhatsApp, se le pone el número; si no, se crea con el nombre que se puso en WhatsApp (o «WhatsApp 4567»). El número de Luks no cuenta, y quien sale del grupo no se borra porque sus gastos siguen contando.
 
+**Nombres, no números** ([`00000000000200_nombres_del_grupo.sql`](supabase/migrations/00000000000200_nombres_del_grupo.sql)). Quien entró como «WhatsApp 4567» pasa a llamarse como se puso en WhatsApp apenas Luks lo sabe: por lo que escribe al grupo, por la lista de nombres que manda el teléfono al vincular un WhatsApp, o por cómo lo tiene guardado quien vinculó el suyo (primero el del perfil). El connector vuelve a mandar el grupo cuando aprende un nombre (con espera, máximo cada 10 min por grupo). En Personas, quien administra le pone un **alias** a quien no tiene usuario (el lápiz, o «Ponerle nombre»), y WhatsApp ya no se lo cambia; a quien tiene usuario no le cambia el nombre nadie más: lo elige esa persona («Cambiar mi nombre»). `people.name_source` guarda de dónde salió cada nombre (`auto`, `whatsapp`, `manual`, `user`).
+
 **WhatsApp siempre a la vista.** Es el motor de Luks, así que tiene un botón arriba en todas las pantallas de la cuenta (verde si Luks está leyendo el grupo, rojo si se cayó, «Conectar WhatsApp» si todavía no hay grupo), un lugar en el menú lateral, una tarjeta grande en el Resumen mientras la cuenta no tenga grupo, y una cuenta nueva lleva directo a conectarlo.
 
 Está en [`00000000000150_compartir.sql`](supabase/migrations/00000000000150_compartir.sql) (`account_shares`, `shared_overview`, `create_share_link`, `add_people`) y [`apps/web/lib/share.ts`](apps/web/lib/share.ts); pruebas en `supabase/tests/compartir.test.ts`.
@@ -229,7 +231,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             204 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, categorías, liquidación, compartir, dividir por consumo, mensajes de Luks, agregar desde otras cuentas, personas, perfil y semilla (PGlite)
+│   ├── tests/             210 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, nombres y alias, categorías, liquidación, compartir, dividir por consumo, mensajes de Luks, agregar desde otras cuentas, personas, perfil y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)

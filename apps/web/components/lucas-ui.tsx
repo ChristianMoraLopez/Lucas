@@ -814,6 +814,12 @@ export const ICONS: Record<string, React.ReactNode> = {
       <path {...P} d="M12 3.5V12l6 6" />
     </svg>
   ),
+  lapiz: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path {...P} d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+      <path {...P} d="m13.5 6.5 4 4" />
+    </svg>
+  ),
 };
 
 /* ---------- AppShell ---------- */
