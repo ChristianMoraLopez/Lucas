@@ -46,17 +46,71 @@ export function cobroMessage({
   return lineas.join('\n');
 }
 
-/** Para mandar al grupo: el total y el link donde cada uno ve lo suyo */
-export function resumenMessage({ accountName, total, people, link }: { accountName: string; total: number; people: number; link: string }) {
-  return [
-    `Las cuentas de «${accountName}»: gastamos ${formatCOP(total)} entre ${people}.`,
-    `Cada uno ve aquí cuánto le toca y a quién le paga: ${link}`,
-    '',
-    `Hecho con Luks · ${MARCA}`,
-  ].join('\n');
-}
-
 export type Transferencia = Pick<SettlementTransfer, 'from' | 'to' | 'amount' | 'paid_at'>;
+
+/** Los nombres van tal cual, sin los signos con que WhatsApp pone negrilla, cursiva o tachado */
+const sinFormato = (s: string) => s.replace(/[*_~`]/g, '').trim();
+
+/**
+ * Para mandar al grupo: cuánto fue, quién le paga a quién (las pagadas,
+ * tachadas) y el link donde cada uno ve lo suyo. Con el formato de WhatsApp:
+ *
+ *   🧾 *Noche de bolos*
+ *   Gastamos *$480.000* (480 lucas) entre 6: *$80.000* cada uno.
+ *
+ *   💸 *Quién le paga a quién*
+ *   • Mafe → Christian: *$45.000*
+ *   • ~Santi → Christian: $45.000~ ✅
+ */
+export function grupoMessage({
+  accountName,
+  periodo,
+  total,
+  people,
+  porCabeza,
+  transfers,
+  nombre,
+  liquidada,
+  link,
+}: {
+  accountName: string;
+  /** «septiembre 2026» en un hogar; nada en un evento */
+  periodo?: string | null;
+  total: number;
+  people: number;
+  /** Lo de cada uno, si a todos les toca lo mismo */
+  porCabeza: number | null;
+  transfers: Transferencia[];
+  nombre: (personId: string) => string;
+  liquidada: boolean;
+  link?: string | null;
+}) {
+  const lineas = [`🧾 *${sinFormato(accountName)}*${periodo ? ` · ${periodo}` : ''}`];
+  const entre = people === 1 ? '1 persona' : `${people}`;
+  lineas.push(
+    porCabeza
+      ? `Gastamos *${formatCOP(total)}* (${lucas(total)}) entre ${entre}: *${formatCOP(porCabeza)}* cada uno.`
+      : `Gastamos *${formatCOP(total)}* (${lucas(total)}) entre ${entre}, cada quien su parte.`,
+    '',
+  );
+
+  if (transfers.length) {
+    const pagadas = transfers.filter((t) => t.paid_at).length;
+    lineas.push('💸 *Quién le paga a quién*');
+    for (const t of transfers) {
+      const quien = `${sinFormato(nombre(t.from))} → ${sinFormato(nombre(t.to))}`;
+      lineas.push(t.paid_at ? `• ~${quien}: ${formatCOP(t.amount)}~ ✅` : `• ${quien}: *${formatCOP(t.amount)}*`);
+    }
+    if (liquidada && pagadas === transfers.length) lineas.push('', '✅ Todo pagado: quedamos a mano 🙌');
+    else if (pagadas > 0) lineas.push('', `Van ${pagadas} de ${transfers.length} pagadas.`);
+  } else {
+    lineas.push('✨ Nadie le debe a nadie: cada quien puso lo suyo.');
+  }
+
+  if (link) lineas.push('', '👀 Cuánto puso cada uno y en qué se fue la plata:', link);
+  lineas.push('', `_Cuentas hechas con Luks · ${MARCA}_`);
+  return lineas.join('\n');
+}
 
 /** Quién le paga a quién: las que se guardaron al liquidar o, si no, el cálculo. */
 export function transfersFor(d: {

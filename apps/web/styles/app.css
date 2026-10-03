@@ -3801,6 +3801,120 @@ iframe {
   font-size: 14px;
   overflow-wrap: anywhere;
 }
+
+/* Liquidar: mandar las cuentas a todo el grupo, con la vista previa del chat */
+.st-grupo {
+  --wa-fondo: #efeae2;
+  --wa-burbuja: #d9fdd3;
+  --wa-texto: #111b21;
+  --wa-suave: #54656f;
+  --wa-link: #027eb5;
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--verde-suave);
+  border: 2px solid var(--verde);
+}
+.st-grupo__txt {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  align-content: start;
+  min-width: 0;
+}
+.st-grupo__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--verde);
+}
+.st-grupo__kicker svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.st-grupo__btn svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.st-grupo__chat {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--wa-fondo);
+}
+.st-grupo__chat .lu-label {
+  color: var(--wa-suave);
+}
+.st-grupo__burbuja {
+  position: relative;
+  justify-self: end;
+  width: min(100%, 25rem);
+  padding: 4px 4px 8px;
+  border-radius: 12px 0 12px 12px;
+  background: var(--wa-burbuja);
+  color: var(--wa-texto);
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.13);
+}
+.st-grupo__burbuja::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  border-top: 10px solid var(--wa-burbuja);
+  border-right: 8px solid transparent;
+}
+.st-grupo__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.st-grupo__msg {
+  margin: 0;
+  padding: 6px 8px 0;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.st-grupo__url {
+  color: var(--wa-link);
+  text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-grupo {
+    --wa-fondo: #0b141a;
+    --wa-burbuja: #005c4b;
+    --wa-texto: #e9edef;
+    --wa-suave: #8696a0;
+    --wa-link: #53bdeb;
+  }
+}
+:root[data-theme="dark"] .st-grupo {
+  --wa-fondo: #0b141a;
+  --wa-burbuja: #005c4b;
+  --wa-texto: #e9edef;
+  --wa-suave: #8696a0;
+  --wa-link: #53bdeb;
+}
+@container app (min-width: 760px) {
+  .st-grupo {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: center;
+    padding: var(--space-6);
+  }
+}
 @container app (min-width: 760px) {
   .st-t.is-previa.has-act {
     grid-template-columns: auto 1fr auto auto;

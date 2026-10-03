@@ -16,3 +16,20 @@ export async function copiar(text: string) {
     return ok;
   }
 }
+
+/**
+ * Copia un texto que todavía se está armando (p. ej. falta crear el link). El
+ * celular solo deja copiar justo después del toque: con ClipboardItem la
+ * copia queda pedida en el toque y el texto llega después.
+ */
+export async function copiarLuego(texto: Promise<string>) {
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': texto.then((t) => new Blob([t], { type: 'text/plain' })) })]);
+      return true;
+    } catch {
+      // Sigue con la copia normal
+    }
+  }
+  return copiar(await texto);
+}

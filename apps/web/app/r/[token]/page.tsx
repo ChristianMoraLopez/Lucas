@@ -56,12 +56,17 @@ export async function generateMetadata({ params, searchParams }: PageProps<'/r/[
     title = `Las cuentas de «${d.account.name}»`;
     description = `Gastaron ${formatCOP(total)} entre ${plural(d.people.length, 'persona', 'personas')}. Mira cuánto le toca a cada uno.`;
   }
+  // La vista previa en WhatsApp: una imagen con cuánto fue y quién le paga a quién
+  const q = new URLSearchParams();
+  if (yo) q.set('p', yo.id);
+  if (d.month && d.account.type !== 'evento') q.set('mes', d.month.slice(0, 7));
+  const image = { url: `/r/${token}/imagen${q.size ? `?${q}` : ''}`, width: 1200, height: 630, alt: title };
   return {
     title,
     description,
     robots,
-    openGraph: { type: 'website', siteName: 'Luks', title, description, images: ['/opengraph-image.png'] },
-    twitter: { card: 'summary_large_image', title, description, images: ['/twitter-image.png'] },
+    openGraph: { type: 'website', siteName: 'Luks', title, description, images: [image] },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
   };
 }
 

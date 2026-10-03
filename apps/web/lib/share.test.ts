@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cobroMessage, MARCA, personView, resumenMessage, sharedLink, transfersFor } from './share';
+import { cobroMessage, grupoMessage, MARCA, personView, sharedLink, transfersFor } from './share';
 
 describe('compartir las cuentas', () => {
   it('el link lleva a la persona y al mes', () => {
@@ -27,10 +27,47 @@ describe('compartir las cuentas', () => {
     expect(otro).not.toContain('Acá ves');
   });
 
-  it('el resumen para el grupo', () => {
-    const m = resumenMessage({ accountName: 'Paseo', total: 480000, people: 4, link: 'https://mrluks.com/r/abc' });
-    expect(m).toContain('gastamos $480.000 entre 4');
+  it('el mensaje para el grupo: cuánto fue y quién le paga a quién', () => {
+    const nombres: Record<string, string> = { yo: 'Christian', a: 'Mafe', b: 'Santi_*' };
+    const base = {
+      accountName: 'Noche de bolos',
+      total: 480000,
+      people: 6,
+      porCabeza: 80000,
+      nombre: (id: string) => nombres[id],
+      liquidada: false,
+      link: 'https://mrluks.com/r/abc',
+    };
+    const m = grupoMessage({
+      ...base,
+      transfers: [
+        { from: 'a', to: 'yo', amount: 45000, paid_at: null },
+        { from: 'b', to: 'yo', amount: 30000, paid_at: '2026-10-01T00:00:00Z' },
+      ],
+    });
+    expect(m.split('\n')[0]).toBe('🧾 *Noche de bolos*');
+    expect(m).toContain('Gastamos *$480.000* (480 lucas) entre 6: *$80.000* cada uno.');
+    expect(m).toContain('• Mafe → Christian: *$45.000*');
+    // La pagada va tachada, y un nombre con * o _ no daña el formato
+    expect(m).toContain('• ~Santi → Christian: $30.000~ ✅');
+    expect(m).toContain('Van 1 de 2 pagadas.');
     expect(m).toContain('https://mrluks.com/r/abc');
+    expect(m.endsWith(`_Cuentas hechas con Luks · ${MARCA}_`)).toBe(true);
+
+    const hogar = grupoMessage({
+      ...base,
+      periodo: 'septiembre 2026',
+      porCabeza: null,
+      liquidada: true,
+      link: null,
+      transfers: [{ from: 'a', to: 'yo', amount: 45000, paid_at: '2026-10-01T00:00:00Z' }],
+    });
+    expect(hogar.split('\n')[0]).toBe('🧾 *Noche de bolos* · septiembre 2026');
+    expect(hogar).toContain('entre 6, cada quien su parte.');
+    expect(hogar).toContain('Todo pagado: quedamos a mano');
+    expect(hogar).not.toContain('👀');
+
+    expect(grupoMessage({ ...base, transfers: [] })).toContain('Nadie le debe a nadie');
   });
 
   it('sin liquidar se calculan las transferencias; liquidado, se usan las guardadas', () => {
