@@ -125,6 +125,18 @@ En la web, cada cuenta tiene **Personas → Conectar WhatsApp**. Ahí está el n
 
 Desde ahí, las fotos de recibos, los PDFs y los mensajes con montos («almuerzo 45 lucas, la pagó Mafe») llegan a la cuenta. La charla del grupo no sale de WhatsApp.
 
+## Actualizar (y que se actualice solo)
+
+Cuando hay cambios en `main` (por ejemplo, después de fusionar un PR), el servidor los baja y vuelve a armar el connector y el worker con [`actualizar.sh`](actualizar.sh). Para dejarlo automático, una sola vez desde tu computador:
+
+```powershell
+ssh -i $HOME\Downloads\ssh-key-XXXX.key opc@TU_IP "cd ~/Lucas && git pull --ff-only && bash deploy/actualizar.sh --instalar"
+```
+
+Eso actualiza en ese momento y deja una tarea de cron que revisa `main` cada 10 minutos: si hay algo nuevo, lo instala; si no, no hace nada. Lo que hizo queda en `~/luks-actualizar.log`. Si falta cron: `sudo dnf -y install cronie && sudo systemctl enable --now crond` (Oracle Linux) o `sudo apt-get -y install cron` (Ubuntu).
+
+A mano, cuando quieras: `bash ~/Lucas/deploy/actualizar.sh --ya`. Para apagar lo automático: `crontab -e` y borrar la línea de `actualizar.sh`.
+
 ## 7. Uptime Kuma (avisos)
 
 Kuma escucha solo en `127.0.0.1`. Para entrar, abre un túnel desde tu computador y deja esa ventana abierta:
