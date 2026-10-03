@@ -2,6 +2,8 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LottieName } from '@/components/lottie';
+import { LottieOGiro } from '@/components/lottie-o-giro';
 
 /** La API de red del navegador (Chrome y Android; Safari no la tiene) */
 type InfoRed = EventTarget & { effectiveType?: string; rtt?: number; downlink?: number; saveData?: boolean };
@@ -144,24 +146,54 @@ export function Conexion() {
     return () => document.removeEventListener('click', alTocar, true);
   }, [soltar]);
 
-  let aviso: { tono: 'sin' | 'lenta' | 'ok'; texto: string; cerrar?: () => void; girando?: boolean } | null = null;
-  if (!enLinea) aviso = { tono: 'sin', texto: 'Sin internet. Revisa tu conexión: lo que abras carga cuando vuelva.' };
-  else if (noCargo) aviso = { tono: 'sin', texto: 'No cargó: la conexión está muy lenta. Toca otra vez cuando mejore.', cerrar: () => setNoCargo(false) };
-  else if (navegando && tarda) aviso = { tono: 'lenta', texto: 'Cargando… la conexión está lenta, ya casi.', girando: true };
-  else if (volvio) aviso = { tono: 'ok', texto: 'Volvió la conexión.' };
+  // Cada aviso con su Lottie (y un giro mientras llega); el de red lenta, solo un punto
+  type Aviso = { tono: 'sin' | 'lenta' | 'ok'; texto: string; cerrar?: () => void; lottie?: LottieName };
+  let aviso: Aviso | null = null;
+  if (!enLinea) aviso = { tono: 'sin', texto: 'Sin internet. Revisa tu conexión: lo que abras carga cuando vuelva.', lottie: 'sin-conexion' };
+  else if (noCargo)
+    aviso = { tono: 'sin', texto: 'No cargó: la conexión está muy lenta. Toca otra vez cuando mejore.', cerrar: () => setNoCargo(false), lottie: 'error' };
+  else if (navegando && tarda) aviso = { tono: 'lenta', texto: 'Cargando… la conexión está lenta, ya casi.', lottie: 'cargando' };
+  else if (volvio) aviso = { tono: 'ok', texto: 'Volvió la conexión.', lottie: 'todo-revisado' };
   else if (lenta && !lentaVista)
     aviso = { tono: 'lenta', texto: 'Tu conexión está lenta: las cosas pueden tardar un poco.', cerrar: () => setLentaVista(true) };
+
+  // Al irse, el aviso sale suave (200 ms) en vez de desaparecer de golpe
+  const clave = aviso ? `${aviso.tono}|${aviso.texto}` : null;
+  const ultimo = useRef<Aviso | null>(null);
+  if (aviso) ultimo.current = aviso;
+  const [saliendo, setSaliendo] = useState<Aviso | null>(null);
+  useEffect(() => {
+    if (clave) {
+      setSaliendo(null);
+      return;
+    }
+    const previo = ultimo.current;
+    if (!previo) return;
+    setSaliendo(previo);
+    const t = window.setTimeout(() => {
+      setSaliendo(null);
+      ultimo.current = null;
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [clave]);
+  const visible = aviso ?? saliendo;
 
   return (
     <>
       {navegando && <div className="lu-navbar" aria-hidden="true" />}
       <div className="lu-red" role="status" aria-live="polite">
-        {aviso && (
-          <div className={`lu-red__aviso lu-red__aviso--${aviso.tono}`}>
-            {aviso.girando ? <span className="lu-red__gira" aria-hidden="true" /> : <span className="lu-red__punto" aria-hidden="true" />}
-            <span>{aviso.texto}</span>
-            {aviso.cerrar && (
-              <button type="button" className="lu-red__x" onClick={aviso.cerrar} aria-label="Cerrar aviso">
+        {visible && (
+          <div key={`${visible.tono}|${visible.texto}`} className={`lu-red__aviso lu-red__aviso--${visible.tono}${aviso ? '' : ' is-saliendo'}`}>
+            {visible.lottie ? (
+              <span className="lu-red__icono">
+                <LottieOGiro name={visible.lottie} size={30} label="" respaldo={visible.lottie === 'cargando' ? 'giro' : 'punto'} />
+              </span>
+            ) : (
+              <span className="lu-red__punto" aria-hidden="true" />
+            )}
+            <span>{visible.texto}</span>
+            {visible.cerrar && (
+              <button type="button" className="lu-red__x" onClick={visible.cerrar} aria-label="Cerrar aviso">
                 ×
               </button>
             )}

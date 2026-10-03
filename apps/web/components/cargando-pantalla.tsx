@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { LottieOGiro } from '@/components/lottie-o-giro';
 
 /**
- * La pantalla mientras llega otra (loading.tsx). Si tarda, dice que la
- * conexión está lenta; si tarda mucho, ofrece volver a intentar.
+ * La pantalla mientras llega otra (loading.tsx): la pila de monedas de
+ * «cargando». Si tarda, dice que la conexión está lenta; si tarda mucho,
+ * cambia a «sin conexión» y ofrece volver a intentar.
  */
 export function CargandoPantalla({ pagina = false }: { pagina?: boolean }) {
   const [paso, setPaso] = useState<0 | 1 | 2>(0);
@@ -18,14 +20,16 @@ export function CargandoPantalla({ pagina = false }: { pagina?: boolean }) {
   }, []);
   return (
     <div className={`lu-carga${pagina ? ' lu-carga--pagina' : ''}`} role="status">
-      <span className="lu-carga__fila">
-        <span className="lu-carga__gira" aria-hidden="true" />
-        <span>Cargando…</span>
-      </span>
-      {paso === 1 && <span className="lu-small lu-muted">La conexión está lenta: ya casi.</span>}
+      {paso === 2 ? (
+        <LottieOGiro key="sin" name="sin-conexion" size={96} label="La conexión no responde" />
+      ) : (
+        <LottieOGiro key="cargando" name="cargando" size={80} label="Cargando" />
+      )}
+      <span>{paso === 2 ? 'Sigue cargando…' : 'Cargando…'}</span>
+      {paso === 1 && <span className="lu-small lu-muted lu-carga__nota">La conexión está lenta: ya casi.</span>}
       {paso === 2 && (
         <>
-          <span className="lu-small lu-muted">Sigue cargando. Si no aparece, revisa tu internet.</span>
+          <span className="lu-small lu-muted lu-carga__nota">Si no aparece, revisa tu internet.</span>
           <button type="button" className="lu-btn lu-btn--sm lu-btn--secondary" onClick={() => window.location.reload()}>
             Volver a intentar
           </button>

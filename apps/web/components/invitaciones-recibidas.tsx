@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { lanzarChispas } from '@/components/chispas';
 import { Button } from '@/components/lucas-ui';
 import { formatRange } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
@@ -22,7 +23,8 @@ export function InvitacionesRecibidas({ invitaciones }: { invitaciones: Invitaci
   const visibles = invitaciones.filter((i) => !quitadas.includes(i.id));
   if (!visibles.length) return null;
 
-  const aceptar = async (i: InvitacionRecibida) => {
+  const aceptar = async (i: InvitacionRecibida, e: React.MouseEvent<HTMLButtonElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
     setBusy(i.id);
     setError(null);
     const { data, error } = await supabase.rpc('accept_invite', { p_invite_id: i.id });
@@ -30,7 +32,8 @@ export function InvitacionesRecibidas({ invitaciones }: { invitaciones: Invitaci
       setBusy(null);
       return setError(humanError(error));
     }
-    // Sigue ocupado hasta que llegue la cuenta
+    // Entró: chispas, y el botón sigue ocupado hasta que llegue la cuenta
+    lanzarChispas({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, currentTarget: null });
     router.push(`/c/${data as string}/resumen`);
     router.refresh();
   };
@@ -45,12 +48,12 @@ export function InvitacionesRecibidas({ invitaciones }: { invitaciones: Invitaci
   };
 
   return (
-    <section className="ap-invs" aria-label="Te agregaron a una cuenta">
-      {visibles.map((i) => {
+    <section className="ap-invs lu-stagger" aria-label="Te agregaron a una cuenta">
+      {visibles.map((i, n) => {
         const evento = i.account_type === 'evento';
         const fechas = evento ? formatRange(i.starts_on, i.ends_on) : null;
         return (
-          <article key={i.id} className="ap-inv">
+          <article key={i.id} className="ap-inv" style={{ '--i': n } as React.CSSProperties}>
             <span
               className="lu-cat__glyph ap-inv__glyph"
               style={{ '--c': `var(--tono-${accountTone(i.account_name)})`, '--cf': 'var(--tinta-fija)' } as React.CSSProperties}
@@ -67,7 +70,7 @@ export function InvitacionesRecibidas({ invitaciones }: { invitaciones: Invitaci
               </p>
             </div>
             <div className="ap-inv__acts">
-              <Button size="sm" onClick={() => aceptar(i)} disabled={busy !== null}>
+              <Button size="sm" onClick={(e) => aceptar(i, e)} disabled={busy !== null}>
                 {busy === i.id ? 'Un momento…' : 'Aceptar'}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => ahoraNo(i)} disabled={busy !== null}>
