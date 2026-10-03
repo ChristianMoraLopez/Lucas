@@ -509,7 +509,16 @@ function MandarAlGrupo({
           Un solo mensaje con cuánto fue y quién le paga a quién{conLink ? ', y el link donde cada uno ve lo suyo' : ''}. Escojan el grupo en WhatsApp y listo.
         </p>
         <div className="st-exp">
-          <a className="lu-btn lu-btn--primary st-grupo__btn" href={whatsappUrl(mensaje)} target="_blank" rel="noreferrer" onClick={onMandar}>
+          <a
+            className="lu-btn lu-btn--primary st-grupo__btn"
+            href={whatsappUrl(mensaje)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+              lanzarChispas(e);
+              onMandar(e);
+            }}
+          >
             {ICONS.whatsapp}
             Mandar al grupo
           </a>

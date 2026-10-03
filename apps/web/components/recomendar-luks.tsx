@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button, ICONS } from '@/components/lucas-ui';
+import { Button, ICONS, LottieSlot } from '@/components/lucas-ui';
 import { copiar } from '@/lib/clipboard';
 import { whatsappUrl } from '@/lib/invite';
 import { recomendacionMessage } from '@/lib/share';
@@ -27,6 +27,9 @@ export function RecomendarLuks() {
 
   return (
     <section className="ap-share" aria-labelledby="ap-share-t">
+      <span className="ap-share__lottie" aria-hidden="true">
+        <LottieSlot name="transferencia" width={72} height={72} label="" alVerse />
+      </span>
       <span className="ap-share__url">mrluks.com</span>
       <h2 id="ap-share-t" className="lu-title" style={{ margin: 0 }}>
         ¿A quién le sirve Luks?

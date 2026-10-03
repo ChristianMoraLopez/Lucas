@@ -58,9 +58,26 @@ function usePrefersReducedMotion() {
   return reduce;
 }
 
-export function Lottie({ name, width, height, label }: { name: LottieName; width: number; height: number; label?: string }) {
+export function Lottie({
+  name,
+  width,
+  height,
+  label,
+  onLoad,
+  alVerse = false,
+}: {
+  name: LottieName;
+  width: number;
+  height: number;
+  label?: string;
+  /** Ya se ve la animación (para quitar lo que la reemplazaba mientras cargaba) */
+  onLoad?: () => void;
+  /** Arranca cuando aparece en pantalla (y una sola vez), no al montarse */
+  alVerse?: boolean;
+}) {
   const reduce = usePrefersReducedMotion();
   const [player, setPlayer] = useState<DotLottie | null>(null);
+  const [caja, setCaja] = useState<HTMLSpanElement | null>(null);
 
   // Con movimiento reducido: sin animar, quieto en el último cuadro
   useEffect(() => {
@@ -71,9 +88,33 @@ export function Lottie({ name, width, height, label }: { name: LottieName; width
     return () => player.removeEventListener('load', final);
   }, [player, reduce]);
 
+  // Avisar cuando ya está lista
+  useEffect(() => {
+    if (!player || !onLoad) return;
+    if (player.isLoaded) onLoad();
+    player.addEventListener('load', onLoad);
+    return () => player.removeEventListener('load', onLoad);
+  }, [player, onLoad]);
+
+  // alVerse: espera a que esté en pantalla para arrancar
+  useEffect(() => {
+    if (!alVerse || !player || !caja || reduce) return;
+    const obs = new IntersectionObserver(
+      (entradas) => {
+        if (entradas.some((e) => e.isIntersecting)) {
+          player.play();
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.6 },
+    );
+    obs.observe(caja);
+    return () => obs.disconnect();
+  }, [alVerse, player, caja, reduce]);
+
   return (
-    <span className="lu-lottie-player" role="img" aria-label={label ?? name} style={{ width, height }}>
-      <Player src={`/lottie/${name}.lottie`} autoplay={!reduce} loop={LOTTIES[name].loop && !reduce} dotLottieRefCallback={setPlayer} />
+    <span ref={setCaja} className="lu-lottie-player" role="img" aria-label={label ?? name} style={{ width, height }}>
+      <Player src={`/lottie/${name}.lottie`} autoplay={!reduce && !alVerse} loop={LOTTIES[name].loop && !reduce} dotLottieRefCallback={setPlayer} />
     </span>
   );
 }

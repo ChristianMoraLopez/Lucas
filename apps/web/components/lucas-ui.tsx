@@ -459,15 +459,17 @@ export function Chip({
   name,
   tone,
   children,
+  style,
 }: {
   name?: string;
   tone?: Tone;
   pressed?: boolean;
   onToggle?: () => void;
   children?: React.ReactNode;
+  style?: React.CSSProperties;
 }) {
   return (
-    <button type="button" className="lu-chip" aria-pressed={pressed} onClick={onToggle}>
+    <button type="button" className="lu-chip" aria-pressed={pressed} onClick={onToggle} style={style}>
       {name && <Avatar name={name} tone={tone} size="sm" />}
       {children || name}
     </button>
@@ -507,6 +509,8 @@ export function LottieSlot({
   label,
   src,
   square = false,
+  onLoad,
+  alVerse,
 }: {
   name: string;
   width?: number;
@@ -514,9 +518,13 @@ export function LottieSlot({
   square?: boolean;
   label?: string;
   src?: string;
+  /** Ya se ve la animación */
+  onLoad?: () => void;
+  /** Arranca cuando aparece en pantalla, una vez */
+  alVerse?: boolean;
 }) {
   // Si ya tenemos la animación (public/lottie), se reproduce; si no, queda el espacio reservado del kit
-  if (!src && isLottieName(name)) return <Lottie name={name} width={width} height={height} label={label} />;
+  if (!src && isLottieName(name)) return <Lottie name={name} width={width} height={height} label={label} onLoad={onLoad} alVerse={alVerse} />;
   return (
     <div
       className={cx('lu-lottie', square && 'lu-lottie--square')}

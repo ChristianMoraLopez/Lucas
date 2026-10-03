@@ -4517,7 +4517,6 @@ iframe {
 .lu-red__aviso--sin .lu-red__punto {
   background: var(--tono-coral);
 }
-.lu-red__gira,
 .lu-carga__gira {
   flex: none;
   width: 16px;
@@ -4589,6 +4588,11 @@ iframe {
   opacity: 0.45;
   transition: opacity 0.15s;
 }
+/* Al tocarla, la tarjeta se hunde un poco (como un botón que se aprieta, 150 ms) */
+[data-cargando="bloque"]:not(.lu-btn):not(.lu-tab) {
+  transform: scale(0.985);
+  transition: transform 0.15s var(--ease-out);
+}
 [data-cargando="bloque"]::after {
   content: "";
   position: absolute;
@@ -4598,8 +4602,8 @@ iframe {
   width: 26px;
   height: 26px;
   margin: -13px 0 0 -13px;
-  border: 3px solid var(--tinta);
-  border-right-color: transparent;
+  border: 3px solid var(--verde);
+  border-right-color: var(--amarillo);
   border-radius: 50%;
   background: var(--superficie);
   box-shadow:
@@ -4624,7 +4628,6 @@ iframe {
 }
 @media (prefers-reduced-motion: reduce) {
   .lu-navbar::before,
-  .lu-red__gira,
   .lu-carga__gira,
   [data-cargando="bloque"]::after {
     animation-duration: 2s;
@@ -4698,5 +4701,82 @@ iframe {
   }
   .ap-inv__acts {
     grid-column: auto;
+  }
+}
+
+/* ---------- Lottie con giro mientras llega (components/lottie-o-giro.tsx) ---------- */
+.lu-lottie-giro {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.lu-lottie-giro > .lu-carga__gira,
+.lu-lottie-giro > .lu-red__punto {
+  position: absolute;
+}
+.lu-lottie-giro .lu-lottie-player {
+  grid-area: 1 / 1;
+}
+.lu-carga__nota {
+  max-width: 28ch;
+}
+.lu-red__icono {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: -4px 0 -4px -6px;
+}
+.lu-red__icono .lu-carga__gira {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+.lu-red__aviso--sin .lu-red__icono:has(canvas) {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+.lu-red__aviso.is-saliendo {
+  pointer-events: none;
+  animation: lu-red-sale 0.2s var(--ease-out) both;
+}
+@keyframes lu-red-sale {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+/* Dividir por consumo sin ítems: el Lottie de leer la factura */
+.dv-vacio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* «Listo» al agregar desde otras cuentas */
+.mb-conocidos__listo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* Recomendar Luks: la transferencia, arriba a la derecha (arranca cuando se ve) */
+.ap-share__lottie {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  pointer-events: none;
+}
+.ap-share .lu-title,
+.ap-share > p {
+  max-width: calc(100% - 64px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-red__aviso.is-saliendo {
+    animation: none;
+  }
+  [data-cargando="bloque"]:not(.lu-btn):not(.lu-tab) {
+    transform: none;
   }
 }

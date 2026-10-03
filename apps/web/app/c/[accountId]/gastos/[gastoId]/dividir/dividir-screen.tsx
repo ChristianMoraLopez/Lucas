@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { formatCOP } from '@/components/lucas-core';
-import { Avatar, Button, Chip } from '@/components/lucas-ui';
+import { Avatar, Button, Chip, LottieSlot } from '@/components/lucas-ui';
 import { dividirPorConsumo } from '@/lib/consumo';
 import { formatWhen } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
@@ -319,15 +319,18 @@ function Editor({
               <span className="dv-n">2</span> ¿Quién pidió qué?
             </h2>
             {items.length === 0 && (
-              <p className="lu-small lu-muted" style={{ margin: 0 }}>
-                Luks no leyó los ítems de esta factura. Agréguenlos mirando la foto; lo que no pongan se divide por igual.
-              </p>
+              <div className="dv-vacio">
+                <LottieSlot name="escaneo" width={64} height={64} label="Leer la factura" />
+                <p className="lu-small lu-muted" style={{ margin: 0 }}>
+                  Luks no leyó los ítems de esta factura. Agréguenlos mirando la foto; lo que no pongan se divide por igual.
+                </p>
+              </div>
             )}
-            <ul className="dv-items">
+            <ul className="dv-items lu-stagger">
               {items.map((it, i) => {
                 const n = it.people.filter((p) => orden.includes(p)).length || orden.length;
                 return (
-                  <li key={it.key} className="dv-item">
+                  <li key={it.key} className="dv-item" style={{ '--i': i } as React.CSSProperties}>
                     <div className="dv-item__top">
                       <input
                         className="dv-input dv-item__name"
@@ -409,12 +412,12 @@ function Editor({
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               Si alguien quiere poner más (o menos), cambien su monto: el resto se reparte entre los demás.
             </p>
-            <ul className="dv-who">
-              {orden.map((id) => {
+            <ul className="dv-who lu-stagger">
+              {orden.map((id, i) => {
                 const fijo = fijos[id] != null;
                 const dif = Math.round((d.partes[id] ?? 0) - (d.justo[id] ?? 0));
                 return (
-                  <li key={id} className={`dv-p${fijo ? ' is-fijo' : ''}`}>
+                  <li key={id} className={`dv-p${fijo ? ' is-fijo' : ''}`} style={{ '--i': i } as React.CSSProperties}>
                     <Avatar name={nombre(id)} tone={asTone(persona(id)?.tone, nombre(id))} size="sm" />
                     <span className="dv-p__who">
                       <b>{nombre(id)}</b>
