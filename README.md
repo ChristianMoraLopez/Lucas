@@ -182,6 +182,16 @@ Todo está en [`00000000000120_liquidacion.sql`](supabase/migrations/00000000000
 - **Invitar por WhatsApp** (Resumen y Personas): manda el link de invitación; si la cuenta no tiene un código vigente, se crea uno.
 - **Recibos en retrospectiva.** «Pagué yo y después agrego a la gente»: en Personas se agregan varias de una vez («Mafe, Santi y Caro») y, si se quiere, se suman a los gastos que estaban divididos entre todos.
 
+### Dividir por consumo (quién pidió qué)
+
+Para la noche en que uno paga la cuenta de todos y no pidieron lo mismo: en el gasto (o en Revisar), «Dividir por consumo» abre la factura al lado de tres pasos:
+
+1. **¿Quiénes estaban?** Se marcan, y quien falte se agrega ahí mismo aunque no use Luks («Pipe y la prima de Juan»: quedan como personas de la cuenta, sin usuario). También se elige quién pagó.
+2. **¿Quién pidió qué?** Los ítems que leyó Luks de la foto (o los que se escriben a mano, con su precio). Cada ítem se divide entre quienes lo pidieron; sin nadie marcado, entre todos. Lo que no está en los ítems (propina, servicio) se reparte según lo que consumió cada uno.
+3. **¿Cuánto pone cada uno?** Si alguien quiere poner más (o menos), se cambia su monto: el resto se reparte entre los demás en la misma proporción.
+
+Los montos se calculan en [`apps/web/lib/consumo.ts`](apps/web/lib/consumo.ts) (pesos enteros que suman exacto el total) y se guardan con `split_by_items` ([`00000000000170_dividir_por_consumo.sql`](supabase/migrations/00000000000170_dividir_por_consumo.sql)): la parte de cada uno queda en `expense_splits` como cualquier división (con `fixed` para quien puso su monto) y quién pidió qué en `expense_item_people`, así se puede volver a abrir. Al revisar o corregir el gasto la división por consumo se respeta (si cambian el total, hay que volver a dividir). Pruebas en `supabase/tests/consumo.test.ts` y `apps/web/lib/consumo.test.ts`.
+
 ### La gente del grupo es la gente de la cuenta
 
 Al conectar el grupo con «luks CÓDIGO», cada integrante queda como persona de la cuenta, y quien entra después al grupo aparece solo ([`00000000000160_integrantes_del_grupo.sql`](supabase/migrations/00000000000160_integrantes_del_grupo.sql)). Si su número ya es de alguien, no se repite; si es el WhatsApp vinculado de alguien de la cuenta, es esa persona; si alguien agregado a mano tiene el mismo nombre y no tiene WhatsApp, se le pone el número; si no, se crea con el nombre que se puso en WhatsApp (o «WhatsApp 4567»). El número de Luks no cuenta, y quien sale del grupo no se borra porque sus gastos siguen contando.
@@ -217,7 +227,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             190 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, categorías, liquidación, compartir, personas, perfil y semilla (PGlite)
+│   ├── tests/             196 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, categorías, liquidación, compartir, dividir por consumo, personas, perfil y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -239,7 +249,7 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 190 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 196 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir, dividir por consumo y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las 39 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
