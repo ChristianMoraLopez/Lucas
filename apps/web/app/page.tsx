@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InvitacionesRecibidas } from '@/components/invitaciones-recibidas';
 import { LogoLink } from '@/components/logo-link';
 import { lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, LottieSlot, Sticker } from '@/components/lucas-ui';
@@ -6,16 +7,19 @@ import { RecomendarLuks } from '@/components/recomendar-luks';
 import { SignOutButton } from '@/components/sign-out-button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { eventMoment, formatRange, monthName, todayInBogota } from '@/lib/dates';
-import { type AccountOverview, accountGlyph, accountTone, asTone, plural } from '@/lib/types';
+import { type AccountOverview, accountGlyph, accountTone, asTone, type InvitacionRecibida, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
 export default async function AccountPickerPage() {
   const { supabase, userId } = await requireUser();
 
-  const [{ data: profile }, { data: overview, error }] = await Promise.all([
+  const [{ data: profile }, { data: overview, error }, { data: recibidas }] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     supabase.rpc('account_overview'),
+    // Me agregaron a una cuenta desde otra (sin código): falta que acepte
+    supabase.rpc('my_invites'),
   ]);
+  const invitaciones = (recibidas ?? []) as InvitacionRecibida[];
 
   const accounts = (overview ?? []) as AccountOverview[];
   const fullName = profile?.full_name?.trim() || '';
@@ -48,6 +52,8 @@ export default async function AccountPickerPage() {
                   : `Tienes ${plural(accounts.length, 'cuenta', 'cuentas')} y todo está revisado.`}
             </p>
           </div>
+
+          <InvitacionesRecibidas invitaciones={invitaciones} />
 
           {error && (
             <p className="lu-error" role="alert">

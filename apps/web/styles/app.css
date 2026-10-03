@@ -4630,3 +4630,73 @@ iframe {
     animation-duration: 2s;
   }
 }
+
+/* ---------- agregar desde otras cuentas (Personas) y la invitación en el home ---------- */
+.mb-conocidos {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--morado-suave);
+}
+.mb-conocido {
+  display: grid;
+  text-align: left;
+  line-height: 16px;
+}
+.mb-conocido__de {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--tinta-2);
+}
+.mb-conocidos .lu-chip {
+  min-height: 40px;
+  background: var(--superficie);
+}
+.ap-invs {
+  display: grid;
+  gap: var(--space-3);
+}
+.ap-inv {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--morado-suave);
+  border: 2px solid var(--morado);
+  animation: lu-appear 0.3s ease-out both;
+}
+.ap-inv__glyph {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+.ap-inv__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ap-inv__t {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+}
+.ap-inv__acts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+@container app (min-width: 560px) {
+  .ap-inv {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .ap-inv__acts {
+    grid-column: auto;
+  }
+}

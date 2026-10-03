@@ -27,6 +27,7 @@ import {
   type WhatsappOverview,
 } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
+import { AgregarConocidos } from './agregar-conocidos';
 import { QuitarPersona } from './quitar-persona';
 
 type Confirm = { kind: 'leave' } | null;
@@ -85,6 +86,26 @@ export function MembersScreen({
     },
   });
 
+  // A quién se agregó desde otra cuenta y todavía no acepta (solo admins)
+  const pendientes = useQuery({
+    queryKey: ['invitaciones-directas', accountId],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('account_invites').select('id, person_id').eq('account_id', accountId);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((r) => [r.person_id as string, r.id as string]));
+    },
+  });
+  const cancelar = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { error } = await supabase.rpc('cancel_invite', { p_invite_id: inviteId });
+      if (error) throw error;
+    },
+    onMutate: () => setError(null),
+    onSuccess: () => refresh(),
+    onError: (e) => setError(humanError(e as { message?: string })),
+  });
+
   const rows = people.data ?? [];
   const members = rows
     .filter((p) => p.user_id)
@@ -106,6 +127,8 @@ export function MembersScreen({
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['people', accountId] });
     queryClient.invalidateQueries({ queryKey: ['invitations', accountId] });
+    queryClient.invalidateQueries({ queryKey: ['invitaciones-directas', accountId] });
+    queryClient.invalidateQueries({ queryKey: ['conocidos', accountId] });
   };
   const onError = (e: unknown) => setError(humanError(e as { message?: string }));
 
@@ -173,11 +196,20 @@ export function MembersScreen({
   });
   const grupo = whatsapp.data?.groups.find((g) => !g.left_at) ?? null;
 
+  // Los que ya usan Luks y tienen la invitación por aceptar no son «solo WhatsApp»
+  const porAceptar = unclaimed.filter((p) => p.person_id && pendientes.data?.[p.person_id]).length;
+  const soloWhatsapp = unclaimed.length - porAceptar;
   const subtitle = people.isPending
     ? 'Cargando…'
     : unclaimed.length === 0
       ? `${plural(rows.length, 'persona', 'personas')} en la cuenta · todas con usuario en Luks`
-      : `${rows.length} en la cuenta · ${members.length} con cuenta y ${unclaimed.length} solo en WhatsApp`;
+      : [
+          `${rows.length} en la cuenta · ${members.length} con cuenta`,
+          porAceptar ? `${porAceptar} por aceptar` : null,
+          soloWhatsapp ? `${soloWhatsapp} solo en WhatsApp` : null,
+        ]
+          .filter(Boolean)
+          .join(', ');
 
   return (
     <div className="mb">
@@ -231,34 +263,48 @@ export function MembersScreen({
           <>
             <Divider label="Todavía sin cuenta" />
             <ul>
-              {unclaimed.map((p) => (
-                <li key={p.person_id}>
-                  <Person
-                    name={p.display_name}
-                    tone={asTone(p.tone, p.display_name)}
-                    registered={false}
-                    sub={p.wa_last4 ? `Solo en WhatsApp · +57 ••• ${p.wa_last4}` : 'Sin cuenta todavía'}
-                  />
-                  {isAdmin && !closed && (
-                    <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
-                      Quitar…
-                    </Button>
-                  )}
-                  {isAdmin && current && link && (
-                    <a
-                      className="lu-btn lu-btn--outline lu-btn--sm"
-                      href={whatsappUrl(
-                        inviteMessage({ accountName, code: current.code, link, name: p.display_name }),
-                        p.person_id ? phones.data?.[p.person_id] : undefined,
-                      )}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Invitar
-                    </a>
-                  )}
-                </li>
-              ))}
+              {unclaimed.map((p) => {
+                const invitacion = p.person_id ? pendientes.data?.[p.person_id] : undefined;
+                return (
+                  <li key={p.person_id}>
+                    <Person
+                      name={p.display_name}
+                      tone={asTone(p.tone, p.display_name)}
+                      registered={false}
+                      sub={
+                        invitacion
+                          ? 'Ya usa Luks · le llegó la invitación, falta que acepte'
+                          : p.wa_last4
+                            ? `Solo en WhatsApp · +57 ••• ${p.wa_last4}`
+                            : 'Sin cuenta todavía'
+                      }
+                    />
+                    {isAdmin && !closed && (
+                      <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
+                        Quitar…
+                      </Button>
+                    )}
+                    {isAdmin && invitacion && (
+                      <Button variant="ghost" size="sm" onClick={() => cancelar.mutate(invitacion)} disabled={cancelar.isPending}>
+                        Cancelar invitación
+                      </Button>
+                    )}
+                    {isAdmin && !invitacion && current && link && (
+                      <a
+                        className="lu-btn lu-btn--outline lu-btn--sm"
+                        href={whatsappUrl(
+                          inviteMessage({ accountName, code: current.code, link, name: p.display_name }),
+                          p.person_id ? phones.data?.[p.person_id] : undefined,
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Invitar
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <p className="lu-small lu-muted" style={{ margin: 'var(--space-3) 0 0' }}>
               Sus gastos ya cuentan. Cuando entren con el código, eligen su nombre y quedan enlazados.
@@ -266,6 +312,7 @@ export function MembersScreen({
           </>
         )}
 
+        {isAdmin && !closed && <AgregarConocidos accountId={accountId} accountName={accountName} onAdded={refresh} />}
         {isAdmin && !closed && <AddPerson accountId={accountId} onAdded={refresh} onError={onError} />}
 
         {myRole !== 'owner' && (
