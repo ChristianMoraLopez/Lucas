@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cobroMessage, grupoMessage, MARCA, personView, sharedLink, transfersFor } from './share';
+import { cobroMessage, grupoMessage, PUBLICIDAD, personView, sharedLink, transfersFor } from './share';
 
 describe('compartir las cuentas', () => {
   it('el link lleva a la persona y al mes', () => {
@@ -20,7 +20,7 @@ describe('compartir las cuentas', () => {
     expect(yo).toContain('Hola Mafe');
     expect(yo).toContain('me debes $45.000 (45 lucas)');
     expect(yo).toContain('https://mrluks.com/r/abc?p=1');
-    expect(yo.endsWith(`Cuentas hechas con Luks · ${MARCA}`)).toBe(true);
+    expect(yo.endsWith('_Esto se hizo en mrluks.com_')).toBe(true);
 
     const otro = cobroMessage({ debtor: 'Santi', creditor: 'Valeria', amount: 1_250_000, accountName: 'Paseo', creditorIsMe: false });
     expect(otro).toContain('le debes a Valeria $1.250.000 (1,3 palos)');
@@ -52,7 +52,7 @@ describe('compartir las cuentas', () => {
     expect(m).toContain('• ~Santi → Christian: $30.000~ ✅');
     expect(m).toContain('Van 1 de 2 pagadas.');
     expect(m).toContain('https://mrluks.com/r/abc');
-    expect(m.endsWith(`_Cuentas hechas con Luks · ${MARCA}_`)).toBe(true);
+    expect(m.endsWith(`_${PUBLICIDAD}_`)).toBe(true);
 
     const hogar = grupoMessage({
       ...base,

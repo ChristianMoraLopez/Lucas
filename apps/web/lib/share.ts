@@ -8,6 +8,8 @@ import type { SettlementPerson, SettlementTransfer } from './types';
 /** El dominio que se muestra como publicidad en los mensajes y en la página pública */
 export const MARCA = 'mrluks.com';
 export const MARCA_URL = `https://${MARCA}`;
+/** La publicidad que va en los mensajes, la imagen del link y la página pública */
+export const PUBLICIDAD = `Esto se hizo en ${MARCA}`;
 
 /** /r/TOKEN, con la vista de una persona (?p=) y el mes de un hogar (?mes=2026-09) */
 export function sharedLink(origin: string, token: string, o: { person?: string | null; month?: string | null } = {}) {
@@ -42,7 +44,7 @@ export function cobroMessage({
   const quien = creditorIsMe ? 'me debes' : `le debes a ${creditor}`;
   const lineas = [`Hola ${debtor} 👋 De «${accountName}» ${quien} ${formatCOP(amount)} (${lucas(amount)}).`];
   if (link) lineas.push(`Acá ves cuánto puso cada uno y en qué se fue la plata: ${link}`);
-  lineas.push('', `Cuentas hechas con Luks · ${MARCA}`);
+  lineas.push('', `_${PUBLICIDAD}_`);
   return lineas.join('\n');
 }
 
@@ -108,7 +110,7 @@ export function grupoMessage({
   }
 
   if (link) lineas.push('', '👀 Cuánto puso cada uno y en qué se fue la plata:', link);
-  lineas.push('', `_Cuentas hechas con Luks · ${MARCA}_`);
+  lineas.push('', `_${PUBLICIDAD}_`);
   return lineas.join('\n');
 }
 

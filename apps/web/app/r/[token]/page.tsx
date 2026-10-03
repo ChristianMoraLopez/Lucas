@@ -6,7 +6,7 @@ import { LogoLink } from '@/components/logo-link';
 import { formatCOP, lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, CategoryTag, Sticker } from '@/components/lucas-ui';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
-import { MARCA, personView, transfersFor } from '@/lib/share';
+import { PUBLICIDAD, personView, transfersFor } from '@/lib/share';
 import { asTone, plural, type SharedOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/server';
 
@@ -325,7 +325,7 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
           <Link href="/" className="lu-btn lu-btn--primary">
             Probar Luks gratis
           </Link>
-          <span className="sh-promo__url">{MARCA}</span>
+          <span className="sh-promo__url">{PUBLICIDAD}</span>
         </aside>
       </main>
     </div>

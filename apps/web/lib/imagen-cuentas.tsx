@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { formatCOP, type Tone } from '@/components/lucas-core';
 import { formatRange, monthName } from '@/lib/dates';
-import { personView, transfersFor } from '@/lib/share';
+import { MARCA, personView, transfersFor } from '@/lib/share';
 import { asTone, type SharedOverview } from '@/lib/types';
 
 /*
@@ -136,18 +136,22 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* biome-ignore lint/performance/noImgElement: es una imagen generada (next/og), no una página */}
         <img src={`data:image/svg+xml;base64,${logo.toString('base64')}`} width={171} height={56} alt="" />
+        {/* La publicidad: «Esto se hizo en mrluks.com» */}
         <div
           style={{
             display: 'flex',
-            padding: '8px 20px',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 22px',
             borderRadius: 40,
             background: C.tinta,
             color: C.papel,
             fontSize: 22,
-            fontWeight: 800,
+            fontWeight: 600,
           }}
         >
-          mrluks.com
+          Esto se hizo en
+          <span style={{ fontWeight: 800, color: C.amarillo }}>{MARCA}</span>
         </div>
       </div>
 
