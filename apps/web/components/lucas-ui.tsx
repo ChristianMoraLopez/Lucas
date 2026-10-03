@@ -836,7 +836,8 @@ export function AppShell({
   barExtra?: React.ReactNode;
 }) {
   const tabEl = (t: (typeof tabs)[number]) => (
-    <button type="button" key={t.id} className="lu-tab" aria-current={t.id === active ? 'page' : undefined} onClick={() => onTab?.(t.id)}>
+    // data-navega: lleva a otra pantalla; mientras carga se ve el giro (components/conexion.tsx)
+    <button type="button" key={t.id} className="lu-tab" aria-current={t.id === active ? 'page' : undefined} data-navega="" onClick={() => onTab?.(t.id)}>
       {ICONS[t.icon || t.id]}
       <span>{t.label}</span>
       {t.count ? <span className="lu-tab__count">{t.count}</span> : null}
@@ -851,7 +852,7 @@ export function AppShell({
         {brand ?? <Logo />}
         {barExtra}
         {account && (
-          <button type="button" className="lu-app__acct" onClick={onAccount} aria-label={`${account}: cambiar de cuenta`}>
+          <button type="button" className="lu-app__acct" data-navega="" onClick={onAccount} aria-label={`${account}: cambiar de cuenta`}>
             <span className="lu-cat__glyph" style={toneVars(accountTone)} aria-hidden="true">
               {accountGlyph}
             </span>

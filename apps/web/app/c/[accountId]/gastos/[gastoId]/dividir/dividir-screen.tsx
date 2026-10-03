@@ -207,8 +207,11 @@ function Editor({
         .map((i) => ({ id: i.id, name: i.name.trim(), quantity: i.quantity, total_cop: i.total, people: i.people.filter((p) => orden.includes(p)) })),
       p_shares: orden.map((p) => ({ person_id: p, amount_cop: d.partes[p], fixed: fijos[p] != null })),
     });
-    setBusy(false);
-    if (error) return setError(humanError(error));
+    if (error) {
+      setBusy(false);
+      return setError(humanError(error));
+    }
+    // Sigue en «Guardando…» hasta que llegue la pantalla del gasto
     lanzarChispas(e);
     notifyAccountChanged(accountId);
     await Promise.all([

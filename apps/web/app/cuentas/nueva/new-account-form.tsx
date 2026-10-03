@@ -32,6 +32,8 @@ export function NewAccountForm({ myName }: { myName: string }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [error, setError] = useState<string | null>(null);
+  // Ya se creó y va para la cuenta: el botón sigue ocupado hasta que llegue
+  const [yendo, setYendo] = useState(false);
 
   const {
     control,
@@ -59,6 +61,7 @@ export function NewAccountForm({ myName }: { myName: string }) {
       return;
     }
     // Primero el grupo de WhatsApp: es el motor de Luks (y trae a la gente del grupo)
+    setYendo(true);
     router.push(`/c/${data as string}/whatsapp`);
     router.refresh();
   });
@@ -138,8 +141,8 @@ export function NewAccountForm({ myName }: { myName: string }) {
       )}
 
       <div className="nc-go">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creando…' : 'Crear cuenta'}
+        <Button type="submit" disabled={isSubmitting || yendo}>
+          {isSubmitting || yendo ? 'Creando…' : 'Crear cuenta'}
         </Button>
         <span className="lu-small lu-muted">Después invitas al resto con un código.</span>
       </div>

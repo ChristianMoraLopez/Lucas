@@ -1,5 +1,7 @@
 import { SerwistProvider } from '@serwist/turbopack/react';
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
+import { Conexion } from '@/components/conexion';
 import { Providers } from '@/components/providers';
 import '@/styles/tokens.css';
 import '@/styles/lucas.css';
@@ -71,8 +73,16 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           <img className="lu-intro__img" src="/brand/luks-logo-animado.svg" alt="" />
         </div>
         {/* En desarrollo sin service worker: evita servir páginas viejas de la caché */}
-        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === 'development'}>
-          <Providers>{children}</Providers>
+        {/* reloadOnOnline apagado: al volver el internet no se recarga la página (se perdería lo que
+            estaban escribiendo); components/conexion.tsx refresca los datos y avisa */}
+        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === 'development'} reloadOnOnline={false}>
+          <Providers>
+            {children}
+            {/* Sin internet, conexión lenta y el link que se tocó cargando */}
+            <Suspense fallback={null}>
+              <Conexion />
+            </Suspense>
+          </Providers>
         </SerwistProvider>
       </body>
     </html>
