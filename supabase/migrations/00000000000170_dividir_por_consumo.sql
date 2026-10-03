@@ -110,7 +110,7 @@ begin
     where jsonb_typeof(x) <> 'object'
        or nullif(btrim(x ->> 'name'), '') is null
        or coalesce(x ->> 'total_cop', '') !~ '^[0-9]{1,12}$'
-       or (x ? 'quantity' and jsonb_typeof(x -> 'quantity') <> 'null' and coalesce(x ->> 'quantity', '') !~ '^[0-9]{1,6}(\.[0-9]{1,3})?$')
+       or (x ? 'quantity' and jsonb_typeof(x -> 'quantity') <> 'null' and coalesce(x ->> 'quantity', '') !~ '^[0-9]{1,6}([.][0-9]{1,3})?$')
        or (x ? 'people' and jsonb_typeof(x -> 'people') <> 'array')
   ) then
     raise exception 'Cada ítem necesita nombre y precio';
