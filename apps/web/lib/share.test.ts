@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cobroMessage, grupoMessage, PUBLICIDAD, personView, sharedLink, transfersFor } from './share';
+import { cobroMessage, grupoMessage, PUBLICIDAD, personView, recomendacionMessage, sharedLink, transfersFor } from './share';
 
 describe('compartir las cuentas', () => {
   it('el link lleva a la persona y al mes', () => {
@@ -68,6 +68,13 @@ describe('compartir las cuentas', () => {
     expect(hogar).not.toContain('👀');
 
     expect(grupoMessage({ ...base, transfers: [] })).toContain('Nadie le debe a nadie');
+  });
+
+  it('recomendar Luks: el mensaje lleva mrluks.com', () => {
+    const r = recomendacionMessage();
+    expect(r.url).toBe('https://mrluks.com');
+    expect(r.texto).toContain('Luks');
+    expect(r.texto.endsWith('https://mrluks.com')).toBe(true);
   });
 
   it('sin liquidar se calculan las transferencias; liquidado, se usan las guardadas', () => {

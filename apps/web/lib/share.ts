@@ -11,6 +11,14 @@ export const MARCA_URL = `https://${MARCA}`;
 /** La publicidad que va en los mensajes, la imagen del link y la página pública */
 export const PUBLICIDAD = `Esto se hizo en ${MARCA}`;
 
+/** Para recomendar Luks a otros (el home): el mensaje y el link */
+export function recomendacionMessage() {
+  return {
+    url: MARCA_URL,
+    texto: `Te recomiendo Luks 🧾 para las cuentas del grupo: mandas la foto del recibo al grupo de WhatsApp y Luks anota el gasto, lo divide y dice quién le paga a quién. Es gratis 👉 ${MARCA_URL}`,
+  };
+}
+
 /** /r/TOKEN, con la vista de una persona (?p=) y el mes de un hogar (?mes=2026-09) */
 export function sharedLink(origin: string, token: string, o: { person?: string | null; month?: string | null } = {}) {
   const q = new URLSearchParams();

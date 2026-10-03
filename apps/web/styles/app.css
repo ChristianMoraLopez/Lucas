@@ -389,6 +389,42 @@ iframe {
   font-weight: 800;
   color: var(--morado);
 }
+/* Recomendar Luks (home) */
+.ap-share {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  margin-top: var(--space-2);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--amarillo);
+  color: var(--tinta-fija);
+  overflow: hidden;
+}
+.ap-share__url {
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--tinta-fija);
+  color: var(--amarillo);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.ap-share__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ap-share__wa svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.ap-share .lu-btn--ghost {
+  color: var(--tinta-fija);
+}
 @container app (min-width: 760px) {
   .ap {
     grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
