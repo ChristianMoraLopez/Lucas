@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -24,6 +25,8 @@ export interface SavedExpense {
   each: number;
   n: number;
   date: string;
+  /** Quedó dividido por consumo (cada uno su parte, no por igual) */
+  porConsumo?: boolean;
 }
 
 /**
@@ -74,6 +77,8 @@ export function ExpenseForm({
     const ids = expense.expense_splits.map((s) => s.person_id);
     return ids.length ? ids : people.map((p) => p.id);
   });
+  // Dividido por consumo (quién pidió qué): se respeta al guardar, salvo que lo vuelvan a dividir igual
+  const [porConsumo, setPorConsumo] = useState(expense.split_method === 'items');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -94,6 +99,7 @@ export function ExpenseForm({
   const savedBy = (field: FieldKey, saved: unknown, now: unknown) => (changed[field] && saved === now ? corrector : undefined);
 
   const each = split.length ? Math.floor(total / split.length) : 0;
+  const dividirHref = `/c/${accountId}/gastos/${expense.id}/dividir${mode === 'review' ? '?volver=revisar' : ''}`;
   const toggle = (id: string) =>
     setSplit((s) => (s.includes(id) ? s.filter((x) => x !== id) : people.map((p) => p.id).filter((x) => s.includes(x) || x === id)));
 
@@ -102,7 +108,7 @@ export function ExpenseForm({
     // El botón que lo envió (también con Enter): ahí salen las chispas si queda guardado
     const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
     if (!canEdit || busy) return;
-    if (!split.length) return setError('Elige al menos una persona para dividir el gasto');
+    if (!porConsumo && !split.length) return setError('Elige al menos una persona para dividir el gasto');
     if (!payerId) return setError('Elige quién pagó');
     setBusy(true);
     setError(null);
@@ -113,7 +119,8 @@ export function ExpenseForm({
       p_total_cop: total,
       p_category_id: categoryId || null,
       p_payer_person_id: payerId,
-      p_split_person_ids: split,
+      // null: se queda la división por consumo (la base revisa que siga sumando el total)
+      p_split_person_ids: porConsumo ? null : split,
       p_confirm: true,
     });
     setBusy(false);
@@ -123,7 +130,16 @@ export function ExpenseForm({
       lanzarChispas({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, currentTarget: null });
     }
     notifyAccountChanged(accountId);
-    onSaved({ merchant: merchant.trim(), category: catOf(categoryId) || null, total, payer: nameOf(payerId), each, n: split.length, date });
+    onSaved({
+      merchant: merchant.trim(),
+      category: catOf(categoryId) || null,
+      total,
+      payer: nameOf(payerId),
+      each,
+      n: porConsumo ? expense.expense_splits.length : split.length,
+      date,
+      porConsumo,
+    });
   };
 
   const remove = async () => {
@@ -230,20 +246,54 @@ export function ExpenseForm({
             }}
           />
         )}
-        <div className="lu-field">
-          <div className="lu-field__top">
-            <span className="lu-label">
-              Entre quiénes · {split.length} de {people.length}
-            </span>
-            <span className="lu-amount lu-amount--sm">{formatCOP(each)} c/u</span>
+        {porConsumo ? (
+          <div className="lu-field">
+            <div className="lu-field__top">
+              <span className="lu-label">Dividido por consumo · {expense.expense_splits.length} personas</span>
+            </div>
+            <ul className="rv-consumo">
+              {[...expense.expense_splits]
+                .sort((a, b) => b.amount_cop - a.amount_cop)
+                .map((x) => (
+                  <li key={x.person_id}>
+                    <span>
+                      {nameOf(x.person_id) || 'Alguien'}
+                      {x.fixed && <span className="rv-consumo__fijo">puso su monto</span>}
+                    </span>
+                    <b className="lu-num">{formatCOP(x.amount_cop)}</b>
+                  </li>
+                ))}
+            </ul>
+            <div className="rv-consumo__acts">
+              <Link href={dividirHref} className="lu-btn lu-btn--sm lu-btn--secondary">
+                Cambiar quién pidió qué
+              </Link>
+              <button type="button" className="st-undo" onClick={() => setPorConsumo(false)}>
+                Mejor dividir por igual
+              </button>
+            </div>
           </div>
-          <div className="lu-chips">
-            {people.map((p) => (
-              <Chip key={p.id} name={p.display_name} tone={asTone(p.tone, p.display_name)} pressed={split.includes(p.id)} onToggle={() => toggle(p.id)} />
-            ))}
+        ) : (
+          <div className="lu-field">
+            <div className="lu-field__top">
+              <span className="lu-label">
+                Entre quiénes · {split.length} de {people.length}
+              </span>
+              <span className="lu-amount lu-amount--sm">{formatCOP(each)} c/u</span>
+            </div>
+            <div className="lu-chips">
+              {people.map((p) => (
+                <Chip key={p.id} name={p.display_name} tone={asTone(p.tone, p.display_name)} pressed={split.includes(p.id)} onToggle={() => toggle(p.id)} />
+              ))}
+            </div>
+            {expense.split_note && <span className="rv-note">{expense.split_note}</span>}
+            {canEdit && (
+              <Link href={dividirHref} className="rv-dividir">
+                <b>¿No pidieron lo mismo?</b> Dividir por consumo: quién pidió qué de la factura →
+              </Link>
+            )}
           </div>
-          {expense.split_note && <span className="rv-note">{expense.split_note}</span>}
-        </div>
+        )}
       </fieldset>
 
       {pending && ai.possible_duplicate_of && (

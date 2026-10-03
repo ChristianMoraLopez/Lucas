@@ -219,7 +219,9 @@ export interface ReviewExpense {
     received_at: string;
     sender_person_id: string | null;
   } | null;
-  expense_splits: { person_id: string; amount_cop: number }[];
+  /** 'items' = dividido por consumo (quién pidió qué); se respeta al revisar */
+  split_method?: 'equal' | 'percent' | 'exact' | 'items';
+  expense_splits: { person_id: string; amount_cop: number; fixed?: boolean }[];
 }
 
 export interface AccountPerson {

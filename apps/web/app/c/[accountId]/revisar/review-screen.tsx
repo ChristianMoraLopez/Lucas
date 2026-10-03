@@ -47,7 +47,7 @@ export function ReviewScreen({
         supabase
           .from('expenses')
           .select(
-            'id, merchant, expense_date, total_cop, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id), expense_splits(person_id, amount_cop)',
+            'id, merchant, expense_date, total_cop, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id), split_method, expense_splits(person_id, amount_cop, fixed)',
           )
           .eq('account_id', accountId)
           .eq('status', 'pending_review')
@@ -271,7 +271,7 @@ function DoneCard({ d, next, nextLabel, accountId }: { d: Done; next: (() => voi
         category={d.category ?? undefined}
         meta={`${formatDateCO(d.date)} · pagó ${d.payer}`}
         total={d.total}
-        each={`÷ ${d.n} · ${formatCOP(d.each)}`}
+        each={d.porConsumo ? `÷ ${d.n} · por consumo` : `÷ ${d.n} · ${formatCOP(d.each)}`}
         sticker={<Sticker tone="confirmado" animate rotate={-6} />}
       />
       <div className="rv-done__row">

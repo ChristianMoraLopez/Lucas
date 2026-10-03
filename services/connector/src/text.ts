@@ -29,6 +29,21 @@ export function looksLikeExpense(text: string | null | undefined): boolean {
   return MONTO.some((re) => re.test(text));
 }
 
+/*
+ * Lo que hace Luks no es un gasto: las cuentas y los cobros que se mandan
+ * desde Liquidar (firmados «Esto se hizo en mrluks.com», con el link /r/TOKEN)
+ * y las respuestas de Luks («Anotado: Hielo · $8.000»), que en un grupo leído
+ * también por el WhatsApp de alguien llegan como un mensaje más. La base revisa
+ * lo mismo (public.es_mensaje_de_luks, migración 180).
+ */
+const FIRMA_LUKS = /esto se hizo en mrluks\.com|cuentas hechas con luks|hecho con luks|(?:mrluks\.com|\.vercel\.app)\/r\/[A-Za-z0-9_-]{20,64}/i;
+const RESPUESTA_LUKS = /^\s*(?:anotad[oa]s?|recibido|ya estaba anotado)[\s:].*·\s*\$\d/is;
+
+export function esMensajeDeLuks(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return FIRMA_LUKS.test(text) || RESPUESTA_LUKS.test(text);
+}
+
 /** $84.300 */
 export function formatCOP(n: number): string {
   const v = Math.round(Number(n) || 0);

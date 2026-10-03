@@ -146,6 +146,9 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
           Una foto del recibo, un PDF o escríbelo como en el grupo. Luks lo lee y lo deja en Revisar.
         </p>
+        <p className="lu-small lu-muted" style={{ margin: 0 }}>
+          ¿Uno pagó la cuenta de todos y no pidieron lo mismo? Suban la foto de la factura y después la dividen por consumo: quién pidió qué.
+        </p>
       </header>
 
       <div className="up-main">
@@ -235,9 +238,14 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
         sticker={pendiente ? <Sticker tone="revisar" size="sm" rotate={5} animate /> : <Sticker tone="confirmado" size="sm" rotate={-5} animate />}
       >
         {pendiente && (
-          <Link href={`/c/${accountId}/revisar?gasto=${gasto.id}`} className="lu-btn lu-btn--sm lu-btn--secondary">
-            Revisar ahora
-          </Link>
+          <>
+            <Link href={`/c/${accountId}/revisar?gasto=${gasto.id}`} className="lu-btn lu-btn--sm lu-btn--secondary">
+              Revisar ahora
+            </Link>
+            <Link href={`/c/${accountId}/gastos/${gasto.id}/dividir?volver=revisar`} className="lu-btn lu-btn--sm lu-btn--ghost">
+              Dividir por consumo
+            </Link>
+          </>
         )}
       </ExpenseCard>
     );

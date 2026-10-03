@@ -97,6 +97,14 @@ describe('ingesta', () => {
     expect(store.messages.size).toBe(0);
   });
 
+  it('las cuentas que mandan desde Luks no entran como gasto', async () => {
+    await enlazado();
+    const cuentas = '🧾 *Paseo*\nGastamos *$480.000* entre 4\nhttps://mrluks.com/r/76B5n5hlRzSyAs39_Yl50w\n\n_Esto se hizo en mrluks.com_';
+    expect(await ing.onMessage(contador, wa, m({ text: cuentas }))).toBe('de_luks');
+    expect(await ing.onMessage(contador, wa, m({ text: 'Anotado: Hielo · $8.000 · pagó Mafe.' }))).toBe('de_luks');
+    expect(store.messages.size).toBe(0);
+  });
+
   it('un gasto escrito entra a la cola con quién lo mandó', async () => {
     await enlazado();
     const msg = m({ messageId: 'W-TAXI' });

@@ -1426,6 +1426,307 @@ iframe {
   border-top: 0;
 }
 
+/* ---------- dividir por consumo (gastos/[id]/dividir) ---------- */
+.dv-head {
+  display: grid;
+  gap: 6px;
+}
+.dv {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.dv-step {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-xl);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.dv-step__t {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 24px;
+}
+.dv-n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--amarillo);
+  color: var(--tinta-fija);
+  font-size: 16px;
+  font-weight: 800;
+}
+.dv-add {
+  display: grid;
+  gap: 6px;
+}
+.dv-add__row {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dv-input {
+  min-width: 0;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radius-sm);
+}
+.dv-input:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 1px;
+}
+.dv-add__input {
+  flex: 1;
+}
+.dv-payer {
+  max-width: 22rem;
+}
+.dv-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.dv-item {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.dv-item__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem) auto;
+  gap: 8px;
+  align-items: center;
+}
+.dv-item__price {
+  text-align: right;
+  font-family: var(--font-num);
+  font-weight: 700;
+}
+.dv-item__x {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tinta-2);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dv-item__x:hover {
+  background: var(--superficie);
+  color: var(--tinta);
+}
+.dv-item__who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dv-todos,
+.dv-quien {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 3px 10px 3px 3px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--tinta-2);
+  background: transparent;
+  border: 1.5px dashed var(--tinta-2);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.dv-todos {
+  padding: 3px 12px;
+}
+.dv-quien[aria-pressed="true"] {
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--tinta);
+}
+.dv-todos[aria-pressed="true"] {
+  color: var(--superficie);
+  background: var(--tinta);
+  border: 1.5px solid var(--tinta);
+}
+.dv-todos:focus-visible,
+.dv-quien:focus-visible,
+.dv-item__x:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.dv-cuadre {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--verde-suave);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.dv-cuadre.is-mal {
+  background: var(--coral-suave);
+}
+.dv-who {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.dv-p {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px dashed var(--borde);
+}
+.dv-p:first-child {
+  border-top: 0;
+}
+.dv-p__who {
+  display: grid;
+  min-width: 0;
+}
+.dv-p__who b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-p__who .lu-muted {
+  font-size: 13px;
+  line-height: 17px;
+}
+.dv-p__amt {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.dv-p__input {
+  width: 8.5rem;
+  text-align: right;
+  font-family: var(--font-num);
+  font-weight: 800;
+}
+.is-fijo .dv-p__input {
+  border-color: var(--morado);
+  background: var(--morado-suave);
+}
+.dv-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  background: var(--fondo);
+}
+.dv-actions .lu-btn--primary {
+  flex: 1 1 12rem;
+}
+.dv-total {
+  color: var(--tinta-2);
+}
+@container app (max-width: 420px) {
+  .dv-item__top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .dv-item__name {
+    grid-column: 1 / -1;
+  }
+}
+@container app (max-width: 340px) {
+  .dv-p {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .dv-p__amt {
+    grid-column: 2;
+    justify-items: start;
+  }
+}
+@container app (min-width: 760px) {
+  .dv-step {
+    padding: var(--space-5);
+  }
+  .dv-actions {
+    position: sticky;
+    bottom: 0;
+    padding: var(--space-3) 0;
+  }
+}
+
+/* El gasto dividido por consumo, en el formulario */
+.rv-consumo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.rv-consumo li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-top: 1px dashed var(--borde);
+  font-size: 15px;
+  font-weight: 600;
+}
+.rv-consumo li:first-child {
+  border-top: 0;
+}
+.rv-consumo__fijo {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--morado);
+  background: var(--morado-suave);
+}
+.rv-consumo__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.rv-dividir {
+  justify-self: start;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--morado);
+  background: var(--morado-suave);
+  text-decoration: none;
+}
+.rv-dividir b {
+  color: var(--tinta);
+}
+
 /* ---------- navegación de meses en la tarjeta billete ---------- */
 .hd-nav a,
 .hd-nav span {
