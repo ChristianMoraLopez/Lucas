@@ -14,7 +14,8 @@ import { useEffect, useState } from 'react';
    JuanMakes, «coin» de Nook, «success confetti» de Deepesh Reddy,
    «uploading» de Avinash Reddy, «no internet» de Twinkle Sharma, «not found»
    de Tùng Hoàng Hữu, «Money Bag» de Mahendra Bhunwal, «Empty» de Mahmoud
-   Madkour, «Money Transfer» de Musa Adanur y «error» de Thais Roese. */
+   Madkour, «Money Transfer» de Musa Adanur y «error» de Thais Roese.
+   «archivar» y «borrar» son de Luks: los dibuja scripts/lottie-propios.py. */
 export const LOTTIES = {
   vacio: { loop: true },
   escaneo: { loop: true },
@@ -31,6 +32,9 @@ export const LOTTIES = {
   buscar: { loop: true },
   transferencia: { loop: false },
   error: { loop: false },
+  // Propios (scripts/lottie-propios.py), con la paleta del kit
+  archivar: { loop: false },
+  borrar: { loop: false },
 } as const;
 export type LottieName = keyof typeof LOTTIES;
 
@@ -96,20 +100,29 @@ export function Lottie({
     return () => player.removeEventListener('load', onLoad);
   }, [player, onLoad]);
 
-  // alVerse: espera a que esté en pantalla para arrancar
+  // alVerse: espera a que esté en pantalla para arrancar (y a que haya cargado:
+  // un play() antes de cargar no hace nada y se queda en el primer cuadro)
   useEffect(() => {
     if (!alVerse || !player || !caja || reduce) return;
+    const arrancar = () => player.play();
+    let esperando = false;
     const obs = new IntersectionObserver(
       (entradas) => {
-        if (entradas.some((e) => e.isIntersecting)) {
-          player.play();
-          obs.disconnect();
+        if (!entradas.some((e) => e.isIntersecting)) return;
+        obs.disconnect();
+        if (player.isLoaded) arrancar();
+        else {
+          esperando = true;
+          player.addEventListener('load', arrancar);
         }
       },
       { threshold: 0.6 },
     );
     obs.observe(caja);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      if (esperando) player.removeEventListener('load', arrancar);
+    };
   }, [alVerse, player, caja, reduce]);
 
   return (

@@ -820,6 +820,23 @@ export const ICONS: Record<string, React.ReactNode> = {
       <path {...P} d="m13.5 6.5 4 4" />
     </svg>
   ),
+  archivo: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect {...P} x="3" y="4" width="18" height="5" rx="1.5" />
+      <path {...P} d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" />
+    </svg>
+  ),
+  desarchivar: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect {...P} x="3" y="4" width="18" height="5" rx="1.5" />
+      <path {...P} d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M12 17v-5M9.5 14.5 12 12l2.5 2.5" />
+    </svg>
+  ),
+  basura: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path {...P} d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6" />
+    </svg>
+  ),
 };
 
 /* ---------- AppShell ---------- */
