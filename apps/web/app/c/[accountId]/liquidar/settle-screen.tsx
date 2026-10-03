@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useMemo, useState, useTransition } from 'react';
+import { FinDeCuenta } from '@/components/archivo-cuenta';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { formatCOP, lucas } from '@/components/lucas-core';
@@ -40,6 +41,8 @@ export function SettleScreen({
   shareToken,
   phones,
   origin,
+  titular = false,
+  archivada = false,
 }: {
   d: SettlementOverview;
   /** El link público de la cuenta (/r/TOKEN), si ya lo crearon */
@@ -47,6 +50,10 @@ export function SettleScreen({
   /** WhatsApp de cada persona (person_id → 573001234567), para cobrarle directo */
   phones: Record<string, string>;
   origin: string;
+  /** Es la persona titular de la cuenta (solo ella la borra del todo) */
+  titular?: boolean;
+  /** Ya la archivó (solo para ella) */
+  archivada?: boolean;
 }) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
@@ -379,6 +386,7 @@ export function SettleScreen({
           queSe={queSe}
           busy={busy}
           onAccion={setConfirmar}
+          fin={cerrada ? <FinDeCuenta accountId={accountId} accountName={d.account.name} archivada={archivada} titular={titular} /> : null}
         />
         {error && (
           <p className="lu-small st-error" role="alert">
@@ -755,6 +763,7 @@ function Cierre({
   queSe,
   busy,
   onAccion,
+  fin,
 }: {
   d: SettlementOverview;
   evento: boolean;
@@ -766,6 +775,8 @@ function Cierre({
   queSe: string;
   busy: string | null;
   onAccion: (a: Accion) => void;
+  /** Cerrada: archivarla o borrarla del todo */
+  fin?: ReactNode;
 }) {
   const s = d.settlement;
   if (cerrada) {
@@ -778,13 +789,14 @@ function Cierre({
               {evento ? 'Paseo cerrado' : 'Cuenta cerrada'}
             </h2>
             <p className="lu-small" style={{ margin: '4px 0 0' }}>
-              Queda archivado con su liquidación.
+              Queda guardado con su liquidación.
             </p>
           </div>
         </div>
         <Sticker tone="cerrado" size="lg" rotate={-5}>
           Saldado
         </Sticker>
+        {fin}
       </section>
     );
   }

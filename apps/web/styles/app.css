@@ -365,6 +365,132 @@ iframe {
   border-radius: var(--radius-pill);
   white-space: nowrap;
 }
+/* Inicio: una cuenta cerrada con su botón de archivar; las archivadas, abajo (components/archivo-cuenta.tsx) */
+.ap-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  transform-origin: 50% 100%;
+}
+.ap-fila.is-archivando {
+  animation: ap-a-la-caja var(--dur-slow) var(--ease-out) forwards;
+}
+.ap-fila.is-volviendo {
+  animation: ap-sale-de-la-caja var(--dur-slow) var(--ease-out) forwards;
+}
+.ap-fila__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.ap-fila__btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tinta-2);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.ap-fila__btn svg {
+  width: 20px;
+  height: 20px;
+}
+.ap-fila__btn:hover {
+  background: var(--morado-suave);
+  color: var(--morado);
+}
+.ap-fila__btn:active {
+  transform: scale(0.9);
+}
+.ap-fila__btn:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.ap-fila__error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+@keyframes ap-a-la-caja {
+  to {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+@keyframes ap-sale-de-la-caja {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.97);
+  }
+}
+.ap-archivo {
+  border-top: 1px dashed var(--borde);
+  padding-top: var(--space-3);
+}
+.ap-archivo > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius-md);
+}
+.ap-archivo > summary::-webkit-details-marker {
+  display: none;
+}
+.ap-archivo > summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  margin-right: var(--space-2);
+  border-right: 2px solid var(--tinta-2);
+  border-bottom: 2px solid var(--tinta-2);
+  transform: rotate(45deg);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.ap-archivo[open] > summary::after {
+  transform: rotate(-135deg);
+}
+.ap-archivo > summary:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.ap-archivo__caja {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+}
+.ap-archivo__n {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tinta-2);
+}
+.ap-archivo__lista {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  animation: lu-appear var(--dur-base) var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-fila.is-archivando,
+  .ap-fila.is-volviendo,
+  .ap-archivo__lista {
+    animation: none;
+  }
+  .ap-archivo > summary::after {
+    transition: none;
+  }
+}
 .ap-side {
   display: grid;
   gap: var(--space-3);
@@ -4843,5 +4969,121 @@ iframe {
   }
   [data-cargando="bloque"]:not(.lu-btn):not(.lu-tab) {
     transform: none;
+  }
+}
+
+/* ---------- Fin de una cuenta cerrada: archivar o borrar del todo (components/archivo-cuenta.tsx) ---------- */
+.fa {
+  /* Va sobre la tarjeta amarilla de «cerrado»: colores claros también en modo oscuro */
+  --tinta: #1c1433;
+  --tinta-2: #4a4260;
+  --superficie-2: rgba(255, 255, 255, 0.6);
+  --borde: rgba(28, 20, 51, 0.25);
+  --coral-texto: #a8182f;
+  --coral-suave: rgba(255, 255, 255, 0.6);
+  --morado-suave: rgba(255, 255, 255, 0.6);
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  color: var(--tinta);
+}
+.fa-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.fa-boton svg,
+.fa-borrar svg {
+  width: 18px;
+  height: 18px;
+}
+.fa-nota {
+  margin: 0;
+}
+.fa-listo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--morado-suave);
+  font-size: 14px;
+  line-height: 20px;
+  animation: lu-appear var(--dur-slow) var(--ease-pop) both;
+}
+.fa-borrar {
+  color: var(--coral-texto);
+}
+.fa-borrar--compacto {
+  min-height: 40px;
+  width: 40px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--tinta-2);
+}
+.fa-borrar--compacto:hover {
+  color: var(--coral-texto);
+  background: var(--coral-suave);
+}
+.fa-borrar--compacto svg {
+  width: 20px;
+  height: 20px;
+}
+.fb-lottie {
+  display: grid;
+  justify-items: center;
+  margin: calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-1));
+}
+.fb-alt {
+  display: block;
+  margin-top: var(--space-2);
+  font-weight: 700;
+  color: var(--tinta);
+}
+.fb-input {
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radius-sm);
+}
+.fb-input:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 1px;
+}
+.fb-estado {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+  min-height: 64px;
+}
+.fb-barra {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--superficie-2);
+  overflow: hidden;
+}
+.fb-barra__lleno {
+  display: block;
+  height: 100%;
+  background: var(--coral);
+  border-radius: inherit;
+  transition: width var(--dur-base) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fa-listo {
+    animation: none;
+  }
+  .fb-barra__lleno {
+    transition: none;
   }
 }

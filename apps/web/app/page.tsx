@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Archivadas, FilaArchivable } from '@/components/archivo-cuenta';
 import { InvitacionesRecibidas } from '@/components/invitaciones-recibidas';
 import { LogoLink } from '@/components/logo-link';
 import { lucas } from '@/components/lucas-core';
@@ -13,15 +14,21 @@ import { requireUser } from '@/utils/supabase/server';
 export default async function AccountPickerPage() {
   const { supabase, userId } = await requireUser();
 
-  const [{ data: profile }, { data: overview, error }, { data: recibidas }] = await Promise.all([
+  const [{ data: profile }, { data: overview, error }, { data: recibidas }, { data: membresias }] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     supabase.rpc('account_overview'),
     // Me agregaron a una cuenta desde otra (sin código): falta que acepte
     supabase.rpc('my_invites'),
+    // Las que archivé (si la columna todavía no existe, no hay archivadas)
+    supabase.from('account_members').select('account_id, archived_at').eq('user_id', userId),
   ]);
   const invitaciones = (recibidas ?? []) as InvitacionRecibida[];
 
-  const accounts = (overview ?? []) as AccountOverview[];
+  const enArchivo = new Set(((membresias ?? []) as { account_id: string; archived_at: string | null }[]).filter((m) => m.archived_at).map((m) => m.account_id));
+  const todas = (overview ?? []) as AccountOverview[];
+  // Archivada solo si está cerrada (si la reabrieran, vuelve a salir)
+  const archivadas = todas.filter((a) => a.status === 'closed' && enArchivo.has(a.id));
+  const accounts = todas.filter((a) => !archivadas.includes(a));
   const fullName = profile?.full_name?.trim() || '';
   const firstName = fullName.split(/\s+/)[0] || '';
   const pending = accounts.reduce((n, a) => n + a.pending_count, 0);
@@ -75,12 +82,28 @@ export default async function AccountPickerPage() {
           )}
 
           {others.length > 0 && (
-            <div className="ap-list">
+            <div className="ap-list lu-stagger">
               <div className="lu-label">Otras cuentas</div>
-              {others.map((a) => (
-                <AccountRow key={a.id} a={a} />
-              ))}
+              {others.map((a, i) =>
+                a.status === 'closed' ? (
+                  <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada={false} titular={a.role === 'owner'} orden={i}>
+                    <AccountRow a={a} />
+                  </FilaArchivable>
+                ) : (
+                  <AccountRow key={a.id} a={a} i={i} />
+                ),
+              )}
             </div>
+          )}
+
+          {archivadas.length > 0 && (
+            <Archivadas cantidad={archivadas.length}>
+              {archivadas.map((a) => (
+                <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada titular={a.role === 'owner'}>
+                  <AccountRow a={a} />
+                </FilaArchivable>
+              ))}
+            </Archivadas>
           )}
         </div>
 
@@ -167,11 +190,11 @@ function LeadAccount({ a }: { a: AccountOverview }) {
   );
 }
 
-function AccountRow({ a }: { a: AccountOverview }) {
+function AccountRow({ a, i }: { a: AccountOverview; i?: number }) {
   const closed = a.status === 'closed';
   const note = a.type === 'hogar' ? (budgetNote(a) ?? (a.pending_count ? null : 'Al día')) : null;
   return (
-    <Link href={`/c/${a.id}/resumen`} className={`ap-row${closed ? ' is-closed' : ''}`}>
+    <Link href={`/c/${a.id}/resumen`} className={`ap-row${closed ? ' is-closed' : ''}`} style={i == null ? undefined : ({ '--i': i } as React.CSSProperties)}>
       <span className="ap-glyph" style={{ background: `var(--tono-${accountTone(a.name)})` }} aria-hidden="true">
         {accountGlyph(a.name)}
       </span>
