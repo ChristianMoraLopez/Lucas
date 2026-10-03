@@ -55,10 +55,24 @@ export interface IncomingMessage {
   fromMe: boolean;
 }
 
+/** Alguien que está en el grupo */
+export interface GroupMember {
+  /** Número sin «+» (573001234567) o «lid:…» si WhatsApp no deja ver el número */
+  id: string;
+  phone: string | null;
+  /** El LID (id interno de WhatsApp), para reconocer a quien escribió antes con él */
+  lid: string | null;
+  /** El nombre que la persona se puso en WhatsApp (o como la tiene guardada quien vinculó) */
+  name: string | null;
+  admin: boolean;
+}
+
 export interface GroupInfo {
   chatId: string;
   name: string | null;
   participants: number | null;
+  /** Quiénes están: con esto las personas de la cuenta son las del grupo */
+  members?: GroupMember[];
 }
 
 export type SessionState =

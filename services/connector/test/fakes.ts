@@ -1,5 +1,5 @@
 import pino from 'pino';
-import type { ConnectorHandlers, GroupInfo, MessagingConnector, SessionInfo } from '../src/connector.js';
+import type { ConnectorHandlers, GroupInfo, GroupMember, MessagingConnector, SessionInfo } from '../src/connector.js';
 import type { GroupResult, IngestCheck, IngestInput, KeyItem, LinkResult, QueueHealth, SessionRow, Store } from '../src/store.js';
 import type { PendingReply } from '../src/text.js';
 
@@ -72,6 +72,13 @@ export class FakeStore implements Store {
     this.groups.set(jid, g);
     return { group_id: g.group_id, account_id: g.account_id, account_name: null, say_hello: !g.account_id && !g.hello };
   }
+  /** grupo → integrantes que mandó el connector */
+  members = new Map<string, GroupMember[]>();
+  async setGroupMembers(groupId: string, members: GroupMember[]) {
+    this.members.set(groupId, members);
+    const enlazado = [...this.groups.values()].some((g) => g.group_id === groupId && g.account_id);
+    return { members: members.length, people_added: enlazado ? members.length : 0 };
+  }
   async markHello(groupId: string) {
     for (const g of this.groups.values()) if (g.group_id === groupId) g.hello = true;
   }
@@ -86,7 +93,7 @@ export class FakeStore implements Store {
     if (actual?.account_id && actual.account_id !== cuenta.id) return { ok: false, error: 'otra_cuenta' };
     const already = actual?.account_id === cuenta.id;
     if (actual) actual.account_id = cuenta.id;
-    return { ok: true, already, account_id: cuenta.id, account_name: cuenta.name, group_id: g.group_id };
+    return { ok: true, already, account_id: cuenta.id, account_name: cuenta.name, group_id: g.group_id, members: this.members.get(g.group_id)?.length };
   }
   async shouldIngest(jid: string, id: string): Promise<IngestCheck> {
     const g = this.groups.get(jid);

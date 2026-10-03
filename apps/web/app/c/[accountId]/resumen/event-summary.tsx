@@ -6,7 +6,7 @@ import { eventMoment, formatRange } from '@/lib/dates';
 import { asTone, type Dashboard, plural } from '@/lib/types';
 
 /** Resumen de una cuenta evento (captura 4): total, en qué se fue y quién puso más. */
-export function EventSummary({ d, invitar = false }: { d: Dashboard; invitar?: boolean }) {
+export function EventSummary({ d, invitar = false, aviso = null }: { d: Dashboard; invitar?: boolean; aviso?: React.ReactNode }) {
   const n = d.people.length;
   const rango = formatRange(d.account.starts_on, d.account.ends_on);
   const momento = eventMoment(d.account.starts_on, d.account.ends_on, d.today);
@@ -25,6 +25,7 @@ export function EventSummary({ d, invitar = false }: { d: Dashboard; invitar?: b
           </div>
         )}
       </header>
+      {aviso}
 
       {d.pending_count > 0 && (
         <div className="ed-alert" role="status">

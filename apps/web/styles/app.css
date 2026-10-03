@@ -2187,7 +2187,16 @@ iframe {
   container: app / inline-size;
 }
 
-/* Barra de arriba: logo, cuenta y acciones caben hasta en 320 px */
+/* Barra de arriba: logo, cuenta y acciones caben hasta en 320 px (el nombre de la cuenta se corta) */
+.lu-app__acct {
+  min-width: 0;
+}
+.lu-app__acct > * {
+  min-width: 0;
+}
+.lu-app__acct > .lu-cat__glyph {
+  flex: none;
+}
 .lu-app__bar {
   min-width: 0;
   padding-left: max(var(--space-4), env(safe-area-inset-left));
@@ -2337,6 +2346,17 @@ iframe {
   /* Personas: invitar */
   .mb-inv {
     padding: var(--space-4);
+  }
+  /* Personas: si el nombre no cabe al lado del rol, el rol baja a la línea de abajo */
+  .mb-list li {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+  .mb-list li > .lu-person {
+    flex: 1 1 11rem;
+  }
+  .mb-manage {
+    margin-left: auto;
   }
   .mb-opts__grid {
     grid-template-columns: minmax(0, 1fr);
@@ -3806,4 +3826,152 @@ iframe {
 /* En la página pública el detalle de cada persona se lee completo */
 .sh-p .st-p__sub {
   white-space: normal;
+}
+
+/* ---------- WhatsApp, el motor de Luks: siempre a la vista ---------- */
+.lu-wa-pill {
+  order: 2;
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--tinta);
+  background: var(--superficie-2);
+}
+.lu-wa-pill svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.lu-wa-pill:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.lu-wa-pill--leyendo {
+  color: var(--verde);
+  background: var(--verde-suave);
+}
+.lu-wa-pill--caido {
+  color: var(--coral-texto);
+  background: var(--coral-suave);
+}
+.lu-wa-pill--sin-grupo {
+  color: var(--on-verde);
+  background: var(--verde);
+  box-shadow: 0 3px 0 #064b2f;
+}
+.lu-wa-pill__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.lu-wa-pill--leyendo .lu-wa-pill__dot {
+  background: var(--verde-vivo);
+}
+.lu-wa-pill--caido .lu-wa-pill__dot {
+  background: var(--coral);
+}
+/* El estado también en el menú lateral (escritorio) */
+.lu-tab__dot {
+  position: absolute;
+  top: 2px;
+  left: calc(50% + 8px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--superficie);
+}
+.lu-tab__dot--ok {
+  background: var(--verde-vivo);
+}
+.lu-tab__dot--warn {
+  background: var(--coral);
+}
+.lu-tab__dot--off {
+  background: var(--naranja);
+}
+@container app (min-width: 760px) {
+  .lu-app__rail .lu-tab__dot {
+    position: static;
+    margin-left: auto;
+    border: 0;
+  }
+}
+/* En el celular va junto a la cuenta; en pantallas angostas, casi solo el ícono */
+@container app (max-width: 759px) {
+  .lu-wa-pill {
+    margin-left: 0;
+  }
+}
+@container app (max-width: 420px) {
+  .lu-wa-pill {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+  .lu-wa-pill--leyendo .lu-wa-pill__txt,
+  .lu-wa-pill--caido .lu-wa-pill__txt,
+  .lu-wa-pill__mas {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Resumen sin grupo de WhatsApp: lo primero que hay que hacer */
+.wa-hero {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--verde-suave);
+  border: 2px solid var(--verde);
+}
+.wa-hero__txt {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.wa-hero__kicker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--verde);
+}
+.wa-hero__steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+.wa-hero__steps li::marker {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--verde);
+}
+.mb-sync {
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--verde-suave);
+  color: var(--tinta);
+  font-weight: 600;
 }

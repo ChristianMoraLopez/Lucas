@@ -274,13 +274,8 @@ export function Row({
 }
 
 /* ---------- Avatar / Person ---------- */
-const initials = (n: string) =>
-  n
-    .split(/\s+/)
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+/** «Juan Camilo» → «JC». Solo letras y números: los nombres de WhatsApp traen emojis («Juli 🌻» → «J») */
+const initials = (n: string) => ((n.match(/(?<![\p{L}\p{N}])[\p{L}\p{N}]/gu) ?? []).slice(0, 2).join('') || '?').toUpperCase();
 export function Avatar({ name, tone, size = 'md', registered = true }: { name: string; tone?: Tone; size?: 'xs' | 'sm' | 'md'; registered?: boolean }) {
   return (
     <span
@@ -799,6 +794,12 @@ export const ICONS: Record<string, React.ReactNode> = {
       <path {...P} d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.7 3.1 2.4 3.5 5.2" />
     </svg>
   ),
+  whatsapp: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path {...P} d="M4.5 20l1.2-3.6A8 8 0 1 1 8.7 19.2L4.5 20Z" />
+      <path {...P} d="M9 9.5c.3 2.3 2.2 4.4 4.6 5l1.4-1.2-1.8-1.1-.9.7c-.9-.4-1.7-1.2-2-2.1l.7-.9L9.9 8.1 9 9.5Z" />
+    </svg>
+  ),
   presupuestos: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle {...P} cx="12" cy="12" r="8.5" />
@@ -818,29 +819,37 @@ export function AppShell({
   children,
   onAccount,
   brand,
+  barExtra,
 }: {
   account?: string;
   accountTone?: Tone;
   accountGlyph?: string;
-  tabs?: { id: string; label: string; count?: number; icon?: string }[];
+  /** railOnly: solo en el menú lateral (escritorio), no en las pestañas de abajo. dot: un punto de estado sobre el ícono */
+  tabs?: { id: string; label: string; count?: number; icon?: string; railOnly?: boolean; dot?: 'ok' | 'warn' | 'off' }[];
   active?: string;
   onTab?: (id: string) => void;
   onAccount?: () => void;
   children?: React.ReactNode;
   /** Lo que va a la izquierda de la barra; por defecto el logo */
   brand?: React.ReactNode;
+  /** Algo más en la barra de arriba, antes de la cuenta (p. ej. el estado de WhatsApp) */
+  barExtra?: React.ReactNode;
 }) {
-  const tabEls = tabs.map((t) => (
+  const tabEl = (t: (typeof tabs)[number]) => (
     <button type="button" key={t.id} className="lu-tab" aria-current={t.id === active ? 'page' : undefined} onClick={() => onTab?.(t.id)}>
       {ICONS[t.icon || t.id]}
       <span>{t.label}</span>
       {t.count ? <span className="lu-tab__count">{t.count}</span> : null}
+      {t.dot ? <span className={`lu-tab__dot lu-tab__dot--${t.dot}`} aria-hidden="true" /> : null}
     </button>
-  ));
+  );
+  const railEls = tabs.map(tabEl);
+  const tabEls = tabs.filter((t) => !t.railOnly).map(tabEl);
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
         {brand ?? <Logo />}
+        {barExtra}
         {account && (
           <button type="button" className="lu-app__acct" onClick={onAccount} aria-label={`${account}: cambiar de cuenta`}>
             <span className="lu-cat__glyph" style={toneVars(accountTone)} aria-hidden="true">
@@ -854,7 +863,7 @@ export function AppShell({
       <div className="lu-app__body">
         {tabs.length > 0 && (
           <nav className="lu-app__rail" aria-label="Secciones">
-            {tabEls}
+            {railEls}
           </nav>
         )}
         <main className="lu-app__main">{children}</main>

@@ -11,7 +11,7 @@ const mesDe = (iso: string) => Number(iso.slice(5, 7)) - 1;
 const param = (iso: string) => iso.slice(0, 7);
 
 /** Resumen de una cuenta hogar (captura 3): el mes, en qué se fue, tendencia, presupuestos y últimos gastos. */
-export function HomeSummary({ d, invitar = false }: { d: Dashboard; invitar?: boolean }) {
+export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard; invitar?: boolean; aviso?: React.ReactNode }) {
   const base = `/c/${d.account.id}/resumen`;
   const esEsteMes = d.month.slice(0, 7) === d.today.slice(0, 7);
   const nombres = d.people.map((p) => p.name);
@@ -45,6 +45,7 @@ export function HomeSummary({ d, invitar = false }: { d: Dashboard; invitar?: bo
             ))}
           </span>
         </header>
+        {aviso}
 
         <BillCard
           label={`${monthName(d.month)} ${d.month.slice(0, 4)}${esEsteMes ? ` · va el día ${Number(d.today.slice(8, 10))}` : ''}`}

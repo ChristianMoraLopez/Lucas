@@ -14,7 +14,18 @@ import { formatDay, isRecent, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged } from '@/lib/realtime';
-import { type AccountType, asTone, type Invitation, type PersonRow, plural, ROLE_HELP, ROLE_LABEL, type Role, separarNombres } from '@/lib/types';
+import {
+  type AccountType,
+  asTone,
+  type Invitation,
+  type PersonRow,
+  plural,
+  ROLE_HELP,
+  ROLE_LABEL,
+  type Role,
+  separarNombres,
+  type WhatsappOverview,
+} from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { QuitarPersona } from './quitar-persona';
 
@@ -150,6 +161,18 @@ export function MembersScreen({
   const link = current ? inviteLink(origin, current.code) : null;
   const admins = members.filter((m) => m.role !== 'member').map((m) => m.display_name);
 
+  // El grupo de WhatsApp conectado (la misma consulta que la barra de arriba)
+  const whatsapp = useQuery({
+    queryKey: ['whatsapp', accountId],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('whatsapp_overview', { p_account_id: accountId });
+      if (error) throw error;
+      return data as WhatsappOverview;
+    },
+  });
+  const grupo = whatsapp.data?.groups.find((g) => !g.left_at) ?? null;
+
   const subtitle = people.isPending
     ? 'Cargando…'
     : unclaimed.length === 0
@@ -169,6 +192,12 @@ export function MembersScreen({
           </span>
         </div>
         <span className="lu-small lu-muted">{subtitle}</span>
+        {grupo && (
+          <p className="mb-sync lu-small" role="note">
+            Sincronizado con el grupo «{grupo.name ?? 'de WhatsApp'}»{grupo.members != null ? ` (${plural(grupo.members, 'integrante', 'integrantes')})` : ''}:
+            quien entra al grupo aparece aquí solo.
+          </p>
+        )}
       </header>
 
       <section className="mb-list" aria-label="Personas de la cuenta">

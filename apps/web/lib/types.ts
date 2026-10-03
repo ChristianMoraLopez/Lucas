@@ -250,7 +250,8 @@ export function accountTone(name: string): Tone {
 }
 
 export function accountGlyph(name: string) {
-  return name.trim().charAt(0).toUpperCase() || 'L';
+  // La primera letra o número (un emoji al principio no sirve de letra)
+  return name.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? 'L';
 }
 
 export function plural(n: number, uno: string, varios: string) {
@@ -260,6 +261,8 @@ export function plural(n: number, uno: string, varios: string) {
 /** public.whatsapp_overview(p_account_id): la pantalla «Conecta el grupo de WhatsApp» */
 export interface WhatsappOverview {
   is_admin: boolean;
+  /** Personas de la cuenta (migración 160): deberían ser las mismas del grupo */
+  people_count?: number;
   contador: { phone: string | null; connected: boolean; status: string; last_seen_at: string | null } | null;
   /** Invitación vigente para escribir «lucas CÓDIGO» (solo la ven los admins) */
   code: string | null;
@@ -273,6 +276,8 @@ export interface WhatsappOverview {
     left_at: string | null;
     connection_ok: boolean | null;
     connection_kind: 'contador' | 'personal' | null;
+    /** Integrantes del grupo sin contar el número de Luks (migración 160) */
+    members?: number;
     messages: number;
     expenses: number;
     last_sender: string | null;
@@ -324,4 +329,15 @@ export function separarNombres(raw: string): string[] {
     out.push(nombre);
   }
   return out;
+}
+
+export type EstadoWhatsapp = 'leyendo' | 'caido' | 'sin-grupo';
+
+/** ¿Luks está leyendo el grupo de esta cuenta? Para el botón de arriba y el Resumen */
+export function estadoWhatsapp(d: WhatsappOverview | null | undefined) {
+  const enlazados = (d?.groups ?? []).filter((g) => !g.left_at);
+  const leidos = enlazados.filter((g) => g.connection_ok);
+  const principal = leidos[0] ?? enlazados[0] ?? null;
+  const estado: EstadoWhatsapp = !enlazados.length ? 'sin-grupo' : leidos.length ? 'leyendo' : 'caido';
+  return { estado, grupo: principal?.name ?? null, integrantes: principal?.members ?? principal?.participants ?? null };
 }

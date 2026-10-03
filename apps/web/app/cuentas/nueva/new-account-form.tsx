@@ -58,8 +58,8 @@ export function NewAccountForm({ myName }: { myName: string }) {
       setError(humanError(error));
       return;
     }
-    // A Personas, para invitar de una al resto del grupo
-    router.push(`/c/${data as string}/personas`);
+    // Primero el grupo de WhatsApp: es el motor de Luks (y trae a la gente del grupo)
+    router.push(`/c/${data as string}/whatsapp`);
     router.refresh();
   });
 

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { SessionKind } from './connector.js';
+import type { GroupMember, SessionKind } from './connector.js';
 import type { PendingReply } from './text.js';
 
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
@@ -31,7 +31,7 @@ export interface GroupResult {
 }
 
 export type LinkResult =
-  | { ok: true; already: boolean; account_id: string; account_name: string; group_id: string }
+  | { ok: true; already: boolean; account_id: string; account_name: string; group_id: string; people_added?: number; members?: number }
   | { ok: false; error: 'codigo_invalido' | 'otra_cuenta' };
 
 export interface IngestCheck {
@@ -78,6 +78,8 @@ export interface Store {
   heartbeat(ids: string[]): Promise<void>;
   clearSession(id: string, reason: string): Promise<void>;
   upsertGroup(sessionId: string, jid: string, name: string | null, participants: number | null): Promise<GroupResult>;
+  /** La lista completa de integrantes; si el grupo está enlazado, cada uno queda como persona de la cuenta */
+  setGroupMembers(groupId: string, members: GroupMember[]): Promise<{ members: number; people_added: number }>;
   markHello(groupId: string): Promise<void>;
   groupLeft(jid: string): Promise<void>;
   linkGroup(sessionId: string, jid: string, name: string | null, code: string, senderWaId: string | null): Promise<LinkResult>;
@@ -174,6 +176,10 @@ export class SupabaseStore implements Store {
 
   upsertGroup(sessionId: string, jid: string, name: string | null, participants: number | null) {
     return this.#rpc<GroupResult>('connector_upsert_group', { p_connection_id: sessionId, p_jid: jid, p_name: name, p_participants: participants });
+  }
+
+  setGroupMembers(groupId: string, members: GroupMember[]) {
+    return this.#rpc<{ members: number; people_added: number }>('connector_set_group_members', { p_group_id: groupId, p_members: members });
   }
 
   async markHello(groupId: string) {
