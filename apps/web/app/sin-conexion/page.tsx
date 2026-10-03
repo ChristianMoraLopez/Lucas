@@ -10,11 +10,12 @@ export default function SinConexionPage() {
       <header className="lu-app__bar">
         <LogoLink />
       </header>
-      <div className="ph">
+      {/* data-sin-conexion: al volver el internet, esta pantalla se recarga sola (components/conexion.tsx) */}
+      <div className="ph" data-sin-conexion="">
         <LottieSlot name="sin-conexion" width={120} height={120} label="Sin conexión" />
         <h1 className="lu-title">No hay conexión</h1>
         <p className="lu-small lu-muted" style={{ margin: 0, maxWidth: '38ch' }}>
-          Cuando vuelva el internet, Luks sigue donde ibas. Las fotos que mandaron al grupo no se pierden: llegan igual.
+          Cuando vuelva el internet, esta pantalla se recarga sola y Luks sigue donde ibas. Las fotos que mandaron al grupo no se pierden: llegan igual.
         </p>
       </div>
     </div>
