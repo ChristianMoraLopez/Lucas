@@ -174,6 +174,15 @@ Un ejemplo con el paseo de la semilla: gastaron $4.816.000 entre 8, así que a c
 
 Todo está en [`00000000000120_liquidacion.sql`](supabase/migrations/00000000000120_liquidacion.sql): tablas `settlements` y `settlement_transfers`, `settlement_overview`, `start_settlement`, `mark_transfer`, `reopen_settlement` y `close_account`. Las pruebas del flujo completo están en `supabase/tests/liquidacion.test.ts`.
 
+### Compartir y cobrar a quien no usa la app
+
+- **Link público** (`/r/TOKEN`). Desde Liquidar, un admin crea un link donde cualquiera ve, sin entrar, cuánto puso cada uno, cuánto le toca, en qué se fue la plata y quién le paga a quién. Con `?p=persona` se abre primero lo de esa persona («Santi, te toca $602.000 · Págale $280.000 a Valeria»), y eso mismo sale en la vista previa de WhatsApp. No muestra fotos de recibos, números ni correos; los buscadores no lo guardan; se puede cambiar o quitar. Al final lleva la publicidad de Luks (mrluks.com).
+- **Cobrar por WhatsApp.** Cada transferencia pendiente tiene «Cobrarle por WhatsApp» (a quien le deben) o «Recordarle» (el admin): abre WhatsApp con el mensaje listo y el link personal. Si se conoce el número de la persona, va directo a su chat; si no, se elige el contacto.
+- **Invitar por WhatsApp** (Resumen y Personas): manda el link de invitación; si la cuenta no tiene un código vigente, se crea uno.
+- **Recibos en retrospectiva.** «Pagué yo y después agrego a la gente»: en Personas se agregan varias de una vez («Mafe, Santi y Caro») y, si se quiere, se suman a los gastos que estaban divididos entre todos.
+
+Está en [`00000000000150_compartir.sql`](supabase/migrations/00000000000150_compartir.sql) (`account_shares`, `shared_overview`, `create_share_link`, `add_people`) y [`apps/web/lib/share.ts`](apps/web/lib/share.ts); pruebas en `supabase/tests/compartir.test.ts`.
+
 ## Stack
 
 | Capa | Tecnología |
@@ -201,7 +210,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             173 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación, personas, perfil y semilla (PGlite)
+│   ├── tests/             182 pruebas de permisos, subidas, worker, WhatsApp, categorías, liquidación, compartir, personas, perfil y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -223,7 +232,7 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 173 pruebas de RLS, RPC, Storage, cola del worker, liquidación y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 182 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las 39 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones

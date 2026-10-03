@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Cargando } from '@/components/cargando';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button, ConnectionStatus, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { copiar } from '@/lib/clipboard';
 import { formatDay, formatWhen, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { type AccountPerson, type AccountType, formatWaNumber, type MyWhatsappLink, numeroParaCodigo, plural, type WhatsappOverview } from '@/lib/types';
@@ -63,25 +64,6 @@ function Step({ n, title, done, children }: { n: number; title: string; done: bo
       </div>
     </li>
   );
-}
-
-/** Copia al portapapeles; si el navegador no deja (p. ej. dentro de otra app), con el método viejo */
-async function copiar(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
-  }
 }
 
 function CopyButton({ text, label, variant = 'secondary' }: { text: string; label: string; variant?: 'primary' | 'secondary' }) {

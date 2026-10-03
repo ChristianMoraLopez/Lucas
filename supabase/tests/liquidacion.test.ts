@@ -205,9 +205,11 @@ describe('liquidar un mes del hogar', () => {
   it('ese mes queda congelado; los demás meses y la cuenta siguen abiertos', async () => {
     await as(db, U.andres, async (tx) => {
       await revisarTodo(tx, U.andres, CASA);
-      const { mes } = await one<{ mes: string }>(tx, `select to_char(date_trunc('month', expense_date), 'YYYY-MM-DD') as mes from public.expenses where id = $1`, [
-        GASTO_CASA,
-      ]);
+      const { mes } = await one<{ mes: string }>(
+        tx,
+        `select to_char(date_trunc('month', expense_date), 'YYYY-MM-DD') as mes from public.expenses where id = $1`,
+        [GASTO_CASA],
+      );
       const v = await vista(tx, CASA, mes);
       expect(v.month).toBe(mes);
       expect(v.people.reduce((s, p) => s + p.balance, 0)).toBe(0);
@@ -223,9 +225,9 @@ describe('liquidar un mes del hogar', () => {
       await tx.exec('reset role');
       expect(await falla(tx, 'update public.expenses set total_cop = total_cop + 1 where id = $1', [GASTO_CASA])).toMatch('Ese mes ya se liquidó');
       // Mover un gasto de otro mes a uno liquidado tampoco
-      expect(
-        await falla(tx, `update public.expenses set expense_date = $2::date where account_id = $1 and expense_date < $2::date`, [CASA, mes]),
-      ).toSatisfy((m: string | null) => m === null || m.includes('Ese mes ya se liquidó'));
+      expect(await falla(tx, `update public.expenses set expense_date = $2::date where account_id = $1 and expense_date < $2::date`, [CASA, mes])).toSatisfy(
+        (m: string | null) => m === null || m.includes('Ese mes ya se liquidó'),
+      );
       // Un gasto de dos meses antes entra sin problema
       expect(
         await falla(

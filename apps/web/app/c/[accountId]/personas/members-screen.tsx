@@ -8,12 +8,13 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { InviteWhatsapp } from '@/components/invite-whatsapp';
 import { Button, CodeInput, Divider, Field, Person } from '@/components/lucas-ui';
 import { formatDay, isRecent, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged } from '@/lib/realtime';
-import { type AccountType, asTone, type Invitation, type PersonRow, plural, ROLE_HELP, ROLE_LABEL, type Role } from '@/lib/types';
+import { type AccountType, asTone, type Invitation, type PersonRow, plural, ROLE_HELP, ROLE_LABEL, type Role, separarNombres } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { QuitarPersona } from './quitar-persona';
 
@@ -160,9 +161,12 @@ export function MembersScreen({
       <header className="mb-head">
         <div className="mb-head__row">
           <h1 className="lu-display">Personas</h1>
-          <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--sm lu-btn--secondary">
-            Conectar WhatsApp
-          </Link>
+          <span className="mb-head__acts">
+            {isAdmin && !closed && <InviteWhatsapp accountId={accountId} accountName={accountName} accountType={accountType} />}
+            <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--sm lu-btn--secondary">
+              Conectar WhatsApp
+            </Link>
+          </span>
         </div>
         <span className="lu-small lu-muted">{subtitle}</span>
       </header>
@@ -524,53 +528,85 @@ function RevokeRow({ inv, onDone, onError }: { inv: Invitation; onDone: () => vo
   );
 }
 
-const personSchema = z.object({
-  name: z.string().trim().min(1, 'Escribe el nombre').max(40, 'Máximo 40 letras'),
-});
-
-/** Agregar a alguien que todavía no tiene cuenta (solo WhatsApp). El tono lo pone la base. */
+/**
+ * Agregar a gente sin cuenta: varias de una vez («Mafe, Santi y Caro»). Si ya
+ * había gastos divididos entre todos (recibos subidos antes de agregarlas), se
+ * pueden volver a dividir incluyéndolas.
+ */
 function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded: () => void; onError: (e: unknown) => void }) {
   const [supabase] = useState(() => createClient());
   const [open, setOpen] = useState(false);
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<{ name: string }>({ resolver: zodResolver(personSchema), defaultValues: { name: '' } });
+  const [texto, setTexto] = useState('');
+  const [incluir, setIncluir] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const nombres = separarNombres(texto);
 
-  const submit = handleSubmit(async ({ name }) => {
-    const { error } = await supabase.from('people').insert({ account_id: accountId, display_name: name });
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nombres.length) return setAviso('Escribe al menos un nombre');
+    if (nombres.some((n) => n.length > 40)) return setAviso('Cada nombre puede tener máximo 40 letras');
+    setBusy(true);
+    setAviso(null);
+    const { data, error } = await supabase.rpc('add_people', { p_account_id: accountId, p_names: nombres, p_include_in_shared: incluir });
+    setBusy(false);
     if (error) return onError(error);
-    reset();
+    const r = data as { person_ids: string[]; resplit: number };
+    setTexto('');
     setOpen(false);
+    setAviso(
+      `Listo: ${plural(r.person_ids.length, 'persona más', 'personas más')}${r.resplit ? ` y ${plural(r.resplit, 'gasto dividido', 'gastos divididos')} otra vez entre todos` : ''}.`,
+    );
+    notifyAccountChanged(accountId);
     onAdded();
-  });
+  };
 
   if (!open) {
     return (
       <div className="mb-add">
         <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-          Agregar a alguien sin cuenta
+          Agregar gente sin cuenta
         </Button>
+        {aviso && (
+          <p className="lu-small" role="status" style={{ margin: '6px 0 0' }}>
+            {aviso}
+          </p>
+        )}
       </div>
     );
   }
   return (
     <form className="mb-add mb-add--open" onSubmit={submit}>
-      <Controller
-        control={control}
-        name="name"
-        render={({ field }) => <Field label="Nombre" id="persona-nueva" value={field.value} onChange={field.onChange} />}
-      />
-      {errors.name && (
+      <div className="lu-field">
+        <label className="lu-label" htmlFor="personas-nuevas">
+          Nombres
+        </label>
+        <input
+          id="personas-nuevas"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Mafe, Santi y Caro"
+          autoComplete="off"
+          aria-describedby="personas-nuevas-ayuda"
+        />
+        <span className="lu-small lu-muted" id="personas-nuevas-ayuda">
+          {nombres.length > 1 ? `Vas a agregar a ${nombres.join(', ')}.` : 'Separa con comas para agregar a varias de una vez.'}
+        </span>
+      </div>
+      <label className="qp-check">
+        <input type="checkbox" checked={incluir} onChange={(e) => setIncluir(e.target.checked)} />
+        <span className="lu-small">
+          Dividir con {nombres.length > 1 ? 'ellos' : 'esa persona'} los gastos que ya estaban entre todos (si subiste los recibos antes)
+        </span>
+      </label>
+      {aviso && (
         <p className="lu-field-error" role="alert">
-          {errors.name.message}
+          {aviso}
         </p>
       )}
       <div className="mb-btns">
-        <Button size="sm" variant="secondary" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Agregando…' : 'Agregar'}
+        <Button size="sm" variant="secondary" type="submit" disabled={busy}>
+          {busy ? 'Agregando…' : nombres.length > 1 ? `Agregar a ${nombres.length}` : 'Agregar'}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Cancelar

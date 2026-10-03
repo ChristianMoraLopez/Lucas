@@ -4,7 +4,7 @@ import { callbackUrl, nextFromRedirectTo, safeNext } from './auth';
 import { eventMoment, formatDay, formatRange, monthName } from './dates';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from './invite';
 import { normalizarBusqueda, uuidOrNull } from './search';
-import { formatWaNumber, numeroParaCodigo } from './types';
+import { formatWaNumber, numeroParaCodigo, separarNombres } from './types';
 
 describe('formatCOP / lucas', () => {
   it('pesos con punto de miles y sin decimales', () => {
@@ -167,5 +167,14 @@ describe('buscar gastos', () => {
     expect(uuidOrNull('30000000-0000-4000-8000-000000000009')).toBe('30000000-0000-4000-8000-000000000009');
     expect(uuidOrNull("1' or 1=1")).toBeNull();
     expect(uuidOrNull(['a'])).toBeNull();
+  });
+});
+
+describe('agregar varias personas', () => {
+  it('separa por comas, renglones o «y», sin repetidos', () => {
+    expect(separarNombres('Mafe, Santi y Caro')).toEqual(['Mafe', 'Santi', 'Caro']);
+    expect(separarNombres(' Juan  Camilo \nMafe;mafe,, ')).toEqual(['Juan Camilo', 'Mafe']);
+    expect(separarNombres('Ana Yepes')).toEqual(['Ana Yepes']);
+    expect(separarNombres('   ')).toEqual([]);
   });
 });

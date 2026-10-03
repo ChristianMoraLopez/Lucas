@@ -156,6 +156,9 @@ export interface SettlementOverview {
   settled_months: string[] | null;
 }
 
+/** public.shared_overview(token): lo que ve quien abre el link público (lo de Liquidar, sin datos de quien mira) */
+export type SharedOverview = Omit<SettlementOverview, 'is_admin' | 'my_person_id'>;
+
 /** public.my_profile() */
 export interface MyProfile {
   id: string;
@@ -307,4 +310,18 @@ export function numeroParaCodigo(raw: string): string | null {
   const d = raw.replace(/\D/g, '');
   if (/^3\d{9}$/.test(d)) return `57${d}`;
   return /^\d{8,15}$/.test(d) ? d : null;
+}
+
+/** «Mafe, Santi y Caro» (o uno por renglón) → ['Mafe', 'Santi', 'Caro'], sin repetidos */
+export function separarNombres(raw: string): string[] {
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const parte of raw.split(/[,;\n]|\s+y\s+/)) {
+    const nombre = parte.replace(/\s+/g, ' ').trim();
+    const clave = nombre.toLocaleLowerCase('es');
+    if (!nombre || vistos.has(clave)) continue;
+    vistos.add(clave);
+    out.push(nombre);
+  }
+  return out;
 }

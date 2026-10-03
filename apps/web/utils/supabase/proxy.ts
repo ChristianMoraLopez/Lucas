@@ -2,12 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 import { safeNext } from '@/lib/auth';
 
-const PUBLIC_PATHS = ['/login', '/auth/callback'];
+// /r/TOKEN: las cuentas que alguien compartió; las ve cualquiera con el link, sin entrar
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/r'];
 
 /**
  * Refresca la sesión de Supabase en cada request y hace la verificación
- * optimista de rutas: sin sesión solo se puede ir a /login y /auth/callback
- * (y se recuerda a dónde iba, p. ej. un link de invitación /e/PASEO-7K2Q);
+ * optimista de rutas: sin sesión solo se puede ir a /login, /auth/callback y
+ * a las cuentas compartidas (/r/…), y se recuerda a dónde iba (p. ej. un link
+ * de invitación /e/PASEO-7K2Q);
  * con sesión, /login lleva al selector de cuentas.
  */
 export async function updateSession(request: NextRequest) {

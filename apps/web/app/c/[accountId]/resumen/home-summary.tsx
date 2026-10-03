@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { InviteWhatsapp } from '@/components/invite-whatsapp';
 import { formatCOP } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, BudgetBar, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { formatRecent, monthName } from '@/lib/dates';
@@ -10,7 +11,7 @@ const mesDe = (iso: string) => Number(iso.slice(5, 7)) - 1;
 const param = (iso: string) => iso.slice(0, 7);
 
 /** Resumen de una cuenta hogar (captura 3): el mes, en qué se fue, tendencia, presupuestos y últimos gastos. */
-export function HomeSummary({ d }: { d: Dashboard }) {
+export function HomeSummary({ d, invitar = false }: { d: Dashboard; invitar?: boolean }) {
   const base = `/c/${d.account.id}/resumen`;
   const esEsteMes = d.month.slice(0, 7) === d.today.slice(0, 7);
   const nombres = d.people.map((p) => p.name);
@@ -32,6 +33,11 @@ export function HomeSummary({ d }: { d: Dashboard }) {
           <div>
             <h1 className="lu-display-xl">{d.account.name}</h1>
             <span className="lu-small lu-muted">Hogar de {nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : nombres[0]}</span>
+            {invitar && (
+              <div className="ed-invite">
+                <InviteWhatsapp accountId={d.account.id} accountName={d.account.name} accountType="hogar" variant="secondary" />
+              </div>
+            )}
           </div>
           <span className="lu-avatars">
             {d.people.slice(0, 4).map((p) => (

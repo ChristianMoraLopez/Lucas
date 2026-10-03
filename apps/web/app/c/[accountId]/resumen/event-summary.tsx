@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { InviteWhatsapp } from '@/components/invite-whatsapp';
 import { formatCOP, lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { eventMoment, formatRange } from '@/lib/dates';
 import { asTone, type Dashboard, plural } from '@/lib/types';
 
 /** Resumen de una cuenta evento (captura 4): total, en qué se fue y quién puso más. */
-export function EventSummary({ d }: { d: Dashboard }) {
+export function EventSummary({ d, invitar = false }: { d: Dashboard; invitar?: boolean }) {
   const n = d.people.length;
   const rango = formatRange(d.account.starts_on, d.account.ends_on);
   const momento = eventMoment(d.account.starts_on, d.account.ends_on, d.today);
@@ -18,6 +19,11 @@ export function EventSummary({ d }: { d: Dashboard }) {
       <header className="ed-head">
         <span className="lu-label">Evento{rango ? ` · ${rango}` : ''}</span>
         <h1 className="lu-display-xl">{d.account.name}</h1>
+        {invitar && (
+          <div className="ed-invite">
+            <InviteWhatsapp accountId={d.account.id} accountName={d.account.name} accountType="evento" variant="secondary" />
+          </div>
+        )}
       </header>
 
       {d.pending_count > 0 && (

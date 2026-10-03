@@ -28,7 +28,9 @@ async function falla(tx: Transaction, sql: string, params: unknown[] = []) {
 async function cuentas(tx: Transaction) {
   await tx.exec('savepoint ver');
   await tx.exec('reset role');
-  const { rows } = await tx.query<{ id: string; paid: string; share: string }>('select person_id as id, paid, share from public.period_balances($1, null)', [PASEO]);
+  const { rows } = await tx.query<{ id: string; paid: string; share: string }>('select person_id as id, paid, share from public.period_balances($1, null)', [
+    PASEO,
+  ]);
   const { descuadrados } = await one<{ descuadrados: number }>(
     tx,
     `select count(*)::int as descuadrados from public.expenses e
