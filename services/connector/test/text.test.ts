@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCOP, formatReplies, looksLikeExpense, type PendingReply, parseLinkCommand } from '../src/text.js';
+import { esMensajeDeLuks, formatCOP, formatReplies, looksLikeExpense, type PendingReply, parseLinkCommand } from '../src/text.js';
 
 describe('«lucas CÓDIGO»', () => {
   it('reconoce el código como lo escriban', () => {
@@ -32,6 +32,22 @@ describe('¿parece un gasto?', () => {
 
   it.each(['nos vemos a las 3', 'jajaja', 'llego en 10 min', '300 123 4567', '+57 300 123 4567', '', null])('«%s» no', (t) =>
     expect(looksLikeExpense(t)).toBe(false),
+  );
+});
+
+describe('¿lo hizo Luks?', () => {
+  it.each([
+    '🧾 *Paseo*\nGastamos *$480.000* entre 4\n• Santi → Vale: *$80.000*\nhttps://mrluks.com/r/76B5n5hlRzSyAs39_Yl50w\n\n_Esto se hizo en mrluks.com_',
+    'Hola Mafe 👋 me debes $45.000 (45 lucas).\n\nCuentas hechas con Luks · mrluks.com',
+    'miren 50 lucas https://lucas-tau-black.vercel.app/r/76B5n5hlRzSyAs39_Yl50w',
+    'Anotado: Asadero · $272.500 · pagó Felipe.',
+    'Anotados 2:\n• Hielo · $8.000\n• Ron · $116.000',
+    'Recibido: Taxi · $45.000. Queda por revisar en Luks.',
+  ])('«%s» sí', (t) => expect(esMensajeDeLuks(t)).toBe(true));
+
+  it.each(['taxi al aeropuerto 45 lucas', 'Recibido el pago de 50.000, gracias', 'pagué 120.000 · el hotel', 'https://www.reddit.com/r/Colombia 20 mil', null])(
+    '«%s» no',
+    (t) => expect(esMensajeDeLuks(t)).toBe(false),
   );
 });
 

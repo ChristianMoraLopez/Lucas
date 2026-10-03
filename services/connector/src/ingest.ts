@@ -3,11 +3,12 @@ import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
 import type { RateLimiter } from './replies.js';
 import type { Store } from './store.js';
-import { looksLikeExpense, MSG, parseLinkCommand } from './text.js';
+import { esMensajeDeLuks, looksLikeExpense, MSG, parseLinkCommand } from './text.js';
 
 /** Qué pasó con un mensaje (va a los logs; sirve para las pruebas) */
 export type Outcome =
   | 'propio'
+  | 'de_luks'
   | 'charla'
   | 'enlazado'
   | 'codigo_invalido'
@@ -67,6 +68,8 @@ export class Ingestor {
     const code = parseLinkCommand(m.text);
     if (code) return this.#link(session, connector, m, code);
 
+    // Las cuentas o un cobro que mandaron desde Luks, o una respuesta de Luks: no es un gasto
+    if (esMensajeDeLuks(m.text)) return 'de_luks';
     if (!m.media && !looksLikeExpense(m.text)) return 'charla';
 
     const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt);

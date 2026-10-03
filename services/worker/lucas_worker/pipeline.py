@@ -26,6 +26,7 @@ from .errors import LlmUnavailable, PermanentError
 from .extract.cascade import Extraction, Extractor
 from .llm.ollama import LlmError, ReceiptLlm
 from .llm.schema import ReceiptExtraction
+from .luks import es_imagen_de_luks, es_mensaje_de_luks
 from .observability import stage
 from .payer import Person, resolve_payer, resolve_split
 from .supabase import Database
@@ -167,6 +168,11 @@ class MessageProcessor:
         kind = msg["kind"]
         caption = msg.get("text_body") if kind != "text" else None
 
+        # Las cuentas o un cobro que mandaron desde Luks, o una respuesta de Luks: no es un gasto
+        if es_mensaje_de_luks(msg.get("text_body")):
+            self._marcar(job.message_id, "not_expense")
+            return "lo hizo Luks: no es un gasto"
+
         # 1. Evidencia y extracción
         if kind == "photo":
             with stage("descarga"):
@@ -187,6 +193,11 @@ class MessageProcessor:
             ex = self.extractor.text(msg.get("text_body"), today)
         else:
             raise PermanentError(f"Tipo de mensaje desconocido: {kind}")
+
+        # La imagen de las cuentas de Luks (o un pantallazo de Liquidar)
+        if kind != "text" and es_imagen_de_luks(ex.text):
+            self._marcar(job.message_id, "not_expense", text=ex.stored_text)
+            return "lo hizo Luks: no es un gasto"
 
         if ex.cufe and (dup := self._duplicado(account_id, ex.cufe, None)):
             self._marcar(job.message_id, "duplicate", dup, ex.stored_text)

@@ -178,6 +178,7 @@ Todo está en [`00000000000120_liquidacion.sql`](supabase/migrations/00000000000
 
 - **Link público** (`/r/TOKEN`). Desde Liquidar, un admin crea un link donde cualquiera ve, sin entrar, cuánto puso cada uno, cuánto le toca, en qué se fue la plata y quién le paga a quién. Con `?p=persona` se abre primero lo de esa persona («Santi, te toca $602.000 · Págale $280.000 a Valeria»), y eso mismo sale en la vista previa de WhatsApp. No muestra fotos de recibos, números ni correos; los buscadores no lo guardan; se puede cambiar o quitar. Al final lleva la publicidad de Luks: «Esto se hizo en mrluks.com», que también va en los mensajes y en la imagen del link.
 - **Mandar las cuentas al grupo.** Al final de Liquidar, un solo mensaje para todo el grupo con cuánto fue, quién le paga a quién (las pagadas, tachadas) y el link; se ve antes cómo les llega. El link sale en WhatsApp con una imagen de Luks con el total y las transferencias (`/r/TOKEN/imagen`, hecha con `next/og` en [`apps/web/lib/imagen-cuentas.tsx`](apps/web/lib/imagen-cuentas.tsx); con `?p=persona`, lo de esa persona). Las fuentes de la imagen son TTF estáticos en `apps/web/assets/og` (la imagen no lee woff2 ni fuentes variables).
+- **Luks no se cuenta a sí mismo.** Las cuentas y los cobros que se mandan desde Luks traen montos, pero no son gastos: se reconocen por su firma («Esto se hizo en mrluks.com», el link `/r/TOKEN`) y las respuestas de Luks por su formato («Anotado: Hielo · $8.000») o por venir del número de Luks. Lo revisan el connector (`esMensajeDeLuks`), la base (`es_mensaje_de_luks`, [`00000000000180_mensajes_de_luks.sql`](supabase/migrations/00000000000180_mensajes_de_luks.sql), también al subir desde la web) y el worker (`lucas_worker/luks.py`, que además reconoce la imagen de las cuentas en una foto).
 - **Cobrar por WhatsApp.** Cada transferencia pendiente tiene «Cobrarle por WhatsApp» (a quien le deben) o «Recordarle» (el admin): abre WhatsApp con el mensaje listo y el link personal. Si se conoce el número de la persona, va directo a su chat; si no, se elige el contacto.
 - **Invitar por WhatsApp** (Resumen y Personas): manda el link de invitación; si la cuenta no tiene un código vigente, se crea uno.
 - **Recibos en retrospectiva.** «Pagué yo y después agrego a la gente»: en Personas se agregan varias de una vez («Mafe, Santi y Caro») y, si se quiere, se suman a los gastos que estaban divididos entre todos.
@@ -227,7 +228,7 @@ lucas/
 ├── supabase/
 │   ├── migrations/        esquema, RLS y RPC
 │   ├── templates/         correos de entrada con la marca
-│   ├── tests/             196 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, categorías, liquidación, compartir, dividir por consumo, personas, perfil y semilla (PGlite)
+│   ├── tests/             199 pruebas de permisos, subidas, worker, WhatsApp, integrantes del grupo, categorías, liquidación, compartir, dividir por consumo, mensajes de Luks, personas, perfil y semilla (PGlite)
 │   └── seed.sql           «Casa» y «Paseo Santa Marta», iguales a las capturas
 ├── services/
 │   ├── connector/         Node + Baileys: WhatsApp → cola (fase 5)
@@ -249,7 +250,7 @@ pnpm dev                                       # http://localhost:3000
 ### Pruebas
 
 ```bash
-pnpm db:test      # 196 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir, dividir por consumo y semilla sobre Postgres real (PGlite), sin Docker
+pnpm db:test      # 199 pruebas de RLS, RPC, Storage, cola del worker, liquidación, compartir, dividir por consumo y semilla sobre Postgres real (PGlite), sin Docker
 pnpm test         # todo el monorepo (incluye las 39 de apps/web/lib, entre ellas el mínimo de transferencias)
 pnpm worker:test  # 149 pruebas del worker (necesita uv): recibos de ejemplo con OCR, QR y PDF reales
 pnpm --filter @lucas/connector test   # 62 pruebas del connector: cifrado, textos, ingesta, límites y sesiones
