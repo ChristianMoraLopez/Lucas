@@ -343,3 +343,27 @@ export function estadoWhatsapp(d: WhatsappOverview | null | undefined) {
   const estado: EstadoWhatsapp = !enlazados.length ? 'sin-grupo' : leidos.length ? 'leyendo' : 'caido';
   return { estado, grupo: principal?.name ?? null, integrantes: principal?.members ?? principal?.participants ?? null };
 }
+
+/** public.people_to_add: quien ya está conmigo en otra cuenta y se puede agregar sin código */
+export interface Conocido {
+  user_id: string;
+  name: string;
+  tone: string | null;
+  /** Las cuentas que compartimos */
+  accounts: string[];
+}
+
+/** public.my_invites: me agregaron a una cuenta y falta que acepte */
+export interface InvitacionRecibida {
+  id: string;
+  account_id: string;
+  account_name: string;
+  account_type: AccountType;
+  starts_on: string | null;
+  ends_on: string | null;
+  /** Con qué nombre quedé en esa cuenta */
+  person_name: string;
+  invited_by: string;
+  people_count: number;
+  created_at: string;
+}
