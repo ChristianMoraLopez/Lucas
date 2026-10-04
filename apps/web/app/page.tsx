@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Archivadas, FilaArchivable } from '@/components/archivo-cuenta';
+import { Guia } from '@/components/guia';
 import { InvitacionesRecibidas } from '@/components/invitaciones-recibidas';
 import { LogoLink } from '@/components/logo-link';
 import { lucas } from '@/components/lucas-core';
@@ -14,14 +15,17 @@ import { requireUser } from '@/utils/supabase/server';
 export default async function AccountPickerPage() {
   const { supabase, userId } = await requireUser();
 
-  const [{ data: profile }, { data: overview, error }, { data: recibidas }, { data: membresias }] = await Promise.all([
+  const [{ data: profile }, { data: overview, error }, { data: recibidas }, { data: membresias }, guias] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     supabase.rpc('account_overview'),
     // Me agregaron a una cuenta desde otra (sin código): falta que acepte
     supabase.rpc('my_invites'),
     // Las que archivé (si la columna todavía no existe, no hay archivadas)
     supabase.from('account_members').select('account_id, archived_at').eq('user_id', userId),
+    // Si ya vio la guía del inicio (si no se sabe, no sale sola)
+    supabase.from('profiles').select('guias_vistas').eq('id', userId).maybeSingle(),
   ]);
+  const guiaVista = guias.error || !guias.data ? true : ((guias.data.guias_vistas as string[] | null) ?? []).includes('inicio');
   const invitaciones = (recibidas ?? []) as InvitacionRecibida[];
 
   const enArchivo = new Set(((membresias ?? []) as { account_id: string; archived_at: string | null }[]).filter((m) => m.archived_at).map((m) => m.account_id));
@@ -40,6 +44,7 @@ export default async function AccountPickerPage() {
       <header className="lu-app__bar">
         <LogoLink />
         <span className="ap-me">
+          <Guia nombre="inicio" auto={!guiaVista} />
           <ThemeToggle />
           <SignOutButton />
           <Link href="/perfil" className="ap-perfil" aria-label="Tu perfil">
@@ -72,7 +77,7 @@ export default async function AccountPickerPage() {
             <LeadAccount a={lead} />
           ) : (
             !error && (
-              <div className="ap-empty">
+              <div className="ap-empty" data-guia={others.length === 0 ? 'cuentas' : undefined}>
                 <LottieSlot name="bienvenida" width={96} height={96} />
                 <p className="lu-small lu-muted" style={{ margin: 0 }}>
                   Una cuenta es donde caen los gastos del grupo: la casa de todos los meses o ese paseo que están planeando.
@@ -82,7 +87,7 @@ export default async function AccountPickerPage() {
           )}
 
           {others.length > 0 && (
-            <div className="ap-list lu-stagger">
+            <div className="ap-list lu-stagger" data-guia={lead ? undefined : 'cuentas'}>
               <div className="lu-label">Otras cuentas</div>
               {others.map((a, i) =>
                 a.status === 'closed' ? (
@@ -108,10 +113,10 @@ export default async function AccountPickerPage() {
         </div>
 
         <aside className="ap-side">
-          <Link href="/cuentas/nueva" className="lu-btn lu-btn--primary">
+          <Link href="/cuentas/nueva" className="lu-btn lu-btn--primary" data-guia="crear">
             Crear cuenta
           </Link>
-          <Link href="/unirse" className="lu-btn lu-btn--secondary">
+          <Link href="/unirse" className="lu-btn lu-btn--secondary" data-guia="unirse">
             Unirme con un código
           </Link>
           <div className="ap-tip">
@@ -122,6 +127,7 @@ export default async function AccountPickerPage() {
               </li>
               <li>Agrega el número de Luks a su grupo de WhatsApp.</li>
               <li>Manden fotos, PDFs o mensajes. Luks los vuelve gastos.</li>
+              <li>¿Solo tú? Arma un grupo de WhatsApp contigo y Luks, y mándate tus facturas.</li>
             </ol>
           </div>
           <RecomendarLuks />
@@ -154,7 +160,7 @@ function LeadAccount({ a }: { a: AccountOverview }) {
   const ended = moment?.startsWith('Terminó');
 
   return (
-    <Link href={`/c/${a.id}/resumen`} className="ap-lead" aria-label={`Abrir ${a.name}`}>
+    <Link href={`/c/${a.id}/resumen`} className="ap-lead" aria-label={`Abrir ${a.name}`} data-guia="cuentas">
       <BillCard
         label={`${evento ? 'Evento' : 'Hogar'} · ${periodLabel(a)}`}
         amount={a.total_cop}

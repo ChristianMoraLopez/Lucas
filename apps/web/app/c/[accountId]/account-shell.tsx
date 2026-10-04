@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { Guia } from '@/components/guia';
 import { LogoLink } from '@/components/logo-link';
 import { AppShell, ICONS } from '@/components/lucas-ui';
 import { useAccountChanges } from '@/lib/realtime';
@@ -103,7 +104,13 @@ function WhatsappPill({ accountId, wa, here }: { accountId: string; wa: ReturnTy
         ? 'WhatsApp: Luks no está leyendo el grupo ahora'
         : 'Conectar el grupo de WhatsApp';
   return (
-    <Link href={`/c/${accountId}/whatsapp`} className={`lu-wa-pill lu-wa-pill--${wa.estado}`} aria-label={label} aria-current={here ? 'page' : undefined}>
+    <Link
+      href={`/c/${accountId}/whatsapp`}
+      className={`lu-wa-pill lu-wa-pill--${wa.estado}`}
+      aria-label={label}
+      aria-current={here ? 'page' : undefined}
+      data-guia="whatsapp"
+    >
       {ICONS.whatsapp}
       <span className="lu-wa-pill__txt">
         {wa.estado === 'sin-grupo' ? (
@@ -123,10 +130,13 @@ export function AccountShell({
   account,
   pending,
   whatsapp,
+  guiaVista = true,
   children,
 }: {
   account: { id: string; name: string; type: AccountType };
   pending: number;
+  /** Ya vio la guía de las cuentas (si no, sale sola) */
+  guiaVista?: boolean;
   /** whatsapp_overview del servidor (para no parpadear al abrir) */
   whatsapp: WhatsappOverview | null;
   children: React.ReactNode;
@@ -150,7 +160,12 @@ export function AccountShell({
       onTab={(id) => router.push(`/c/${account.id}/${id}`)}
       onAccount={() => router.push('/')}
       brand={<LogoLink />}
-      barExtra={<WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />}
+      barExtra={
+        <>
+          <Guia nombre="cuenta" auto={!guiaVista} />
+          <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
+        </>
+      }
     >
       {children}
     </AppShell>
