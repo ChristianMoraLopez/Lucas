@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useMemo, useState, useTransition } from 'rea
 import { FinDeCuenta } from '@/components/archivo-cuenta';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { HistoriaInstagram } from '@/components/historia-instagram';
 import { formatCOP, lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, Button, CategoryTag, ICONS, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { copiar, copiarLuego } from '@/lib/clipboard';
@@ -399,6 +400,8 @@ export function SettleScreen({
           isAdmin={d.is_admin}
           token={token}
           link={token ? sharedLink(origin, token, { month: mesDelLink }) : null}
+          historia={token ? `/r/${token}/historia${mesDelLink ? `?mes=${mesDelLink.slice(0, 7)}` : ''}` : null}
+          nombreCuenta={d.account.name}
           onToken={setToken}
           onError={(e) => setError(humanError(e))}
         />
@@ -591,6 +594,8 @@ function Compartir({
   isAdmin,
   token,
   link,
+  historia,
+  nombreCuenta,
   onToken,
   onError,
 }: {
@@ -598,6 +603,9 @@ function Compartir({
   isAdmin: boolean;
   token: string | null;
   link: string | null;
+  /** La imagen de las cuentas para una historia de Instagram */
+  historia: string | null;
+  nombreCuenta: string;
   onToken: (t: string | null) => void;
   onError: (e: { message?: string }) => void;
 }) {
@@ -643,6 +651,9 @@ function Compartir({
             >
               {copiado === 'si' ? '¡Copiado!' : copiado === 'no' ? 'Cópialo a mano' : 'Copiar link'}
             </Button>
+            {historia && (
+              <HistoriaInstagram src={historia} archivo={`${nombreArchivo(nombreCuenta)}-historia.png`} enlace={link} textoEnlace={displayShare(link)} />
+            )}
           </div>
           {isAdmin && (
             <div className="st-exp">
@@ -676,6 +687,15 @@ function Compartir({
     </section>
   );
 }
+
+/** «Paseo Santa Marta» → «paseo-santa-marta» (para el nombre del archivo) */
+const nombreArchivo = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'luks';
 
 /** ‹ Agosto · Septiembre 2026 · Octubre › (hasta el mes en curso) */
 function MesNav({ accountId, mes, hoy, liquidados }: { accountId: string; mes: string; hoy: string; liquidados: string[] }) {

@@ -1,8 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
-import { formatCOP, type Tone } from '@/components/lucas-core';
+import { formatCOP } from '@/components/lucas-core';
 import { formatRange, monthName } from '@/lib/dates';
+import { C, cargar, FUENTES, inicial, limpio, TONOS } from '@/lib/imagen-base';
 import { MARCA, personView, transfersFor } from '@/lib/share';
 import { asTone, type SharedOverview } from '@/lib/types';
 
@@ -14,53 +13,6 @@ import { asTone, type SharedOverview } from '@/lib/types';
 
 const ANCHO = 1200;
 const ALTO = 630;
-const C = {
-  papel: '#FFFBF6',
-  tinta: '#1C1433',
-  tinta2: '#625A78',
-  borde: '#E6DEEE',
-  verde: '#0A7A4C',
-  verdeSuave: '#DDF7EA',
-  morado: '#6A35E6',
-  moradoSuave: '#ECE4FF',
-  amarillo: '#FFC53D',
-};
-const TONOS: Record<Tone, string> = {
-  morado: '#B79CFF',
-  naranja: '#FF9A4D',
-  azul: '#7DB8FF',
-  coral: '#FF8A99',
-  verde: '#2BD48A',
-  amarillo: '#FFC53D',
-  turquesa: '#3FD6CC',
-  rosa: '#FF8FC0',
-};
-
-// Las fuentes de Luks en TTF estático (la imagen no lee woff2 ni fuentes variables)
-const archivo = (f: string) => readFile(join(process.cwd(), f));
-let recursos: Promise<Buffer[]> | null = null;
-const cargar = () => {
-  recursos ??= Promise.all([
-    archivo('assets/og/Figtree-600.ttf'),
-    archivo('assets/og/Figtree-800.ttf'),
-    archivo('assets/og/Bricolage-800.ttf'),
-    archivo('public/brand/luks-logo-plano.svg'),
-  ]).catch((e) => {
-    recursos = null;
-    throw e;
-  });
-  return recursos;
-};
-
-/** Las fuentes de la imagen no traen emojis: se quitan para que no salgan cuadritos */
-const limpio = (s: string, max = 40) => {
-  const t = s
-    .replace(/\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|\u{20E3}/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t || 'Alguien';
-};
-const inicial = (n: string) => n.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? '?';
 
 /** Lee el mes de ?mes=2026-09 (hogar): «2026-09-01», o null */
 export function mesDe(searchParams: URLSearchParams) {
@@ -289,11 +241,7 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
     {
       width: ANCHO,
       height: ALTO,
-      fonts: [
-        { name: 'Figtree', data: figtree600, weight: 600, style: 'normal' },
-        { name: 'Figtree', data: figtree800, weight: 800, style: 'normal' },
-        { name: 'Bricolage', data: bricolage800, weight: 800, style: 'normal' },
-      ],
+      fonts: FUENTES(figtree600, figtree800, bricolage800),
       headers: { 'Cache-Control': cache },
     },
   );

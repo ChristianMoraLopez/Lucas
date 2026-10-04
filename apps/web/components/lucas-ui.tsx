@@ -832,6 +832,13 @@ export const ICONS: Record<string, React.ReactNode> = {
       <path {...P} d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M12 17v-5M9.5 14.5 12 12l2.5 2.5" />
     </svg>
   ),
+  instagram: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect {...P} x="3.5" y="3.5" width="17" height="17" rx="5" />
+      <circle {...P} cx="12" cy="12" r="4" />
+      <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" />
+    </svg>
+  ),
   basura: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path {...P} d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6" />

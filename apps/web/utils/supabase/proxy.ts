@@ -3,7 +3,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { safeNext } from '@/lib/auth';
 
 // /r/TOKEN: las cuentas que alguien compartió; las ve cualquiera con el link, sin entrar
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/r'];
+// /historia: la imagen para recomendar Luks en Instagram (la misma para todos)
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/r', '/historia'];
 
 /**
  * Refresca la sesión de Supabase en cada request y hace la verificación
