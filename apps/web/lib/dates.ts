@@ -7,7 +7,8 @@ const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Ju
 type Dia = { y: number; m: number; d: number };
 
 function parts(value: string | Date): Dia {
-  if (value instanceof Date) return { y: value.getFullYear(), m: value.getMonth() + 1, d: value.getDate() };
+  // Un instante (timestamptz) es el día que era en Bogotá: igual en el servidor (UTC) y en el celular
+  if (value instanceof Date) return parts(todayInBogota(value));
   const [y, m, d] = value.slice(0, 10).split('-').map(Number);
   return { y, m, d };
 }
@@ -69,16 +70,27 @@ export function eventMoment(start: string | null, end: string | null, today: str
 /** '26 sep · 11:52 p. m.' (hora de Bogotá) */
 export function formatWhen(iso: string) {
   const d = new Date(iso);
-  const dia = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', timeZone: 'America/Bogota' }).format(d).replace('.', '');
-  const hora = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Bogota' }).format(d);
+  const dia = espacios(new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', timeZone: 'America/Bogota' }).format(d).replace('.', ''));
+  const hora = espacios(new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Bogota' }).format(d));
   return `${dia} · ${hora}`;
+}
+
+/**
+ * Intl separa «9:48 p. m.» con espacios especiales que cambian según la versión
+ * (el servidor y cada navegador traen la suya): con espacios normales, el texto
+ * es el mismo en todos y React no ve diferencias al hidratar.
+ */
+function espacios(s: string) {
+  return s.replace(/[\u00A0\u202F\u2009]/g, ' ');
 }
 
 /** 'Hoy 7:42', 'Ayer 19:10' o '27 sep' para listas de gastos */
 export function formatRecent(date: string, createdAt?: string, today: string = todayInBogota()) {
   const dias = daysBetween(date, today);
   const hora = createdAt
-    ? new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Bogota' }).format(new Date(createdAt))
+    ? espacios(
+        new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Bogota' }).format(new Date(createdAt)),
+      )
     : '';
   if (dias === 0) return hora ? `Hoy ${hora}` : 'Hoy';
   if (dias === 1) return hora ? `Ayer ${hora}` : 'Ayer';

@@ -23,6 +23,7 @@ export default async function AccountLayout({ children, params }: LayoutProps<'/
       account={account as { id: string; name: string; type: AccountType }}
       pending={pending ?? 0}
       whatsapp={(whatsapp as WhatsappOverview | null) ?? null}
+      usuario={userId}
       guiaVista={guias.error || !guias.data ? true : ((guias.data.guias_vistas as string[] | null) ?? []).includes('cuenta')}
     >
       {children}

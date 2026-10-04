@@ -44,7 +44,7 @@ export default async function AccountPickerPage() {
       <header className="lu-app__bar">
         <LogoLink />
         <span className="ap-me">
-          <Guia nombre="inicio" auto={!guiaVista} />
+          <Guia nombre="inicio" usuario={userId} auto={!guiaVista} />
           <ThemeToggle />
           <SignOutButton />
           <Link href="/perfil" className="ap-perfil" aria-label="Tu perfil">

@@ -29,4 +29,18 @@ describe('guía', () => {
       await expect(tx.query(`update public.profiles set guias_vistas = '{inicio}' where id = $1`, [U.otro])).rejects.toThrow(/permission denied/);
     });
   });
+
+  it('«Ver las guías otra vez» las vuelve a mostrar, solo a quien lo pide', async () => {
+    await as(db, U.mafe, async (tx) => {
+      await tx.query(`select public.marcar_guia('inicio')`);
+      await tx.query(`select public.marcar_guia('cuenta')`);
+      await impersonate(tx, U.santi);
+      await tx.query(`select public.marcar_guia('inicio')`);
+      await impersonate(tx, U.mafe);
+      await tx.query('select public.reiniciar_guias()');
+      const vistas = async (u: string) => (await one<{ g: string[] }>(tx, 'select guias_vistas as g from public.profiles where id = $1', [u])).g;
+      expect(await vistas(U.mafe)).toEqual([]);
+      expect(await vistas(U.santi)).toEqual(['inicio']);
+    });
+  });
 });

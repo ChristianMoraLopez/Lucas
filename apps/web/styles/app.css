@@ -5364,3 +5364,16 @@ iframe {
     transition: none;
   }
 }
+
+/* Perfil: «Ver las guías otra vez» */
+.pf-guia {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.pf-link {
+  font-weight: 800;
+  color: var(--morado);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
