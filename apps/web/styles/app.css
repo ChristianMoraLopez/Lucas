@@ -5087,3 +5087,219 @@ iframe {
     transition: none;
   }
 }
+
+/* ---------- La guía paso a paso (components/guia.tsx) ---------- */
+.gu-boton {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radius-pill);
+  background: var(--superficie);
+  color: var(--tinta);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.gu-boton:hover {
+  background: var(--amarillo);
+  border-color: var(--amarillo);
+  color: var(--tinta-fija);
+}
+.gu-boton:active {
+  transform: scale(0.92);
+}
+.gu-boton:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.gu {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+}
+.gu-velo {
+  position: absolute;
+  inset: 0;
+}
+/* El hueco iluminado: una sombra enorme oscurece todo lo demás y se mueve de un paso a otro */
+.gu-foco {
+  position: fixed;
+  border-radius: 16px;
+  box-shadow: 0 0 0 200vmax rgba(18, 12, 34, 0.64);
+  pointer-events: none;
+  transition:
+    top 340ms var(--ease-out),
+    left 340ms var(--ease-out),
+    width 340ms var(--ease-out),
+    height 340ms var(--ease-out),
+    border-radius 340ms var(--ease-out);
+}
+.gu-foco--cerrado {
+  border-radius: 50%;
+}
+.gu-foco__anillo {
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--amarillo);
+  border-radius: inherit;
+  animation: gu-anillo 700ms var(--ease-out) both;
+}
+.gu-tarjeta {
+  position: fixed;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--superficie);
+  color: var(--tinta);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    var(--shadow-card),
+    0 18px 44px rgba(0, 0, 0, 0.28);
+  animation: gu-entra var(--dur-slow) var(--ease-pop) both;
+}
+.gu-tarjeta--centro {
+  animation-name: gu-entra-centro;
+}
+/* La flechita que apunta al elemento */
+.gu-tarjeta--abajo::before,
+.gu-tarjeta--arriba::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--flecha, 50%) - 7px);
+  width: 14px;
+  height: 14px;
+  background: var(--superficie);
+  border-radius: 3px;
+  transform: rotate(45deg);
+}
+.gu-tarjeta--abajo::before {
+  top: -6px;
+}
+.gu-tarjeta--arriba::before {
+  bottom: -6px;
+}
+.gu-tarjeta__arriba {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 28px;
+}
+.gu-cuenta {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--morado);
+}
+.gu-saltar {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tinta-2);
+  background: none;
+  border: 0;
+  padding: 6px 2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.gu-saltar:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.gu-lottie {
+  display: grid;
+  justify-items: center;
+  margin: calc(-1 * var(--space-1)) 0;
+}
+.gu-titulo {
+  margin: 0;
+}
+.gu-texto {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--tinta-2);
+}
+.gu-abajo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.gu-puntos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.gu-puntos i {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--borde);
+  transition:
+    width var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) ease;
+}
+.gu-puntos i.is-visto {
+  background: color-mix(in srgb, var(--morado) 45%, transparent);
+}
+.gu-puntos i.is-aqui {
+  width: 20px;
+  background: var(--morado);
+}
+.gu-botones {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+@keyframes gu-anillo {
+  from {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes gu-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+@keyframes gu-entra-centro {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-50% + 10px)) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+.gu--quieto .gu-foco,
+.gu--quieto .gu-puntos i {
+  transition: none;
+}
+.gu--quieto .gu-foco__anillo,
+.gu--quieto .gu-tarjeta {
+  animation: none;
+}
+.gu--quieto .gu-tarjeta--centro {
+  transform: translateY(-50%);
+}

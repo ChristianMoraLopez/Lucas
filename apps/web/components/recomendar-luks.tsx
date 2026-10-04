@@ -35,7 +35,8 @@ export function RecomendarLuks() {
         ¿A quién le sirve Luks?
       </h2>
       <p className="lu-small" style={{ margin: 0 }}>
-        Al amigo que siempre termina haciendo las cuentas del paseo, a los roomies, a la familia. Mándales Luks: es gratis.
+        Al amigo que siempre termina haciendo las cuentas del paseo, a los roomies, a la familia. Y a quien quiera ordenar sus gastos: un grupo de WhatsApp
+        consigo mismo, donde se manda sus facturas, y Luks las organiza por categoría. Mándales Luks: es gratis.
       </p>
       <div className="ap-share__acts">
         <a className="lu-btn lu-btn--sm lu-btn--primary ap-share__wa" href={whatsappUrl(texto)} target="_blank" rel="noreferrer">

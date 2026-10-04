@@ -15,7 +15,15 @@ export const PUBLICIDAD = `Esto se hizo en ${MARCA}`;
 export function recomendacionMessage() {
   return {
     url: MARCA_URL,
-    texto: `Te recomiendo Luks 🧾 para las cuentas del grupo: mandas la foto del recibo al grupo de WhatsApp y Luks anota el gasto, lo divide y dice quién le paga a quién. Es gratis 👉 ${MARCA_URL}`,
+    texto: [
+      'Te recomiendo *Luks* 🧾',
+      '',
+      '👥 *Para las cuentas del grupo:* mandan la foto del recibo al grupo de WhatsApp y Luks anota el gasto, lo divide y dice quién le paga a quién.',
+      '',
+      '🙋 *Y para tus gastos personales:* arma un grupo de WhatsApp contigo mismo (solo tú y Luks), mándate ahí tus facturas y Luks las organiza por categoría para que las veas en la app.',
+      '',
+      `Es gratis 👉 ${MARCA_URL}`,
+    ].join('\n'),
   };
 }
 

@@ -70,10 +70,12 @@ describe('compartir las cuentas', () => {
     expect(grupoMessage({ ...base, transfers: [] })).toContain('Nadie le debe a nadie');
   });
 
-  it('recomendar Luks: el mensaje lleva mrluks.com', () => {
+  it('recomendar Luks: para el grupo y para tus gastos personales, con mrluks.com', () => {
     const r = recomendacionMessage();
     expect(r.url).toBe('https://mrluks.com');
-    expect(r.texto).toContain('Luks');
+    expect(r.texto).toContain('cuentas del grupo');
+    expect(r.texto).toContain('grupo de WhatsApp contigo mismo');
+    expect(r.texto).toContain('por categoría');
     expect(r.texto.endsWith('https://mrluks.com')).toBe(true);
   });
 
