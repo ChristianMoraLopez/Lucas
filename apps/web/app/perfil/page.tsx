@@ -5,9 +5,14 @@ import { requireUser } from '@/utils/supabase/server';
 import { ProfileScreen } from './profile-screen';
 
 export default async function PerfilPage() {
-  const { supabase } = await requireUser('/perfil');
-  const { data, error } = await supabase.rpc('my_profile');
+  const { supabase, userId } = await requireUser('/perfil');
+  const [{ data, error }, { data: membresias }] = await Promise.all([
+    supabase.rpc('my_profile'),
+    // Las que archivó ya pasaron: no se muestran (si la columna todavía no existe, no hay archivadas)
+    supabase.from('account_members').select('account_id, archived_at').eq('user_id', userId),
+  ]);
   if (error) throw error;
+  const archivadas = ((membresias ?? []) as { account_id: string; archived_at: string | null }[]).filter((m) => m.archived_at).map((m) => m.account_id);
 
   return (
     <div className="lu-app">
@@ -17,7 +22,7 @@ export default async function PerfilPage() {
           <SignOutButton />
         </span>
       </header>
-      <ProfileScreen p={data as MyProfile} />
+      <ProfileScreen p={data as MyProfile} archivadas={archivadas} />
     </div>
   );
 }

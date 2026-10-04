@@ -112,9 +112,11 @@ function Seccion({
  * llaman en cada cuenta, tus números de WhatsApp) y tus datos: descargarlos o
  * borrar la cuenta.
  */
-export function ProfileScreen({ p }: { p: MyProfile }) {
+export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; archivadas?: string[] }) {
   const router = useRouter();
   const refresh = () => router.refresh();
+  // Las cuentas archivadas ya pasaron: no salen en el carné ni en «cómo te llaman»
+  const p = { ...completo, accounts: completo.accounts.filter((a) => !archivadas.includes(a.id)) };
   const conCuentas = p.accounts.filter((a) => a.person_id);
 
   return (
@@ -172,7 +174,8 @@ export function ProfileScreen({ p }: { p: MyProfile }) {
       </Seccion>
 
       <Seccion id="pf-datos" icono="datos" tono="coral" titulo="Tus datos" nota="Son tuyos: llévatelos o bórralos (Ley 1581)." i={6}>
-        <MisDatos p={p} />
+        {/* Borrar tu usuario también toca las archivadas: ahí van todas */}
+        <MisDatos p={completo} />
       </Seccion>
     </div>
   );
