@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { HistoriaInstagram } from '@/components/historia-instagram';
 import { Button, ICONS, LottieSlot } from '@/components/lucas-ui';
 import { copiar } from '@/lib/clipboard';
 import { whatsappUrl } from '@/lib/invite';
@@ -43,6 +44,7 @@ export function RecomendarLuks() {
           {ICONS.whatsapp}
           Mandar por WhatsApp
         </a>
+        <HistoriaInstagram src="/historia" archivo="luks-historia.png" enlace={url} textoEnlace="mrluks.com" />
         <Button
           size="sm"
           variant="secondary"

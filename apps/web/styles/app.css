@@ -5303,3 +5303,64 @@ iframe {
 .gu--quieto .gu-tarjeta--centro {
   transform: translateY(-50%);
 }
+
+/* ---------- Historia de Instagram (components/historia-instagram.tsx) ---------- */
+.hi-boton svg {
+  width: 18px;
+  height: 18px;
+}
+.hi-vista {
+  position: relative;
+  justify-self: center;
+  height: min(50vh, 440px);
+  aspect-ratio: 9 / 16;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(110deg, var(--superficie-2) 30%, var(--borde) 50%, var(--superficie-2) 70%);
+  background-size: 250% 100%;
+  box-shadow: var(--shadow-card);
+  animation: hi-espera 1.2s linear infinite;
+}
+.hi-vista.is-lista {
+  animation: none;
+}
+.hi-vista img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(0.98);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+.hi-vista.is-lista img {
+  opacity: 1;
+  transform: none;
+}
+.hi-texto b {
+  color: var(--tinta);
+}
+.hi-listo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--verde);
+}
+.hi-btns {
+  flex-wrap: wrap;
+}
+@keyframes hi-espera {
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hi-vista {
+    animation: none;
+  }
+  .hi-vista img {
+    transition: none;
+  }
+}
