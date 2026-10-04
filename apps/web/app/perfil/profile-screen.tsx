@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
+import { olvidarGuias } from '@/components/guia';
 import { Avatar, Button, LottieSlot } from '@/components/lucas-ui';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { formatDay, formatWhen, monthName } from '@/lib/dates';
+import { formatDay, formatWhen, monthName, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { accountGlyph, accountTone, formatWaNumber, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
@@ -36,6 +37,12 @@ const ICONO = {
     </>
   ),
   whatsapp: <path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19z" />,
+  guia: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01" />
+    </>
+  ),
   datos: (
     <>
       <path d="M12 3l8 3v6c0 4.4-3.4 8-8 9-4.6-1-8-4.6-8-9V6z" />
@@ -105,9 +112,11 @@ function Seccion({
  * llaman en cada cuenta, tus números de WhatsApp) y tus datos: descargarlos o
  * borrar la cuenta.
  */
-export function ProfileScreen({ p }: { p: MyProfile }) {
+export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; archivadas?: string[] }) {
   const router = useRouter();
   const refresh = () => router.refresh();
+  // Las cuentas archivadas ya pasaron: no salen en el carné ni en «cómo te llaman»
+  const p = { ...completo, accounts: completo.accounts.filter((a) => !archivadas.includes(a.id)) };
   const conCuentas = p.accounts.filter((a) => a.person_id);
 
   return (
@@ -153,8 +162,20 @@ export function ProfileScreen({ p }: { p: MyProfile }) {
         <Whatsapp numeros={p.whatsapp} onChanged={refresh} />
       </Seccion>
 
-      <Seccion id="pf-datos" icono="datos" tono="coral" titulo="Tus datos" nota="Son tuyos: llévatelos o bórralos (Ley 1581)." i={5}>
-        <MisDatos p={p} />
+      <Seccion
+        id="pf-guia"
+        icono="guia"
+        tono="azul"
+        titulo="La guía"
+        nota="Te muestra Luks paso a paso. Sale sola la primera vez; después, con el «?» de arriba."
+        i={5}
+      >
+        <VerGuias usuario={p.id} />
+      </Seccion>
+
+      <Seccion id="pf-datos" icono="datos" tono="coral" titulo="Tus datos" nota="Son tuyos: llévatelos o bórralos (Ley 1581)." i={6}>
+        {/* Borrar tu usuario también toca las archivadas: ahí van todas */}
+        <MisDatos p={completo} />
       </Seccion>
     </div>
   );
@@ -164,7 +185,7 @@ export function ProfileScreen({ p }: { p: MyProfile }) {
 function Carne({ p }: { p: MyProfile }) {
   const nombre = p.full_name?.trim() || p.email?.split('@')[0] || 'Tú';
   const desde = new Date(p.created_at);
-  const desdeMes = `${monthName(desde).slice(0, 3).toUpperCase()} ${desde.getFullYear()}`;
+  const desdeMes = `${monthName(desde).slice(0, 3).toUpperCase()} ${todayInBogota(desde).slice(0, 4)}`;
   return (
     <section className="lu-bill lu-bill--morado pf-carne" aria-labelledby="pf-carne-t" style={{ '--i': 1 } as React.CSSProperties}>
       <div className="lu-bill__top">
@@ -443,6 +464,44 @@ function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => 
 }
 
 const PALABRA = 'ELIMINAR';
+
+/** «Ver las guías otra vez»: la del inicio y la de las cuentas vuelven a salir solas */
+function VerGuias({ usuario }: { usuario: string }) {
+  const [estado, setEstado] = useState<'quieto' | 'cargando' | 'listo'>('quieto');
+  const [error, setError] = useState<string | null>(null);
+  const reiniciar = async () => {
+    setEstado('cargando');
+    setError(null);
+    const { error } = await createClient().rpc('reiniciar_guias');
+    if (error) {
+      setEstado('quieto');
+      return setError(humanError(error));
+    }
+    olvidarGuias(usuario);
+    setEstado('listo');
+  };
+  return (
+    <div className="pf-guia">
+      {estado === 'listo' ? (
+        <p className="lu-small" role="status" style={{ margin: 0 }}>
+          Listo: al volver al inicio sale la guía, y la de las cuentas la primera vez que entres a una.{' '}
+          <Link href="/" className="pf-link">
+            Ir al inicio
+          </Link>
+        </p>
+      ) : (
+        <Button size="sm" variant="secondary" onClick={reiniciar} disabled={estado === 'cargando'}>
+          {estado === 'cargando' ? 'Un momento…' : 'Ver las guías otra vez'}
+        </Button>
+      )}
+      {error && (
+        <p className="lu-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function MisDatos({ p }: { p: MyProfile }) {
   const [supabase] = useState(() => createClient());

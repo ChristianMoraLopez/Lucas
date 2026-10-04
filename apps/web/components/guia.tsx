@@ -7,20 +7,21 @@ import { Button, LottieSlot } from '@/components/lucas-ui';
 import { buscarObjetivo, type Caja, colocar, GUIAS, type NombreGuia, type PasoGuia } from '@/lib/guia';
 import { createClient } from '@/utils/supabase/client';
 
-const VISTA = (nombre: NombreGuia) => `luks-guia-${nombre}`;
+// En este navegador, por usuario: si otra persona ya la vio en el mismo celular, a ti igual te sale
+const VISTA = (nombre: NombreGuia, usuario: string) => `luks-guia-${nombre}-${usuario}`;
 
-function yaLaVio(nombre: NombreGuia) {
+function yaLaVio(nombre: NombreGuia, usuario: string) {
   try {
-    return localStorage.getItem(VISTA(nombre)) === '1';
+    return localStorage.getItem(VISTA(nombre, usuario)) === '1';
   } catch {
     return false;
   }
 }
 
 /** Vista (o saltada): no vuelve a salir sola, ni en este navegador ni en otro */
-function marcarVista(nombre: NombreGuia) {
+function marcarVista(nombre: NombreGuia, usuario: string) {
   try {
-    localStorage.setItem(VISTA(nombre), '1');
+    localStorage.setItem(VISTA(nombre, usuario), '1');
   } catch {
     // sin almacenamiento: queda en la base
   }
@@ -32,28 +33,37 @@ function marcarVista(nombre: NombreGuia) {
     );
 }
 
+/** «Ver las guías otra vez» (Perfil): que vuelvan a salir solas en este navegador */
+export function olvidarGuias(usuario: string) {
+  try {
+    for (const nombre of Object.keys(GUIAS) as NombreGuia[]) localStorage.removeItem(VISTA(nombre, usuario));
+  } catch {
+    // sin almacenamiento: no había nada guardado
+  }
+}
+
 /**
  * El botón «?» de la barra y la guía paso a paso de esa pantalla. Sale sola la
  * primera vez (`auto`); después, con el botón. Se salta cuando quieran.
  */
-export function Guia({ nombre, auto = false }: { nombre: NombreGuia; auto?: boolean }) {
+export function Guia({ nombre, usuario, auto = false }: { nombre: NombreGuia; usuario: string; auto?: boolean }) {
   const [abierta, setAbierta] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
 
   // La primera vez: cuando termina la animación del logo (si la hay) y la pantalla ya está
   useEffect(() => {
-    if (!auto || yaLaVio(nombre)) return;
+    if (!auto || yaLaVio(nombre, usuario)) return;
     const conIntro = !document.documentElement.classList.contains('sin-intro');
     const espera = conIntro ? Math.max(600, 2600 - performance.now()) : 700;
     const t = window.setTimeout(() => setAbierta(true), espera);
     return () => window.clearTimeout(t);
-  }, [auto, nombre]);
+  }, [auto, nombre, usuario]);
 
   const cerrar = useCallback(() => {
     setAbierta(false);
-    marcarVista(nombre);
+    marcarVista(nombre, usuario);
     boton.current?.focus({ preventScroll: true });
-  }, [nombre]);
+  }, [nombre, usuario]);
 
   return (
     <>

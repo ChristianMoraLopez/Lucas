@@ -130,11 +130,14 @@ export function AccountShell({
   account,
   pending,
   whatsapp,
+  usuario,
   guiaVista = true,
   children,
 }: {
   account: { id: string; name: string; type: AccountType };
   pending: number;
+  /** Quien está viendo (la guía recuerda por persona) */
+  usuario: string;
   /** Ya vio la guía de las cuentas (si no, sale sola) */
   guiaVista?: boolean;
   /** whatsapp_overview del servidor (para no parpadear al abrir) */
@@ -162,7 +165,7 @@ export function AccountShell({
       brand={<LogoLink />}
       barExtra={
         <>
-          <Guia nombre="cuenta" auto={!guiaVista} />
+          <Guia nombre="cuenta" usuario={usuario} auto={!guiaVista} />
           <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
         </>
       }

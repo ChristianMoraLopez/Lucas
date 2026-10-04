@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/r/[token]/imagen': ['./assets/og/**', './public/brand/luks-logo-plano.svg'],
     '/c/[accountId]/liquidar/imagen': ['./assets/og/**', './public/brand/luks-logo-plano.svg'],
-    '/r/[token]/historia': ['./assets/og/**', './public/brand/luks-logo-plano.svg'],
     '/historia': ['./assets/og/**', './public/brand/luks-logo-plano.svg'],
   },
 };
