@@ -24,6 +24,7 @@ from .classify.question import ClassifyInput
 from .config import Settings
 from .errors import LlmUnavailable, PermanentError
 from .extract.cascade import Extraction, Extractor
+from .extract.numbers import fijar_moneda
 from .llm.ollama import LlmError, ReceiptLlm
 from .llm.schema import ReceiptExtraction
 from .luks import es_imagen_de_luks, es_mensaje_de_luks
@@ -160,6 +161,8 @@ class MessageProcessor:
             for m in ctx.get("memory") or []
         ]
         acc = ctx.get("account") or {}
+        # Pesos enteros o, en dólares y bolivianos, centavos (para todo lo que se lea de aquí en adelante)
+        fijar_moneda(acc.get("currency"))
         window = AccountWindow(
             type=acc.get("type") or "hogar",
             starts_on=date.fromisoformat(acc["starts_on"]) if acc.get("starts_on") else None,

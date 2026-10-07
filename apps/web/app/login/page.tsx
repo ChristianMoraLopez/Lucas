@@ -2,7 +2,12 @@ import { LogoLink } from '@/components/logo-link';
 import { lucas, type Tone } from '@/components/lucas-core';
 import { Avatar, BillCard, Sticker } from '@/components/lucas-ui';
 import { MenuPrincipal } from '@/components/menu-principal';
+import { MonedaProvider } from '@/components/moneda';
 import { safeNext } from '@/lib/auth';
+import { rico } from '@/lib/i18n/rico';
+import { getRegion, getT } from '@/lib/i18n/server';
+import type { Moneda } from '@/lib/moneda';
+import { REGION } from '@/lib/region';
 import { LoginForm } from './login-form';
 
 // El proxy ya manda a / a quien tiene sesión; aquí solo se pinta el formulario.
@@ -11,6 +16,9 @@ const ERRORES: Record<string, string> = {
   enlace: 'Ese enlace ya no sirve: se usa una sola vez y vence en una hora. Pide otro.',
   cancelado: 'Cancelaste la entrada con Google. Puedes intentar otra vez o usar tu correo.',
 };
+
+// El paseo de muestra en la moneda de la región: total y lo de cada uno (8 personas)
+const MUESTRA_TOTAL: Record<Moneda, number> = { COP: 4_816_000, CLP: 1_216_000, BOB: 864_000, USD: 124_800 };
 
 // Las 8 del paseo de muestra, con los tonos de setTones en el kit
 const MUESTRA: [string, Tone][] = [
@@ -27,7 +35,10 @@ const MUESTRA: [string, Tone][] = [
 export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const params = await searchParams;
   const next = safeNext(typeof params.next === 'string' ? params.next : null);
-  const error = typeof params.error === 'string' ? (ERRORES[params.error] ?? null) : null;
+  const [t, region] = await Promise.all([getT(), getRegion()]);
+  const moneda = REGION[region].moneda;
+  const total = MUESTRA_TOTAL[moneda];
+  const error = typeof params.error === 'string' && ERRORES[params.error] ? t(ERRORES[params.error]) : null;
   const vieneDeInvitacion = next.startsWith('/e/') || next.startsWith('/unirse');
   const modo = params.modo === 'crear' || vieneDeInvitacion ? 'crear' : 'entrar';
 
@@ -42,46 +53,46 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <div className="lg">
         <section className="lg-main">
           <div className="ap-intro">
-            <h1 className="lu-display">{vieneDeInvitacion ? 'Entra para unirte' : 'Entra a Luks'}</h1>
+            <h1 className="lu-display">{vieneDeInvitacion ? t('Entra para unirte') : t('Entra a Luks')}</h1>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               {vieneDeInvitacion
-                ? 'Te invitaron a una cuenta. Entra o crea tu usuario y de una te mostramos cuál es.'
-                : 'Las cuentas del hogar y de los paseos, sin pelear con el Excel.'}
+                ? t('Te invitaron a una cuenta. Entra o crea tu usuario y de una te mostramos cuál es.')
+                : t('Las cuentas del hogar y de los paseos, sin pelear con el Excel.')}
             </p>
           </div>
           {params.eliminada === '1' && (
             <p className="lu-success" role="status" style={{ margin: 0 }}>
-              Tu cuenta quedó eliminada. Gracias por usar Luks.
+              {t('Tu cuenta quedó eliminada. Gracias por usar Luks.')}
             </p>
           )}
           <LoginForm next={next} initialError={error} initialMode={modo} />
         </section>
 
-        <aside className="lg-side" aria-label="Así se ve una cuenta en Luks">
-          <BillCard
-            label="Evento · 24 – 28 sep 2026"
-            amount={4_816_000}
-            tone="morado"
-            aside={
-              <Sticker tone="revisar" rotate={6}>
-                3 por revisar
-              </Sticker>
-            }
-          >
-            <span className="ap-lead__n">Paseo Santa Marta</span>
-            <span className="lu-avatars">
-              {MUESTRA.map(([n, tone]) => (
-                <Avatar key={n} name={n} tone={tone} size="sm" />
-              ))}
-            </span>
-            <span>
-              Terminó ayer · falta liquidar · <b>{lucas(602_000)}</b> por cabeza
-            </span>
-          </BillCard>
+        <aside className="lg-side" aria-label={t('Así se ve una cuenta en Luks')}>
+          <MonedaProvider moneda={moneda}>
+            <BillCard
+              label={t('Evento · 24 – 28 sep 2026')}
+              amount={total}
+              tone="morado"
+              aside={
+                <Sticker tone="revisar" rotate={6}>
+                  {t('{n} por revisar', { n: 3 })}
+                </Sticker>
+              }
+            >
+              <span className="ap-lead__n">{t('Paseo Santa Marta')}</span>
+              <span className="lu-avatars">
+                {MUESTRA.map(([n, tone]) => (
+                  <Avatar key={n} name={n} tone={tone} size="sm" />
+                ))}
+              </span>
+              <span>{rico(t('Terminó ayer · falta liquidar · {monto} por cabeza'), { monto: <b>{lucas(total / 8, t.idioma, moneda)}</b> })}</span>
+            </BillCard>
+          </MonedaProvider>
           <ol className="lg-steps">
-            <li>Mandan la foto del recibo al grupo de WhatsApp.</li>
-            <li>Luks lo lee, lo clasifica y lo divide.</li>
-            <li>Al final, les dice quién le paga a quién.</li>
+            <li>{t('Mandan la foto del recibo al grupo de WhatsApp.')}</li>
+            <li>{t('Luks lo lee, lo clasifica y lo divide.')}</li>
+            <li>{t('Al final, les dice quién le paga a quién.')}</li>
           </ol>
         </aside>
       </div>

@@ -5,16 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useT } from '@/components/idioma';
 import { Button, Field } from '@/components/lucas-ui';
 import { humanError } from '@/lib/errors';
 import { createClient } from '@/utils/supabase/client';
 
+// Los mensajes pasan por t al mostrarse
 const schema = z
   .object({ password: z.string().min(8, 'Mínimo 8 caracteres'), repeat: z.string() })
   .refine((v) => v.password === v.repeat, { path: ['repeat'], message: 'No coinciden' });
 
 export function NewPasswordForm() {
   const router = useRouter();
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const [error, setError] = useState<string | null>(null);
   const {
@@ -33,20 +36,20 @@ export function NewPasswordForm() {
 
   return (
     <form onSubmit={guardar} noValidate>
-      <Field label="Contraseña nueva" id="clave-nueva">
+      <Field label={t('Contraseña nueva')} id="clave-nueva">
         <input id="clave-nueva" type="password" autoComplete="new-password" {...register('password')} />
       </Field>
       {errors.password && (
         <p className="lu-field-error" role="alert">
-          {errors.password.message}
+          {t(errors.password.message ?? '')}
         </p>
       )}
-      <Field label="Repítela" id="clave-repite">
+      <Field label={t('Repítela')} id="clave-repite">
         <input id="clave-repite" type="password" autoComplete="new-password" {...register('repeat')} />
       </Field>
       {errors.repeat && (
         <p className="lu-field-error" role="alert">
-          {errors.repeat.message}
+          {t(errors.repeat.message ?? '')}
         </p>
       )}
       {error && (
@@ -55,7 +58,7 @@ export function NewPasswordForm() {
         </p>
       )}
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Guardando…' : 'Guardar contraseña'}
+        {isSubmitting ? t('Guardando…') : t('Guardar contraseña')}
       </Button>
     </form>
   );

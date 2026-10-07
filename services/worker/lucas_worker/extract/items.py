@@ -29,12 +29,16 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .numbers import strip_accents
+from .numbers import con_centavos, parse_number, strip_accents
 
 # Plata: con separador de miles (y centavos opcionales), con «$» adelante o
 # con centavos («18000.00»)
 _PLATA = re.compile(
     r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{3,7}[.,]\d{2})(?![\d:]|[.,]\d)"
+)
+# En dólares o bolivianos los precios chicos también llevan centavos: «BURGER 12.50»
+_PLATA_CENTAVOS = re.compile(
+    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{1,7}[.,]\d{2})(?![\d:]|[.,]\d)"
 )
 # «2 x», «2 ×», «1 X», «1@» al empezar la línea de valores
 _POR = re.compile(r"^\s*(\d{1,3})\s*[x×X*@]\s*")
@@ -71,6 +75,8 @@ def _plata(token: str) -> int | None:
     s = token.replace("$", "").replace(" ", "")
     if not s:
         return None
+    if con_centavos():
+        return parse_number(s)
     # Centavos al final («,00», «.0»): fuera
     if re.search(r"[.,]\d{1,2}$", s):
         s = s[: max(s.rfind("."), s.rfind(","))]
@@ -81,7 +87,7 @@ def _plata(token: str) -> int | None:
 def _montos(linea: str) -> list[tuple[int, int, int]]:
     """(valor, inicio, fin) de cada monto de la línea."""
     out = []
-    for m in _PLATA.finditer(linea):
+    for m in (_PLATA_CENTAVOS if con_centavos() else _PLATA).finditer(linea):
         v = _plata(m.group(1))
         if v is not None and v >= 50:
             out.append((v, m.start(), m.end()))

@@ -81,6 +81,8 @@ class FakeDb:
         self.errors: list[dict[str, Any]] = []
         self.calls: list[str] = []
         self.memory = copy.deepcopy(MEMORIA)
+        # La moneda de la cuenta (migración 250)
+        self.currency = "COP"
 
     # -- armar escenarios --------------------------------------------------------
 
@@ -142,7 +144,14 @@ class FakeDb:
         return {
             "message": {k: v for k, v in m.items() if k != "sender"},
             "sender_person_id": m["sender"],
-            "account": {"id": CUENTA, "type": "evento", "status": "active", "starts_on": "2026-09-24", "ends_on": None},
+            "account": {
+                "id": CUENTA,
+                "type": "evento",
+                "status": "active",
+                "starts_on": "2026-09-24",
+                "ends_on": None,
+                "currency": self.currency,
+            },
             "today": HOY.isoformat(),
             "people": [{"id": PERSONAS[k], "display_name": NOMBRES[k]} for k in PERSONAS],
             "categories": [{"id": v, "name": k} for k, v in CATEGORIAS.items()],

@@ -5,10 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useT } from '@/components/idioma';
 import { Button, Field } from '@/components/lucas-ui';
+import { useRegion } from '@/components/region';
 import { humanError } from '@/lib/errors';
+import { IDIOMAS, NOMBRE_IDIOMA } from '@/lib/i18n';
+import { MONEDAS, NOMBRE_MONEDA } from '@/lib/moneda';
+import { REGION } from '@/lib/region';
 import { createClient } from '@/utils/supabase/client';
 
+// Los mensajes de error pasan por t al mostrarse (FieldError)
 const schema = z
   .object({
     name: z.string().trim().min(1, 'Ponle un nombre a la cuenta').max(60, 'Máximo 60 letras'),
@@ -16,6 +22,8 @@ const schema = z
     startsOn: z.string(),
     endsOn: z.string(),
     displayName: z.string().trim().min(1, 'Escribe cómo te dicen').max(40, 'Máximo 40 letras'),
+    currency: z.enum(MONEDAS as [string, ...string[]]),
+    language: z.enum(IDIOMAS as [string, ...string[]]),
   })
   .refine((v) => v.type !== 'evento' || !v.startsOn || !v.endsOn || v.endsOn >= v.startsOn, {
     path: ['endsOn'],
@@ -30,6 +38,8 @@ const TYPES = [
 
 export function NewAccountForm({ myName }: { myName: string }) {
   const router = useRouter();
+  const t = useT();
+  const region = useRegion();
   const [supabase] = useState(() => createClient());
   const [error, setError] = useState<string | null>(null);
   // Ya se creó y va para la cuenta: el botón sigue ocupado hasta que llegue
@@ -43,7 +53,8 @@ export function NewAccountForm({ myName }: { myName: string }) {
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', type: 'evento', startsOn: '', endsOn: '', displayName: myName },
+    // La moneda, la de la región elegida en el menú; el idioma de Luks en el grupo, el de la pantalla
+    defaultValues: { name: '', type: 'evento', startsOn: '', endsOn: '', displayName: myName, currency: REGION[region].moneda, language: t.idioma },
   });
   const type = watch('type');
 
@@ -60,6 +71,18 @@ export function NewAccountForm({ myName }: { myName: string }) {
       setError(humanError(error));
       return;
     }
+    // Las cuentas nacen en pesos colombianos y en español: si se eligió otra cosa, se cambia de una
+    if (v.currency !== 'COP' || v.language !== 'es') {
+      const { error: ajustes } = await supabase.rpc('set_account_settings', {
+        p_account_id: data as string,
+        p_currency: v.currency,
+        p_language: v.language,
+      });
+      if (ajustes) {
+        setError(humanError(ajustes));
+        return;
+      }
+    }
     // Primero el grupo de WhatsApp: es el motor de Luks (y trae a la gente del grupo)
     setYendo(true);
     router.push(`/c/${data as string}/whatsapp`);
@@ -70,20 +93,20 @@ export function NewAccountForm({ myName }: { myName: string }) {
     <form onSubmit={submit} noValidate>
       <div className="lu-field">
         <span className="lu-label" id="tipo">
-          Tipo de cuenta
+          {t('Tipo de cuenta')}
         </span>
         <div className="nc-types" role="radiogroup" aria-labelledby="tipo">
-          {TYPES.map((t) => (
+          {TYPES.map((x) => (
             <button
-              key={t.id}
+              key={x.id}
               type="button"
               role="radio"
-              aria-checked={type === t.id}
-              className={`nc-type nc-type--${t.id}${type === t.id ? ' is-on' : ''}`}
-              onClick={() => setValue('type', t.id)}
+              aria-checked={type === x.id}
+              className={`nc-type nc-type--${x.id}${type === x.id ? ' is-on' : ''}`}
+              onClick={() => setValue('type', x.id)}
             >
-              <b>{t.title}</b>
-              <span>{t.text}</span>
+              <b>{t(x.title)}</b>
+              <span>{t(x.text)}</span>
             </button>
           ))}
         </div>
@@ -94,7 +117,7 @@ export function NewAccountForm({ myName }: { myName: string }) {
         name="name"
         render={({ field }) => (
           <Field
-            label={type === 'evento' ? 'Nombre del evento (p. ej. Paseo Santa Marta)' : 'Nombre (p. ej. Casa)'}
+            label={type === 'evento' ? t('Nombre del evento (p. ej. Paseo Santa Marta)') : t('Nombre (p. ej. Casa)')}
             id="nombre"
             value={field.value}
             onChange={field.onChange}
@@ -109,7 +132,7 @@ export function NewAccountForm({ myName }: { myName: string }) {
             control={control}
             name="startsOn"
             render={({ field }) => (
-              <Field label="Empieza" id="inicio" num>
+              <Field label={t('Empieza')} id="inicio" num>
                 <input id="inicio" type="date" value={field.value} onChange={field.onChange} />
               </Field>
             )}
@@ -118,7 +141,7 @@ export function NewAccountForm({ myName }: { myName: string }) {
             control={control}
             name="endsOn"
             render={({ field }) => (
-              <Field label="Termina" id="fin" num>
+              <Field label={t('Termina')} id="fin" num>
                 <input id="fin" type="date" value={field.value} min={watch('startsOn') || undefined} onChange={field.onChange} />
               </Field>
             )}
@@ -130,9 +153,43 @@ export function NewAccountForm({ myName }: { myName: string }) {
       <Controller
         control={control}
         name="displayName"
-        render={({ field }) => <Field label="¿Cómo te dicen en el grupo?" id="tu-nombre" value={field.value} onChange={field.onChange} />}
+        render={({ field }) => <Field label={t('¿Cómo te dicen en el grupo?')} id="tu-nombre" value={field.value} onChange={field.onChange} />}
       />
       <FieldError message={errors.displayName?.message} />
+
+      <div className="nc-dates">
+        <Controller
+          control={control}
+          name="currency"
+          render={({ field }) => (
+            <Field label={t('Moneda')} id="moneda">
+              <select id="moneda" value={field.value} onChange={field.onChange}>
+                {MONEDAS.map((m) => (
+                  <option key={m} value={m}>
+                    {t(NOMBRE_MONEDA[m])} ({m})
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+        />
+        <Controller
+          control={control}
+          name="language"
+          render={({ field }) => (
+            <Field label={t('Luks responde en el grupo en')} id="idioma-cuenta">
+              <select id="idioma-cuenta" value={field.value} onChange={field.onChange}>
+                {IDIOMAS.map((i) => (
+                  <option key={i} value={i}>
+                    {NOMBRE_IDIOMA[i]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+        />
+      </div>
+      <span className="lu-small lu-muted nc-nota">{t('La moneda se puede cambiar hasta que llegue el primer gasto.')}</span>
 
       {error && (
         <p className="lu-error" role="alert">
@@ -142,19 +199,20 @@ export function NewAccountForm({ myName }: { myName: string }) {
 
       <div className="nc-go">
         <Button type="submit" disabled={isSubmitting || yendo}>
-          {isSubmitting || yendo ? 'Creando…' : 'Crear cuenta'}
+          {isSubmitting || yendo ? t('Creando…') : t('Crear cuenta')}
         </Button>
-        <span className="lu-small lu-muted">Después invitas al resto con un código.</span>
+        <span className="lu-small lu-muted">{t('Después invitas al resto con un código.')}</span>
       </div>
     </form>
   );
 }
 
 function FieldError({ message }: { message?: string }) {
+  const t = useT();
   if (!message) return null;
   return (
     <p className="lu-field-error" role="alert">
-      {message}
+      {t(message)}
     </p>
   );
 }

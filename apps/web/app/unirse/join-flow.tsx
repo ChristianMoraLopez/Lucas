@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useT } from '@/components/idioma';
 import { Avatar, Button, CODE_RE, CodeInput, Divider, Field, formatCode, LottieSlot, Person } from '@/components/lucas-ui';
 import { formatRange } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import type { T } from '@/lib/i18n';
 import { accountGlyph, asTone, type InvitationPreview, plural } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -14,6 +16,7 @@ const NUEVA = 'nueva';
 
 export function JoinFlow({ initialCode, myName }: { initialCode: string; myName: string }) {
   const router = useRouter();
+  const t = useT();
   const [supabase] = useState(() => createClient());
 
   // El código puede llegar por el link (/e/PASEO-7K2Q → ?codigo=PASEO-7K2Q)
@@ -43,7 +46,7 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
   const join = async () => {
     if (!found) return;
     if (!chosen && !displayName.trim()) {
-      setJoinError('Escribe tu nombre para entrar como persona nueva');
+      setJoinError(t('Escribe tu nombre para entrar como persona nueva'));
       return;
     }
     setJoining(true);
@@ -65,9 +68,9 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
   return (
     <div className="jn">
       <section className="jn-code">
-        <h1 className="lu-display">Entra a una cuenta</h1>
+        <h1 className="lu-display">{t('Entra a una cuenta')}</h1>
         <p className="lu-small lu-muted" style={{ margin: '6px 0 var(--space-6)' }}>
-          Pídele el código a quien creó la cuenta, o cópialo del grupo. También sirve pegar el link completo.
+          {t('Pídele el código a quien creó la cuenta, o cópialo del grupo. También sirve pegar el link completo.')}
         </p>
         <CodeInput
           value={code}
@@ -77,13 +80,13 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
             setJoinError(null);
           }}
           error={codeError}
-          hint={found ? '¡La encontramos!' : 'Buscando la cuenta…'}
+          hint={found ? t('¡La encontramos!') : t('Buscando la cuenta…')}
         />
 
         {!found && !codeError && (
           <div className="jn-wait">
             <LottieSlot name="vacio" width={72} height={72} />
-            <span className="lu-small lu-muted">{complete ? 'Buscando la cuenta…' : 'Cuando el código esté completo te mostramos la cuenta.'}</span>
+            <span className="lu-small lu-muted">{complete ? t('Buscando la cuenta…') : t('Cuando el código esté completo te mostramos la cuenta.')}</span>
           </div>
         )}
 
@@ -95,8 +98,10 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
             <span style={{ display: 'grid', minWidth: 0 }}>
               <b>{found.account_name}</b>
               <span className="lu-small lu-muted">
-                {found.account_type === 'evento' ? `Evento${found.starts_on ? ` · ${formatRange(found.starts_on, found.ends_on)}` : ''}` : 'Hogar'} · la creó{' '}
-                {found.owner_name}
+                {found.account_type === 'evento'
+                  ? `${t('Evento')}${found.starts_on ? ` · ${formatRange(found.starts_on, found.ends_on, t.idioma)}` : ''}`
+                  : t('Hogar')}{' '}
+                · {t('la creó {nombre}', { nombre: found.owner_name })}
               </span>
             </span>
             <span className="lu-avatars" style={{ marginLeft: 'auto' }}>
@@ -109,9 +114,9 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
 
         {codeError && (
           <div className="jn-help">
-            <Divider label="¿No sirve?" />
+            <Divider label={t('¿No sirve?')} />
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              Pídele a quien administra la cuenta un código nuevo: lo saca en la pestaña Personas.
+              {t('Pídele a quien administra la cuenta un código nuevo: lo saca en la pestaña Personas.')}
             </p>
           </div>
         )}
@@ -119,12 +124,12 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
 
       {found?.already_member && (
         <section className="jn-claim">
-          <h2 className="lu-title">Ya estás en esta cuenta</h2>
+          <h2 className="lu-title">{t('Ya estás en esta cuenta')}</h2>
           <p className="lu-small lu-muted" style={{ margin: '4px 0 var(--space-4)' }}>
-            No tienes que volver a entrar con el código.
+            {t('No tienes que volver a entrar con el código.')}
           </p>
           <Link href={`/c/${found.account_id}/resumen`} className="lu-btn lu-btn--primary">
-            Ir a {found.account_name}
+            {t('Ir a {cuenta}', { cuenta: found.account_name })}
           </Link>
         </section>
       )}
@@ -134,23 +139,23 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
           {people.length > 0 ? (
             <>
               <h2 id="jn-q" className="lu-title">
-                ¿Eres alguna de estas personas?
+                {t('¿Eres alguna de estas personas?')}
               </h2>
               <p className="lu-small lu-muted" style={{ margin: '4px 0 var(--space-4)' }}>
-                Ya aparecen en los gastos pero no tienen cuenta. Si eres una, esos gastos quedan a tu nombre.
+                {t('Ya aparecen en los gastos pero no tienen cuenta. Si eres una, esos gastos quedan a tu nombre.')}
               </p>
               <div className="jn-opts" role="radiogroup" aria-labelledby="jn-q">
                 {people.map((p) => (
                   <label key={p.id} className={`jn-opt${selected === p.id ? ' is-on' : ''}`}>
                     <input type="radio" name="quien" checked={selected === p.id} onChange={() => setSelected(p.id)} />
-                    <Person name={p.display_name} tone={asTone(p.tone, p.display_name)} sub={claimSub(p)} />
+                    <Person name={p.display_name} tone={asTone(p.tone, p.display_name)} sub={claimSub(p, t)} />
                   </label>
                 ))}
                 <label className={`jn-opt${selected === NUEVA ? ' is-on' : ''}`}>
                   <input type="radio" name="quien" checked={selected === NUEVA} onChange={() => setSelected(NUEVA)} />
                   <span style={{ display: 'grid' }}>
-                    <b>No, soy otra persona</b>
-                    <span className="lu-small lu-muted">Entro como participante nuevo</span>
+                    <b>{t('No, soy otra persona')}</b>
+                    <span className="lu-small lu-muted">{t('Entro como participante nuevo')}</span>
                   </span>
                 </label>
               </div>
@@ -158,17 +163,20 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
           ) : (
             <>
               <h2 id="jn-q" className="lu-title">
-                ¿Cómo te dicen en el grupo?
+                {t('¿Cómo te dicen en el grupo?')}
               </h2>
               <p className="lu-small lu-muted" style={{ margin: '4px 0 0' }}>
-                Así te van a ver en los gastos de {found.account_name} ({plural(found.people_count, 'persona', 'personas')} hasta ahora).
+                {t('Así te van a ver en los gastos de {cuenta} ({personas} hasta ahora).', {
+                  cuenta: found.account_name,
+                  personas: plural(found.people_count, t('persona'), t('personas')),
+                })}
               </p>
             </>
           )}
 
           {!chosen && (
             <div className="jn-name">
-              <Field label="Tu nombre" id="nombre-nuevo" value={displayName} onChange={setDisplayName} />
+              <Field label={t('Tu nombre')} id="nombre-nuevo" value={displayName} onChange={setDisplayName} />
             </div>
           )}
 
@@ -180,10 +188,12 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
 
           <div className="jn-go">
             <Button onClick={join} disabled={joining}>
-              {joining ? 'Entrando…' : chosen ? `Entrar como ${chosen.display_name}` : 'Entrar'}
+              {joining ? t('Entrando…') : chosen ? t('Entrar como {nombre}', { nombre: chosen.display_name }) : t('Entrar')}
             </Button>
             <span className="lu-small lu-muted">
-              Entras como {found.role === 'admin' ? 'admin' : 'miembro'}. Si te equivocas de nombre, quien administra la cuenta lo corrige.
+              {found.role === 'admin'
+                ? t('Entras como admin. Si te equivocas de nombre, quien administra la cuenta lo corrige.')
+                : t('Entras como miembro. Si te equivocas de nombre, quien administra la cuenta lo corrige.')}
             </span>
           </div>
         </section>
@@ -192,7 +202,7 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
   );
 }
 
-function claimSub(p: InvitationPreview['unclaimed_people'][number]) {
-  const numero = p.wa_last4 ? `WhatsApp +57 ••• ${p.wa_last4}` : 'Sin número';
-  return p.paid_count ? `${numero} · pagó ${plural(p.paid_count, 'gasto', 'gastos')}` : numero;
+function claimSub(p: InvitationPreview['unclaimed_people'][number], t: T) {
+  const numero = p.wa_last4 ? `WhatsApp ••• ${p.wa_last4}` : t('Sin número');
+  return p.paid_count ? `${numero} · ${t('pagó {gastos}', { gastos: plural(p.paid_count, t('gasto'), t('gastos')) })}` : numero;
 }

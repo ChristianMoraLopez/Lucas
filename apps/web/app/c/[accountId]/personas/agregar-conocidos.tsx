@@ -3,16 +3,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
+import { useT } from '@/components/idioma';
 import { Button, Chip, LottieSlot } from '@/components/lucas-ui';
 import { humanError } from '@/lib/errors';
+import type { T } from '@/lib/i18n';
 import { whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged } from '@/lib/realtime';
 import { MARCA_URL } from '@/lib/share';
 import { asTone, type Conocido } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
-/** «Laura», «Laura y Pipe», «Laura, Pipe y Ana» */
-const juntar = (ns: string[]) => (ns.length <= 1 ? (ns[0] ?? '') : `${ns.slice(0, -1).join(', ')} y ${ns.at(-1)}`);
+/** «Laura», «Laura y Pipe», «Laura, Pipe y Ana» (en inglés «Laura, Pipe and Ana») */
+const juntar = (ns: string[], t: T) => (ns.length <= 1 ? (ns[0] ?? '') : `${ns.slice(0, -1).join(', ')}${t(' y ')}${ns.at(-1)}`);
 
 /**
  * «De tus otras cuentas»: quien ya está contigo en otra cuenta de Luks (la
@@ -22,6 +24,7 @@ const juntar = (ns: string[]) => (ns.length <= 1 ? (ns[0] ?? '') : `${ns.slice(0
  */
 export function AgregarConocidos({ accountId, accountName, onAdded }: { accountId: string; accountName: string; onAdded: () => void }) {
   const [supabase] = useState(() => createClient());
+  const t = useT();
   const queryClient = useQueryClient();
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -39,7 +42,7 @@ export function AgregarConocidos({ accountId, accountName, onAdded }: { accountI
   const lista = conocidos.data ?? [];
   if (!lista.length && !listos.length) return null;
 
-  const nombre = (id: string) => lista.find((c) => c.user_id === id)?.name ?? 'Alguien';
+  const nombre = (id: string) => lista.find((c) => c.user_id === id)?.name ?? t('Alguien');
   const elegir = (id: string) => setElegidos((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
   const agregar = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -60,17 +63,20 @@ export function AgregarConocidos({ accountId, accountName, onAdded }: { accountI
     onAdded();
   };
 
-  const aviso = `Te agregué a «${accountName}» en Luks 👋 Entra a ${MARCA_URL} y acepta: ahí vamos viendo los gastos y quién le paga a quién.`;
+  const aviso = t('Te agregué a «{cuenta}» en Luks 👋 Entra a {url} y acepta: ahí vamos viendo los gastos y quién le paga a quién.', {
+    cuenta: accountName,
+    url: MARCA_URL,
+  });
 
   return (
     <section className="mb-conocidos" aria-labelledby="mb-conocidos-t">
       <h2 id="mb-conocidos-t" className="lu-title" style={{ margin: 0 }}>
-        De tus otras cuentas
+        {t('De tus otras cuentas')}
       </h2>
       {lista.length > 0 && (
         <>
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            Ya usan Luks: agrégalos sin código. Les llega en Luks para aceptar, y desde ya cuentan en los gastos.
+            {t('Ya usan Luks: agrégalos sin código. Les llega en Luks para aceptar, y desde ya cuentan en los gastos.')}
           </p>
           <div className="lu-chips lu-stagger">
             {lista.map((c, i) => (
@@ -90,7 +96,7 @@ export function AgregarConocidos({ accountId, accountName, onAdded }: { accountI
             ))}
           </div>
           <Button size="sm" onClick={agregar} disabled={busy || !elegidos.length}>
-            {busy ? 'Agregando…' : elegidos.length ? `Agregar a ${juntar(elegidos.map(nombre))}` : 'Toca a quién agregar'}
+            {busy ? t('Agregando…') : elegidos.length ? t('Agregar a {nombres}', { nombres: juntar(elegidos.map(nombre), t) }) : t('Toca a quién agregar')}
           </Button>
         </>
       )}
@@ -103,9 +109,11 @@ export function AgregarConocidos({ accountId, accountName, onAdded }: { accountI
         <p className="mb-sync mb-conocidos__listo lu-small" role="status">
           <LottieSlot name="todo-revisado" width={36} height={36} label="" />
           <span>
-            Listo: a {juntar(listos)} le llega en Luks para aceptar. Ya puedes dividir gastos con {listos.length === 1 ? 'esa persona' : 'esas personas'}.{' '}
+            {listos.length === 1
+              ? t('Listo: a {nombres} le llega en Luks para aceptar. Ya puedes dividir gastos con esa persona.', { nombres: juntar(listos, t) })
+              : t('Listo: a {nombres} les llega en Luks para aceptar. Ya puedes dividir gastos con esas personas.', { nombres: juntar(listos, t) })}{' '}
             <a href={whatsappUrl(aviso)} target="_blank" rel="noreferrer">
-              Avisar por WhatsApp
+              {t('Avisar por WhatsApp')}
             </a>
           </span>
         </p>

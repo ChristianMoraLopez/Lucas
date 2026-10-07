@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from datetime import date
 
+from ..extract.numbers import con_centavos
 from ..extract.qr_dian import DianQr
+
+# Cuentas en dólares o bolivianos: los montos van en centavos (los campos se siguen llamando *_cop)
+_CENTAVOS = (
+    "IMPORTANT: this account is not in Colombian pesos. Ignore the peso rules above. Every amount field "
+    "(total_cop, unit_price_cop, subtotal_cop, tax_cop, tip_cop…) is in CENTS as an integer: '$12.50' = 1250, "
+    "'1,234.56' = 123456, '45' = 4500. Dates may be month/day/year when the receipt is from the United States."
+)
 
 SYSTEM_PROMPT = """You extract structured expense data for a Colombian shared-expenses app.
 
@@ -53,6 +61,8 @@ def build_user_prompt(
     max_chars: int = 6000,
 ) -> str:
     partes = [f"today: {today.isoformat()}", f"source: {kind}"]
+    if con_centavos():
+        partes.append(_CENTAVOS)
     if people:
         partes.append("people in this group: " + ", ".join(people))
     if qr and (qr.total or qr.issued_on):

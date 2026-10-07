@@ -8,10 +8,12 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { useT } from '@/components/idioma';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
 import { Button, CodeInput, Divider, Field, ICONS, Person } from '@/components/lucas-ui';
 import { formatDay, isRecent, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import type { Idioma, T } from '@/lib/i18n';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged } from '@/lib/realtime';
 import {
@@ -36,8 +38,8 @@ type Confirm = { kind: 'leave' } | null;
 
 const ROLE_ORDER: Record<Role, number> = { owner: 0, admin: 1, member: 2 };
 
-/** timestamptz → día en Bogotá ('5 oct') */
-const dayOf = (iso: string) => formatDay(todayInBogota(new Date(iso)));
+/** timestamptz → día en Bogotá ('5 oct'; en inglés 'Oct 5') */
+const dayOf = (iso: string, idioma: Idioma) => formatDay(todayInBogota(new Date(iso)), undefined, idioma);
 
 export function MembersScreen({
   accountId,
@@ -57,6 +59,8 @@ export function MembersScreen({
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const router = useRouter();
+  const t = useT();
+  const dia = (iso: string) => dayOf(iso, t.idioma);
   const isAdmin = myRole === 'owner' || myRole === 'admin';
 
   const [error, setError] = useState<string | null>(null);
@@ -213,13 +217,13 @@ export function MembersScreen({
   const porAceptar = unclaimed.filter((p) => p.person_id && pendientes.data?.[p.person_id]).length;
   const soloWhatsapp = unclaimed.length - porAceptar;
   const subtitle = people.isPending
-    ? 'Cargando…'
+    ? t('Cargando…')
     : unclaimed.length === 0
-      ? `${plural(rows.length, 'persona', 'personas')} en la cuenta · todas con usuario en Luks`
+      ? t('{personas} en la cuenta · todas con usuario en Luks', { personas: plural(rows.length, t('persona'), t('personas')) })
       : [
-          `${rows.length} en la cuenta · ${members.length} con cuenta`,
-          porAceptar ? `${porAceptar} por aceptar` : null,
-          soloWhatsapp ? `${soloWhatsapp} solo en WhatsApp` : null,
+          t('{n} en la cuenta · {m} con cuenta', { n: rows.length, m: members.length }),
+          porAceptar ? t('{n} por aceptar', { n: porAceptar }) : null,
+          soloWhatsapp ? t('{n} solo en WhatsApp', { n: soloWhatsapp }) : null,
         ]
           .filter(Boolean)
           .join(', ');
@@ -228,24 +232,28 @@ export function MembersScreen({
     <div className="mb">
       <header className="mb-head">
         <div className="mb-head__row">
-          <h1 className="lu-display">Personas</h1>
+          <h1 className="lu-display">{t('Personas')}</h1>
           <span className="mb-head__acts">
             {isAdmin && !closed && <InviteWhatsapp accountId={accountId} accountName={accountName} accountType={accountType} />}
             <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--sm lu-btn--secondary">
-              Conectar WhatsApp
+              {t('Conectar WhatsApp')}
             </Link>
           </span>
         </div>
         <span className="lu-small lu-muted">{subtitle}</span>
         {grupo && (
           <p className="mb-sync lu-small" role="note">
-            Sincronizado con el grupo «{grupo.name ?? 'de WhatsApp'}»{grupo.members != null ? ` (${plural(grupo.members, 'integrante', 'integrantes')})` : ''}:
-            quien entra al grupo aparece aquí solo.
+            {grupo.members != null
+              ? t('Sincronizado con el grupo «{grupo}» ({integrantes}): quien entra al grupo aparece aquí solo.', {
+                  grupo: grupo.name ?? 'WhatsApp',
+                  integrantes: plural(grupo.members, t('integrante'), t('integrantes')),
+                })
+              : t('Sincronizado con el grupo «{grupo}»: quien entra al grupo aparece aquí solo.', { grupo: grupo.name ?? 'WhatsApp' })}
           </p>
         )}
       </header>
 
-      <section className="mb-list" aria-label="Personas de la cuenta">
+      <section className="mb-list" aria-label={t('Personas de la cuenta')}>
         {error && (
           <p className="lu-error" role="alert" style={{ marginTop: 0 }}>
             {error}
@@ -263,8 +271,8 @@ export function MembersScreen({
               <Person
                 name={p.display_name}
                 tone={asTone(p.tone, p.display_name)}
-                sub={memberSub(p)}
-                aside={p.is_me && p.person_id && editando !== p.person_id && <Lapiz label="Cambiar mi nombre" onClick={() => setEditando(p.person_id)} />}
+                sub={memberSub(p, t, dia)}
+                aside={p.is_me && p.person_id && editando !== p.person_id && <Lapiz label={t('Cambiar mi nombre')} onClick={() => setEditando(p.person_id)} />}
               />
               <RoleControl
                 person={p}
@@ -289,7 +297,7 @@ export function MembersScreen({
 
         {unclaimed.length > 0 && (
           <>
-            <Divider label="Todavía sin cuenta" />
+            <Divider label={t('Todavía sin cuenta')} />
             <ul>
               {unclaimed.map((p) => {
                 const invitacion = p.person_id ? pendientes.data?.[p.person_id] : undefined;
@@ -303,16 +311,16 @@ export function MembersScreen({
                       registered={false}
                       sub={
                         invitacion
-                          ? 'Ya usa Luks · le llegó la invitación, falta que acepte'
+                          ? t('Ya usa Luks · le llegó la invitación, falta que acepte')
                           : p.wa_last4
-                            ? `${sinNombre ? 'Sin nombre en WhatsApp' : p.name_source === 'whatsapp' ? 'Nombre de WhatsApp' : 'Solo en WhatsApp'} · +57 ••• ${p.wa_last4}`
-                            : 'Sin cuenta todavía'
+                            ? `${sinNombre ? t('Sin nombre en WhatsApp') : p.name_source === 'whatsapp' ? t('Nombre de WhatsApp') : t('Solo en WhatsApp')} · ••• ${p.wa_last4}`
+                            : t('Sin cuenta todavía')
                       }
                       aside={
                         isAdmin &&
                         p.person_id &&
                         !abierto &&
-                        !sinNombre && <Lapiz label={`Cambiar el nombre de ${p.display_name}`} onClick={() => setEditando(p.person_id)} />
+                        !sinNombre && <Lapiz label={t('Cambiar el nombre de {nombre}', { nombre: p.display_name })} onClick={() => setEditando(p.person_id)} />
                       }
                     />
                     {isAdmin && !abierto && (
@@ -320,30 +328,30 @@ export function MembersScreen({
                         {p.person_id && sinNombre && (
                           <Button variant="secondary" size="sm" className="mb-poner" onClick={() => setEditando(p.person_id)}>
                             {ICONS.lapiz}
-                            Ponerle nombre
+                            {t('Ponerle nombre')}
                           </Button>
                         )}
                         {isAdmin && !closed && (
                           <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
-                            Quitar…
+                            {t('Quitar…')}
                           </Button>
                         )}
                         {isAdmin && invitacion && (
                           <Button variant="ghost" size="sm" onClick={() => cancelar.mutate(invitacion)} disabled={cancelar.isPending}>
-                            Cancelar invitación
+                            {t('Cancelar invitación')}
                           </Button>
                         )}
                         {isAdmin && !invitacion && current && link && (
                           <a
                             className="lu-btn lu-btn--outline lu-btn--sm"
                             href={whatsappUrl(
-                              inviteMessage({ accountName, code: current.code, link, name: p.display_name }),
+                              inviteMessage({ accountName, code: current.code, link, name: p.display_name, t }),
                               p.person_id ? phones.data?.[p.person_id] : undefined,
                             )}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Invitar
+                            {t('Invitar')}
                           </a>
                         )}
                       </span>
@@ -363,8 +371,11 @@ export function MembersScreen({
               })}
             </ul>
             <p className="lu-small lu-muted" style={{ margin: 'var(--space-3) 0 0' }}>
-              Sus gastos ya cuentan. Se ven con su nombre de WhatsApp{isAdmin ? ' o el que les pongas' : ''}; cuando entren con el código, eligen el suyo y
-              quedan enlazados.
+              {isAdmin
+                ? t(
+                    'Sus gastos ya cuentan. Se ven con su nombre de WhatsApp o el que les pongas; cuando entren con el código, eligen el suyo y quedan enlazados.',
+                  )
+                : t('Sus gastos ya cuentan. Se ven con su nombre de WhatsApp; cuando entren con el código, eligen el suyo y quedan enlazados.')}
             </p>
           </>
         )}
@@ -375,38 +386,38 @@ export function MembersScreen({
         {myRole !== 'owner' && (
           <div className="mb-leave">
             <Button variant="ghost" size="sm" onClick={() => setConfirm({ kind: 'leave' })}>
-              Salir de esta cuenta
+              {t('Salir de esta cuenta')}
             </Button>
           </div>
         )}
       </section>
 
       <aside className="mb-inv">
-        <h2 className="lu-title">Invitar</h2>
+        <h2 className="lu-title">{t('Invitar')}</h2>
 
         {closed ? (
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            La cuenta está cerrada: ya no entra nadie más.
+            {t('La cuenta está cerrada: ya no entra nadie más.')}
           </p>
         ) : isAdmin ? (
           <>
             {current && link ? (
               <>
-                <CodeInput value={current.code} readOnly label="Código de invitación" hint={inviteHint(current, dayOf)} id="inv" />
-                {oldCode && <span className="mb-old">{oldCode} ya no sirve</span>}
+                <CodeInput value={current.code} readOnly label={t('Código de invitación')} hint={inviteHint(current, dia, t)} id="inv" />
+                {oldCode && <span className="mb-old">{t('{codigo} ya no sirve', { codigo: oldCode })}</span>}
                 <div className="mb-link">{displayLink(link)}</div>
                 <InviteButtons accountName={accountName} code={current.code} link={link} />
               </>
             ) : (
               <p className="lu-small lu-muted" style={{ margin: 0 }}>
-                {invitations.isPending ? 'Cargando el código…' : 'No hay ningún código activo. Crea uno y compártelo en el grupo.'}
+                {invitations.isPending ? t('Cargando el código…') : t('No hay ningún código activo. Crea uno y compártelo en el grupo.')}
               </p>
             )}
 
             <NewCodeForm
               accountId={accountId}
               accountType={accountType}
-              label={current ? 'Código nuevo' : 'Crear código'}
+              label={current ? t('Código nuevo') : t('Crear código')}
               replaces={current}
               onCreated={(replaced) => {
                 if (replaced) setOldCode(replaced);
@@ -417,7 +428,7 @@ export function MembersScreen({
 
             {others.length > 0 && (
               <div className="mb-invs">
-                <span className="lu-label">Otros códigos activos</span>
+                <span className="lu-label">{t('Otros códigos activos')}</span>
                 {others.map((inv) => (
                   <RevokeRow key={inv.id} inv={inv} onDone={refresh} onError={onError} />
                 ))}
@@ -426,7 +437,11 @@ export function MembersScreen({
           </>
         ) : (
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            Los códigos los generan quienes administran la cuenta{admins.length ? `: ${admins.join(' o ')}` : ''}. Pídeles uno para invitar a alguien.
+            {admins.length
+              ? t('Los códigos los generan quienes administran la cuenta: {admins}. Pídeles uno para invitar a alguien.', {
+                  admins: admins.join(t(' o ')),
+                })
+              : t('Los códigos los generan quienes administran la cuenta. Pídeles uno para invitar a alguien.')}
           </p>
         )}
 
@@ -434,9 +449,9 @@ export function MembersScreen({
           {ROLE_HELP.map(([role, text]) => (
             <div key={role}>
               <dt>
-                <span className={`lu-role lu-role--${role}`}>{ROLE_LABEL[role]}</span>
+                <span className={`lu-role lu-role--${role}`}>{t(ROLE_LABEL[role])}</span>
               </dt>
-              <dd className="lu-small">{text}</dd>
+              <dd className="lu-small">{t(text)}</dd>
             </div>
           ))}
         </dl>
@@ -445,12 +460,12 @@ export function MembersScreen({
       <ConfirmDialog
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title="¿Salir de esta cuenta?"
-        confirmLabel="Salir"
+        title={t('¿Salir de esta cuenta?')}
+        confirmLabel={t('Salir')}
         busy={leave.isPending}
         onConfirm={() => leave.mutate()}
       >
-        {`Dejas de ver «${accountName}». Tus gastos siguen contando; si vuelves a entrar con un código, eliges tu nombre otra vez.`}
+        {t('Dejas de ver «{cuenta}». Tus gastos siguen contando; si vuelves a entrar con un código, eliges tu nombre otra vez.', { cuenta: accountName })}
       </ConfirmDialog>
 
       {quitar && (
@@ -477,11 +492,11 @@ function Lapiz({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function memberSub(p: PersonRow) {
-  if (p.is_me) return p.role === 'owner' ? 'Tú · creaste la cuenta' : 'Tú';
-  const parts = [p.paid_count ? plural(p.paid_count, 'gasto', 'gastos') : 'Sin gastos todavía'];
-  if (p.corrections_count) parts.push(`corrigió ${p.corrections_count}`);
-  else if (p.joined_at && isRecent(p.joined_at, 14)) parts.push(`entró el ${dayOf(p.joined_at)}`);
+function memberSub(p: PersonRow, t: T, dia: (iso: string) => string) {
+  if (p.is_me) return p.role === 'owner' ? t('Tú · creaste la cuenta') : t('Tú');
+  const parts = [p.paid_count ? plural(p.paid_count, t('gasto'), t('gastos')) : t('Sin gastos todavía')];
+  if (p.corrections_count) parts.push(t('corrigió {n}', { n: p.corrections_count }));
+  else if (p.joined_at && isRecent(p.joined_at, 14)) parts.push(t('entró el {dia}', { dia: dia(p.joined_at) }));
   return parts.join(' · ');
 }
 
@@ -504,18 +519,25 @@ function RoleControl({
   /** undefined: la cuenta está cerrada y ya no se quita a nadie */
   onRemove?: () => void;
 }) {
+  const t = useT();
   const role = person.role as Role;
   const canManage = !person.is_me && role !== 'owner' && (myRole === 'owner' || (myRole === 'admin' && role === 'member'));
-  if (!canManage) return <span className={`lu-role lu-role--${role}`}>{ROLE_LABEL[role]}</span>;
+  if (!canManage) return <span className={`lu-role lu-role--${role}`}>{t(ROLE_LABEL[role])}</span>;
   return (
     <span className="mb-manage">
-      <select className="mb-role" aria-label={`Rol de ${person.display_name}`} value={role} disabled={busy} onChange={(e) => onRole(e.target.value as Role)}>
-        <option value="admin">Admin</option>
-        <option value="member">Miembro</option>
+      <select
+        className="mb-role"
+        aria-label={t('Rol de {nombre}', { nombre: person.display_name })}
+        value={role}
+        disabled={busy}
+        onChange={(e) => onRole(e.target.value as Role)}
+      >
+        <option value="admin">{t('Admin')}</option>
+        <option value="member">{t('Miembro')}</option>
       </select>
       {onRemove && (
-        <Button variant="ghost" size="sm" onClick={onRemove} aria-label={`Quitar a ${person.display_name}`}>
-          Quitar…
+        <Button variant="ghost" size="sm" onClick={onRemove} aria-label={t('Quitar a {nombre}', { nombre: person.display_name })}>
+          {t('Quitar…')}
         </Button>
       )}
     </span>
@@ -523,6 +545,7 @@ function RoleControl({
 }
 
 function InviteButtons({ accountName, code, link }: { accountName: string; code: string; link: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -530,16 +553,16 @@ function InviteButtons({ accountName, code, link }: { accountName: string; code:
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      window.prompt('Copia el link', link);
+      window.prompt(t('Copia el link'), link);
     }
   };
   return (
     <div className="mb-btns">
       <Button size="sm" onClick={copy}>
-        {copied ? '¡Copiado!' : 'Copiar link'}
+        {copied ? t('¡Copiado!') : t('Copiar link')}
       </Button>
-      <a className="lu-btn lu-btn--secondary lu-btn--sm" href={whatsappUrl(inviteMessage({ accountName, code, link }))} target="_blank" rel="noreferrer">
-        Mandar al grupo
+      <a className="lu-btn lu-btn--secondary lu-btn--sm" href={whatsappUrl(inviteMessage({ accountName, code, link, t }))} target="_blank" rel="noreferrer">
+        {t('Mandar al grupo')}
       </a>
     </div>
   );
@@ -573,6 +596,7 @@ function NewCodeForm({
   onError: (e: unknown) => void;
 }) {
   const [supabase] = useState(() => createClient());
+  const t = useT();
   const {
     control,
     handleSubmit,
@@ -602,16 +626,16 @@ function NewCodeForm({
   return (
     <form className="mb-new" onSubmit={submit}>
       <details className="mb-opts">
-        <summary>Opciones del código</summary>
+        <summary>{t('Opciones del código')}</summary>
         <div className="mb-opts__grid">
           <Controller
             control={control}
             name="role"
             render={({ field }) => (
-              <Field label="Entran como" id="inv-rol">
+              <Field label={t('Entran como')} id="inv-rol">
                 <select id="inv-rol" value={field.value} onChange={field.onChange}>
-                  <option value="member">Miembro</option>
-                  <option value="admin">Admin</option>
+                  <option value="member">{t('Miembro')}</option>
+                  <option value="admin">{t('Admin')}</option>
                 </select>
               </Field>
             )}
@@ -620,11 +644,11 @@ function NewCodeForm({
             control={control}
             name="vence"
             render={({ field }) => (
-              <Field label="Vence" id="inv-vence">
+              <Field label={t('Vence')} id="inv-vence">
                 <select id="inv-vence" value={field.value} onChange={field.onChange}>
-                  <option value="7">En 7 días</option>
-                  <option value="30">En 30 días</option>
-                  <option value="0">No vence</option>
+                  <option value="7">{t('En 7 días')}</option>
+                  <option value="30">{t('En 30 días')}</option>
+                  <option value="0">{t('No vence')}</option>
                 </select>
               </Field>
             )}
@@ -632,17 +656,19 @@ function NewCodeForm({
           <Controller
             control={control}
             name="usos"
-            render={({ field }) => <Field label="Máximo de personas" id="inv-usos" value={field.value} onChange={field.onChange} inputMode="numeric" num />}
+            render={({ field }) => (
+              <Field label={t('Máximo de personas')} id="inv-usos" value={field.value} onChange={field.onChange} inputMode="numeric" num />
+            )}
           />
         </div>
         {errors.usos && (
           <p className="lu-field-error" role="alert">
-            {errors.usos.message}
+            {errors.usos.message && t(errors.usos.message)}
           </p>
         )}
       </details>
       <Button size="sm" variant={replaces ? 'ghost' : 'primary'} type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Creando…' : label}
+        {isSubmitting ? t('Creando…') : label}
       </Button>
     </form>
   );
@@ -650,6 +676,7 @@ function NewCodeForm({
 
 function RevokeRow({ inv, onDone, onError }: { inv: Invitation; onDone: () => void; onError: (e: unknown) => void }) {
   const [supabase] = useState(() => createClient());
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const revoke = async () => {
     setBusy(true);
@@ -661,10 +688,10 @@ function RevokeRow({ inv, onDone, onError }: { inv: Invitation; onDone: () => vo
   return (
     <div className="mb-inv-row">
       <span>
-        <code>{inv.code}</code> <span className="lu-muted">· {inviteHint(inv, dayOf)}</span>
+        <code>{inv.code}</code> <span className="lu-muted">· {inviteHint(inv, (iso) => dayOf(iso, t.idioma), t)}</span>
       </span>
       <Button size="sm" variant="ghost" onClick={revoke} disabled={busy}>
-        Anular
+        {t('Anular')}
       </Button>
     </div>
   );
@@ -677,6 +704,7 @@ function RevokeRow({ inv, onDone, onError }: { inv: Invitation; onDone: () => vo
  */
 function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded: () => void; onError: (e: unknown) => void }) {
   const [supabase] = useState(() => createClient());
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [texto, setTexto] = useState('');
   const [incluir, setIncluir] = useState(true);
@@ -686,8 +714,8 @@ function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombres.length) return setAviso('Escribe al menos un nombre');
-    if (nombres.some((n) => n.length > 40)) return setAviso('Cada nombre puede tener máximo 40 letras');
+    if (!nombres.length) return setAviso(t('Escribe al menos un nombre'));
+    if (nombres.some((n) => n.length > 40)) return setAviso(t('Cada nombre puede tener máximo 40 letras'));
     setBusy(true);
     setAviso(null);
     const { data, error } = await supabase.rpc('add_people', { p_account_id: accountId, p_names: nombres, p_include_in_shared: incluir });
@@ -696,8 +724,11 @@ function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded
     const r = data as { person_ids: string[]; resplit: number };
     setTexto('');
     setOpen(false);
+    const mas = plural(r.person_ids.length, t('persona más'), t('personas más'));
     setAviso(
-      `Listo: ${plural(r.person_ids.length, 'persona más', 'personas más')}${r.resplit ? ` y ${plural(r.resplit, 'gasto dividido', 'gastos divididos')} otra vez entre todos` : ''}.`,
+      r.resplit
+        ? t('Listo: {personas} y {gastos} otra vez entre todos.', { personas: mas, gastos: plural(r.resplit, t('gasto dividido'), t('gastos divididos')) })
+        : t('Listo: {personas}.', { personas: mas }),
     );
     notifyAccountChanged(accountId);
     onAdded();
@@ -707,7 +738,7 @@ function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded
     return (
       <div className="mb-add">
         <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-          Agregar gente sin cuenta
+          {t('Agregar gente sin cuenta')}
         </Button>
         {aviso && (
           <p className="lu-small" role="status" style={{ margin: '6px 0 0' }}>
@@ -721,24 +752,26 @@ function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded
     <form className="mb-add mb-add--open" onSubmit={submit}>
       <div className="lu-field">
         <label className="lu-label" htmlFor="personas-nuevas">
-          Nombres
+          {t('Nombres')}
         </label>
         <input
           id="personas-nuevas"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Mafe, Santi y Caro"
+          placeholder={t('Mafe, Santi y Caro')}
           autoComplete="off"
           aria-describedby="personas-nuevas-ayuda"
         />
         <span className="lu-small lu-muted" id="personas-nuevas-ayuda">
-          {nombres.length > 1 ? `Vas a agregar a ${nombres.join(', ')}.` : 'Separa con comas para agregar a varias de una vez.'}
+          {nombres.length > 1 ? t('Vas a agregar a {nombres}.', { nombres: nombres.join(', ') }) : t('Separa con comas para agregar a varias de una vez.')}
         </span>
       </div>
       <label className="qp-check">
         <input type="checkbox" checked={incluir} onChange={(e) => setIncluir(e.target.checked)} />
         <span className="lu-small">
-          Dividir con {nombres.length > 1 ? 'ellos' : 'esa persona'} los gastos que ya estaban entre todos (si subiste los recibos antes)
+          {nombres.length > 1
+            ? t('Dividir con ellos los gastos que ya estaban entre todos (si subiste los recibos antes)')
+            : t('Dividir con esa persona los gastos que ya estaban entre todos (si subiste los recibos antes)')}
         </span>
       </label>
       {aviso && (
@@ -748,10 +781,10 @@ function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded
       )}
       <div className="mb-btns">
         <Button size="sm" variant="secondary" type="submit" disabled={busy}>
-          {busy ? 'Agregando…' : nombres.length > 1 ? `Agregar a ${nombres.length}` : 'Agregar'}
+          {busy ? t('Agregando…') : nombres.length > 1 ? t('Agregar a {n}', { n: nombres.length }) : t('Agregar')}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-          Cancelar
+          {t('Cancelar')}
         </Button>
       </div>
     </form>

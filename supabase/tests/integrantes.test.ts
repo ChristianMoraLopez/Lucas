@@ -140,7 +140,8 @@ describe('integrantes del grupo → personas de la cuenta', () => {
         'select public.connector_link_group($1, $2, $3, $4, $5) as r',
         [CONTADOR, JID_NUEVO, 'Despedida', CODIGO_PASEO, '573001112233'],
       );
-      expect(link).toMatchObject({ ok: true, people_added: 1, members: 2 });
+      // Con el idioma de la cuenta, para que Luks conteste en ese idioma (migración 260)
+      expect(link).toMatchObject({ ok: true, people_added: 1, members: 2, language: 'es' });
       const juli = (await personas(tx, PASEO)).find((p) => p.display_name === 'Juli');
       expect(juli?.wa).toEqual(['573009990005']);
     });

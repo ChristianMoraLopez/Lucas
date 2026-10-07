@@ -31,7 +31,17 @@ export interface GroupResult {
 }
 
 export type LinkResult =
-  | { ok: true; already: boolean; account_id: string; account_name: string; group_id: string; people_added?: number; members?: number }
+  | {
+      ok: true;
+      already: boolean;
+      account_id: string;
+      account_name: string;
+      group_id: string;
+      people_added?: number;
+      members?: number;
+      /** El idioma de la cuenta (migración 260) */
+      language?: 'es' | 'en' | null;
+    }
   | { ok: false; error: 'codigo_invalido' | 'otra_cuenta' };
 
 export interface IngestCheck {

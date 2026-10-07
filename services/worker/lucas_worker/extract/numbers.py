@@ -8,6 +8,27 @@ guarda lo que da `normalize_merchant` y ambos lados deben coincidir.
 from __future__ import annotations
 
 import re
+from contextvars import ContextVar
+
+# ---------------------------------------------------------------------------
+# La moneda de la cuenta. En pesos (COP, CLP) los montos son pesos enteros; en
+# dólares y bolivianos (USD, BOB) son centavos: «$12.50» → 1250. La fija el
+# pipeline al empezar cada mensaje (worker_message_context trae la cuenta).
+# ---------------------------------------------------------------------------
+
+_CENTAVOS: ContextVar[bool] = ContextVar("centavos", default=False)
+MONEDAS_CON_CENTAVOS = frozenset({"USD", "BOB"})
+
+
+def fijar_moneda(currency: str | None) -> None:
+    """Desde aquí, los montos se leen en la moneda de esta cuenta."""
+    _CENTAVOS.set((currency or "COP").upper() in MONEDAS_CON_CENTAVOS)
+
+
+def con_centavos() -> bool:
+    """¿La cuenta guarda centavos (dólares, bolivianos)?"""
+    return _CENTAVOS.get()
+
 
 _TILDES = str.maketrans(
     "ÁÀÄÂÉÈËÊÍÌÏÎÓÒÖÔÚÙÜÛÑáàäâéèëêíìïîóòöôúùüûñ",
@@ -53,9 +74,35 @@ _PEGADO = re.compile(r"(?:^|[^\d/])(\d{4,9})(?:[^\d/]|$)")
 _SUELTO = re.compile(r"(?:^|[^\d/.,])(\d{1,3})(?:[^\d/.,]|$)")
 
 
+_K = re.compile(r"(\d+(?:[.,]\d+)?)\s*k\b")
+
+
+def _monto_con_centavos(t: str) -> int | None:
+    """En dólares o bolivianos: «uber 23.40» 2340 · «dinner $85» 8500 · «1.2k rent» 120000 (centavos)."""
+    if m := _K.search(t):
+        return round(float(m.group(1).replace(",", ".")) * 1_000 * 100)
+    candidatos = []
+    for m in _NUMERO.finditer(t):
+        crudo = m.group(1).replace(" ", "")
+        if len(re.sub(r"\D", "", crudo)) > 8:  # un teléfono, una cuenta
+            continue
+        v = parse_number(crudo)
+        if v is not None and v > 0:
+            # Lo que tiene «$» adelante gana; si no, el monto más grande («2 tacos 15» → 15)
+            candidatos.append(("$" in m.group(0) or "$" in t[max(0, m.start() - 2) : m.start()], v))
+    if not candidatos:
+        return None
+    return max(candidatos)[1]
+
+
 def parse_cop_amount(text: str | None) -> int | None:
-    """«100 lucas» 100.000 · «1,2 palos» 1.200.000 · «$84.300» 84.300 · «pagué 38 el taxi» 38.000."""
+    """«100 lucas» 100.000 · «1,2 palos» 1.200.000 · «$84.300» 84.300 · «pagué 38 el taxi» 38.000.
+
+    En una cuenta en dólares o bolivianos, en centavos: «taxi 45» 4500 · «uber 23.40» 2340.
+    """
     t = strip_accents(text or "").lower()
+    if con_centavos():
+        return _monto_con_centavos(t)
     if m := _MILLONES.search(t):
         return round(float(m.group(1).replace(",", ".")) * 1_000_000)
     if m := _MILES.search(t):
@@ -77,22 +124,24 @@ _NUMERO = re.compile(r"(?<![\d.,])\$?\s?(\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d{1,2})?
 
 
 def parse_number(token: str) -> int | None:
-    """Un número de recibo a pesos enteros (los centavos se descartan)."""
+    """Un número de recibo a pesos enteros (los centavos se descartan); en dólares o bolivianos, a centavos."""
     s = token.strip().lstrip("$").strip().replace(" ", "")
     if not s or not re.fullmatch(r"[\d.,]+", s):
         return None
+    por = 100 if con_centavos() else 1
     ultimo = max(s.rfind("."), s.rfind(","))
     if ultimo == -1:
-        return int(s)
+        return int(s) * por
     decimales = s[ultimo + 1 :]
     entero = s[:ultimo]
     if len(decimales) == 3:
         # Separador de miles: «11.300», «1,785,000»
-        return int(re.sub(r"[.,]", "", s))
+        return int(re.sub(r"[.,]", "", s)) * por
     if len(decimales) in (1, 2):
-        # Centavos: «11300.00», «11.300,00», «11,300.00»
+        # Centavos: «11300.00», «11.300,00», «11,300.00» (en pesos se descartan)
         digits = re.sub(r"[.,]", "", entero)
-        return int(digits) if digits else 0
+        base = int(digits) if digits else 0
+        return base * 100 + int(decimales.ljust(2, "0")) if por == 100 else base
     return None
 
 

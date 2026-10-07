@@ -12,7 +12,7 @@ import { Avatar, Button, LottieSlot } from '@/components/lucas-ui';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatDay, formatWhen, monthName, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
-import { formatear, variantes } from '@/lib/telefono';
+import { canonico, formatear, variantes } from '@/lib/telefono';
 import { accountGlyph, accountTone, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -382,8 +382,10 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
   );
 }
 
-function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => void }) {
+function Whatsapp({ numeros: guardados, onChanged }: { numeros: string[]; onChanged: () => void }) {
   const t = useT();
+  // Las variantes del mismo número (México con 521, Brasil sin el noveno dígito) se ven como uno
+  const numeros = [...new Set(guardados.map(canonico))];
   const [supabase] = useState(() => createClient());
   const [numero, setNumero] = useState<string | null>(null);
   const [escribio, setEscribio] = useState(false);
@@ -400,6 +402,11 @@ function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => 
     const { data, error } = await supabase.rpc('add_my_whatsapp', { p_phone: numero });
     if (error) return setEstado({ error: humanError(error) });
     const r = data as { wa_id: string; accounts: number; taken_in: string[] };
+    // WhatsApp puede mandar el mismo número de otra forma (México, Brasil): también quedan esas
+    for (const v of variantes(numero).slice(1)) {
+      const { error: otra } = await supabase.rpc('add_my_whatsapp', { p_phone: v });
+      if (otra) return setEstado({ error: humanError(otra) });
+    }
     setVuelta((v) => v + 1);
     if (r.accounts) chispasEn(boton);
     setEstado({

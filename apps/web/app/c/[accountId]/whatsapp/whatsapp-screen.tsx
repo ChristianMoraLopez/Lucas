@@ -17,6 +17,7 @@ import { rico } from '@/lib/i18n/rico';
 import { formatear } from '@/lib/telefono';
 import { type AccountPerson, type AccountType, type MyWhatsappLink, plural, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
+import { MonedaIdioma } from './moneda-idioma';
 
 type Grupo = WhatsappOverview['groups'][number];
 type Remitente = WhatsappOverview['unknown_senders'][number];
@@ -95,11 +96,13 @@ export function WhatsappScreen({
   accountName,
   accountType,
   closed,
+  ajustes,
 }: {
   accountId: string;
   accountName: string;
   accountType: AccountType;
   closed: boolean;
+  ajustes: Omit<React.ComponentProps<typeof MonedaIdioma>, 'accountId'>;
 }) {
   const t = useT();
   const [supabase] = useState(() => createClient());
@@ -325,6 +328,7 @@ export function WhatsappScreen({
         {d.groups.length > 0 && <Grupos grupos={d.groups} isAdmin={d.is_admin} onDone={refrescar} onError={setError} />}
         {conectado && <OtrosGrupos />}
         {(telefono || yoLeo) && <MiWhatsapp />}
+        {d.is_admin && !closed && <MonedaIdioma accountId={accountId} {...ajustes} />}
       </aside>
     </div>
   );

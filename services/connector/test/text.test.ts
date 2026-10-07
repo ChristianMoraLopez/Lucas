@@ -43,6 +43,11 @@ describe('¿lo hizo Luks?', () => {
     'Anotado: Asadero · $272.500 · pagó Felipe.',
     'Anotados 2:\n• Hielo · $8.000\n• Ron · $116.000',
     'Recibido: Taxi · $45.000. Queda por revisar en Luks.',
+    'Logged: Taxi · $45.00 · paid by Ana.',
+    'Received: Uber · $18.50. Needs review in Luks.',
+    'Already logged: Hotel · $900.00 (Sep 24).',
+    'Anotado: Mercado · Bs 120,50 · pagó Juan.',
+    '🧾 *Beach trip*\nWe spent *$480.00*\n\n_Made with mrluks.com_',
   ])('«%s» sí', (t) => expect(esMensajeDeLuks(t)).toBe(true));
 
   it.each(['taxi al aeropuerto 45 lucas', 'Recibido el pago de 50.000, gracias', 'pagué 120.000 · el hotel', 'https://www.reddit.com/r/Colombia 20 mil', null])(
@@ -88,6 +93,37 @@ describe('confirmaciones', () => {
     expect(t).toBe(
       'Anotados 2:\n• Asadero El Llanero · $272.500 · pagó Mafe · entre 8\n• Taxi · $45.000 · pagó Santi · entre 4\nUno queda por revisar en Luks.',
     );
+  });
+});
+
+describe('en inglés y en otras monedas', () => {
+  it('dólares y bolivianos en centavos; pesos chilenos como los colombianos', () => {
+    expect(formatCOP(1250, 'USD', 'en')).toBe('$12.50');
+    expect(formatCOP(1_234_550, 'USD', 'en')).toBe('$12,345.50');
+    expect(formatCOP(1250, 'BOB')).toBe('Bs 12,50');
+    expect(formatCOP(15_990, 'CLP')).toBe('$15.990');
+    expect(formatCOP(272_500, 'COP', 'en')).toBe('$272,500');
+  });
+
+  it('las confirmaciones en el idioma de la cuenta', () => {
+    const en = { currency: 'USD', language: 'en' } as const;
+    expect(formatReplies([r({ ...en, expense: { merchant: 'Diner', total_cop: 8_450, status: 'confirmed', payer: 'Sam', split_count: 3 } })])).toBe(
+      'Logged: Diner · $84.50 · paid by Sam · split 3 ways.',
+    );
+    expect(formatReplies([r({ ...en, expense: { merchant: 'Uber', total_cop: 1_850, status: 'pending_review', payer: null, split_count: 1 } })])).toBe(
+      'Received: Uber · $18.50. Needs review in Luks.',
+    );
+    expect(
+      formatReplies([r({ ...en, status: 'duplicate', expense: null, duplicate_of: { merchant: 'Motel', total_cop: 12_000, expense_date: '2026-09-24' } })]),
+    ).toBe('Already logged: Motel · $120.00 (Sep 24).');
+    expect(
+      formatReplies([
+        r({ ...en, expense: { merchant: 'Diner', total_cop: 8_450, status: 'confirmed', payer: null, split_count: 1 } }),
+        r({ ...en, message_id: 'm2', expense: { merchant: 'Gas', total_cop: 4_000, status: 'pending_review', payer: null, split_count: 1 } }),
+      ]),
+    ).toBe('Logged 2:\n• Diner · $84.50\n• Gas · $40.00\nOne needs review in Luks.');
+    // Y Luks no se anota a sí mismo
+    expect(esMensajeDeLuks('Logged: Diner · $84.50 · paid by Sam · split 3 ways.')).toBe(true);
   });
 });
 

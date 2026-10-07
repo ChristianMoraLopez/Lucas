@@ -122,8 +122,8 @@ export class Ingestor {
     if (session.kind === 'contador' && this.limiter.allow(m.chatId)) {
       const text = r.ok
         ? r.already
-          ? MSG.alreadyLinked(r.account_name)
-          : MSG.linked(r.account_name, r.members)
+          ? MSG.alreadyLinked(r.account_name, r.language ?? 'es')
+          : MSG.linked(r.account_name, r.members, r.language ?? 'es')
         : r.error === 'otra_cuenta'
           ? MSG.otherAccount
           : MSG.badCode;

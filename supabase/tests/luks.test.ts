@@ -41,6 +41,12 @@ describe('lo que hace Luks no es un gasto', () => {
         'Recibido: Taxi · $45.000. Queda por revisar en Luks.',
         'Anotados 2:\n• Hielo · $8.000\n• Ron · $116.000\nUno queda por revisar en Luks.',
         'Ya estaba anotado: Hostal · $840.000 (25 sep)',
+        // En inglés y en bolivianos (migración 260)
+        'Logged: Diner · $84.50 · paid by Sam · split 3 ways.',
+        'Received: Uber · $18.50. Needs review in Luks.',
+        'Already logged: Motel · $120.00 (Sep 24)',
+        'Anotado: Mercado · Bs 120,50 · pagó Juan.',
+        '🧾 *Beach trip*\nWe spent *$480.00*\n\n_Made with mrluks.com_',
       ]) {
         expect(await esDeLuks(tx, t), t).toBe(true);
       }
@@ -50,6 +56,8 @@ describe('lo que hace Luks no es un gasto', () => {
         'pagué 120.000 · el hotel',
         'almuerzo 25.000, lo anoto en mrluks.com',
         'https://www.reddit.com/r/Colombia 20 mil',
+        'Received the money, thanks! $50 for the tickets',
+        'logged in to my bank, paid 50',
       ]) {
         expect(await esDeLuks(tx, t), t).toBe(false);
       }

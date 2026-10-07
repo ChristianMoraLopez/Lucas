@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoLink } from '@/components/logo-link';
 import { MenuPrincipal } from '@/components/menu-principal';
+import { getT } from '@/lib/i18n/server';
 import { type AccountOverview, accountGlyph, accountTone } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
 /** Atajo de la PWA («Subir un recibo»): con una sola cuenta activa va directo; si hay varias, pregunta a cuál. */
 export default async function SubirAtajoPage() {
   const { supabase } = await requireUser('/subir');
+  const t = await getT();
   const { data } = await supabase.rpc('account_overview');
   const activas = ((data ?? []) as AccountOverview[]).filter((a) => a.status === 'active');
   if (activas.length === 1) redirect(`/c/${activas[0].id}/subir`);
@@ -22,9 +24,9 @@ export default async function SubirAtajoPage() {
       </header>
       <div className="nc">
         <div className="ap-intro">
-          <h1 className="lu-display">¿A qué cuenta?</h1>
+          <h1 className="lu-display">{t('¿A qué cuenta?')}</h1>
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            {activas.length ? 'Elige dónde va el gasto.' : 'Todavía no tienes cuentas activas. Crea una o entra con un código.'}
+            {activas.length ? t('Elige dónde va el gasto.') : t('Todavía no tienes cuentas activas. Crea una o entra con un código.')}
           </p>
         </div>
         <div className="ap-list">
@@ -35,13 +37,13 @@ export default async function SubirAtajoPage() {
               </span>
               <span className="ap-row__txt">
                 <span className="ap-row__n">{a.name}</span>
-                <span className="ap-row__s">{a.type === 'evento' ? 'Evento' : 'Hogar'}</span>
+                <span className="ap-row__s">{a.type === 'evento' ? t('Evento') : t('Hogar')}</span>
               </span>
             </Link>
           ))}
           {!activas.length && (
             <Link href="/cuentas/nueva" className="lu-btn lu-btn--primary">
-              Crear cuenta
+              {t('Crear cuenta')}
             </Link>
           )}
         </div>

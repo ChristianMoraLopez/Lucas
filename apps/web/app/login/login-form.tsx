@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useT } from '@/components/idioma';
 import { Button, Divider, Field } from '@/components/lucas-ui';
 import { callbackUrl } from '@/lib/auth';
 import { humanError } from '@/lib/errors';
@@ -31,6 +32,7 @@ const TITULOS: Record<Modo, string> = {
 
 export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next: string; initialError: string | null; initialMode?: Modo }) {
   const router = useRouter();
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const [modo, setModo] = useState<Modo>(initialMode);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -76,17 +78,17 @@ export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next
       if (error) return setError(humanError(error));
       // Si el proyecto no pide confirmar el correo, ya hay sesión
       if (data.session) return entrarYa();
-      if (data.user && data.user.identities?.length === 0) return setError('Ya hay una cuenta con ese correo. Entra o recupera tu contraseña.');
-      return setAviso(`Te mandamos un correo a ${email} para confirmar tu cuenta. Ábrelo y quedas adentro.`);
+      if (data.user && data.user.identities?.length === 0) return setError(t('Ya hay una cuenta con ese correo. Entra o recupera tu contraseña.'));
+      return setAviso(t('Te mandamos un correo a {correo} para confirmar tu cuenta. Ábrelo y quedas adentro.', { correo: email }));
     }
     if (modo === 'olvide') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callbackUrl(window.location.origin, '/cuenta/clave') });
       if (error) return setError(humanError(error));
-      return setAviso(`Si ${email} tiene cuenta en Luks, te llega un enlace para poner una contraseña nueva.`);
+      return setAviso(t('Si {correo} tiene cuenta en Luks, te llega un enlace para poner una contraseña nueva.', { correo: email }));
     }
     const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: vuelta } });
     if (error) return setError(humanError(error));
-    return setAviso(`Te mandamos un enlace a ${email}. Ábrelo y quedas adentro, aunque sea desde el celular.`);
+    return setAviso(t('Te mandamos un enlace a {correo}. Ábrelo y quedas adentro, aunque sea desde el celular.', { correo: email }));
   });
 
   const conGoogle = async () => {
@@ -104,15 +106,15 @@ export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next
   return (
     <div className="lg-form">
       {principal && (
-        <div className="lg-tabs" role="tablist" aria-label="Entrar o crear cuenta">
+        <div className="lg-tabs" role="tablist" aria-label={t('Entrar o crear cuenta')}>
           {(['entrar', 'crear'] as const).map((m) => (
             <button key={m} type="button" role="tab" aria-selected={modo === m} className="lg-tab" onClick={() => cambiar(m)}>
-              {TITULOS[m]}
+              {t(TITULOS[m])}
             </button>
           ))}
         </div>
       )}
-      {!principal && <h2 className="lu-title">{TITULOS[modo]}</h2>}
+      {!principal && <h2 className="lu-title">{t(TITULOS[modo])}</h2>}
 
       {aviso ? (
         <>
@@ -120,50 +122,50 @@ export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next
             {aviso}
           </p>
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            ¿No llega? Revisa en spam o en «Promociones».
+            {t('¿No llega? Revisa en spam o en «Promociones».')}
           </p>
           <Button variant="ghost" size="sm" onClick={() => cambiar('entrar')}>
-            Volver a entrar
+            {t('Volver a entrar')}
           </Button>
         </>
       ) : (
         <form onSubmit={enviar} noValidate className="lg-form">
           {modo === 'crear' && (
             <>
-              <Field label="¿Cómo te dicen?" id="nombre">
+              <Field label={t('¿Cómo te dicen?')} id="nombre">
                 <input id="nombre" autoComplete="given-name" {...register('name')} />
               </Field>
               {errors.name && <FieldError text={errors.name.message} />}
             </>
           )}
 
-          <Field label="Correo" id="correo">
+          <Field label={t('Correo')} id="correo">
             <input id="correo" type="email" autoComplete="email" inputMode="email" {...register('email')} />
           </Field>
           {errors.email && <FieldError text={errors.email.message} />}
 
           {(modo === 'entrar' || modo === 'crear') && (
             <>
-              <Field label="Contraseña" id="clave">
+              <Field label={t('Contraseña')} id="clave">
                 <input id="clave" type="password" autoComplete={modo === 'crear' ? 'new-password' : 'current-password'} {...register('password')} />
               </Field>
               {errors.password && <FieldError text={errors.password.message} />}
-              {modo === 'crear' && !errors.password && <span className="lu-small lu-muted">Mínimo 8 caracteres.</span>}
+              {modo === 'crear' && !errors.password && <span className="lu-small lu-muted">{t('Mínimo 8 caracteres.')}</span>}
             </>
           )}
 
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Un momento…' : modo === 'entrar' ? 'Entrar' : modo === 'crear' ? 'Crear mi cuenta' : 'Mandarme el enlace'}
+            {isSubmitting ? t('Un momento…') : modo === 'entrar' ? t('Entrar') : modo === 'crear' ? t('Crear mi cuenta') : t('Mandarme el enlace')}
           </Button>
 
           {modo === 'entrar' && (
             <Button variant="ghost" size="sm" onClick={() => cambiar('olvide')}>
-              ¿Olvidaste tu contraseña?
+              {t('¿Olvidaste tu contraseña?')}
             </Button>
           )}
           {!principal && (
             <Button variant="ghost" size="sm" onClick={() => cambiar('entrar')}>
-              Volver
+              {t('Volver')}
             </Button>
           )}
         </form>
@@ -177,12 +179,12 @@ export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next
 
       {principal && !aviso && (
         <>
-          <Divider label="o" />
+          <Divider label={t('o')} />
           <Button variant="outline" onClick={conGoogle} disabled={googleBusy}>
-            {googleBusy ? 'Abriendo Google…' : 'Seguir con Google'}
+            {googleBusy ? t('Abriendo Google…') : t('Seguir con Google')}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => cambiar('enlace')}>
-            Prefiero un enlace al correo, sin contraseña
+            {t('Prefiero un enlace al correo, sin contraseña')}
           </Button>
         </>
       )}
@@ -190,10 +192,12 @@ export function LoginForm({ next, initialError, initialMode = 'entrar' }: { next
   );
 }
 
+/** Los mensajes de los esquemas (en español) pasan por t aquí */
 function FieldError({ text }: { text?: string }) {
+  const t = useT();
   return (
     <p className="lu-field-error" role="alert">
-      {text}
+      {text && t(text)}
     </p>
   );
 }

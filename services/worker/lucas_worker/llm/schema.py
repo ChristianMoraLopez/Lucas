@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..extract.numbers import parse_number
+from ..extract.numbers import con_centavos, parse_number
 
 
 def _texto(v: Any, largo: int) -> str | None:
@@ -30,6 +30,9 @@ def _pesos(v: Any) -> int | None:
     if isinstance(v, bool):
         return None
     if isinstance(v, int | float):
+        # En dólares o bolivianos se le piden centavos; si igual manda «12.5», son dólares
+        if con_centavos() and isinstance(v, float) and not v.is_integer():
+            return max(0, round(v * 100))
         return max(0, round(v))
     n = parse_number(str(v))
     return n if n is None else max(0, n)

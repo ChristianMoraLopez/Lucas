@@ -6,12 +6,16 @@ import { type ReactNode, useEffect, useMemo, useState, useTransition } from 'rea
 import { FinDeCuenta } from '@/components/archivo-cuenta';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { formatCOP, lucas } from '@/components/lucas-core';
+import { useT } from '@/components/idioma';
 import { Amount, Avatar, BillCard, Button, CategoryTag, ICONS, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { useDinero } from '@/components/moneda';
 import { copiar, copiarLuego } from '@/lib/clipboard';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import type { T } from '@/lib/i18n';
+import { rico } from '@/lib/i18n/rico';
 import { whatsappUrl } from '@/lib/invite';
+import { type Moneda, unidades } from '@/lib/moneda';
 import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
 import { minTransfers } from '@/lib/settlement';
 import { cobroMessage, displayShare, grupoMessage, sharedLink } from '@/lib/share';
@@ -27,7 +31,7 @@ function otroMes(mes: string, n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-const mesLargo = (mes: string) => `${monthName(mes)} ${mes.slice(0, 4)}`;
+const mesLargo = (mes: string, t: T) => `${monthName(mes, t.idioma)} ${mes.slice(0, 4)}`;
 
 /**
  * Liquidar (captura 5 del kit): cuánto puso cada uno, cuánto le tocaba y quién
@@ -55,6 +59,9 @@ export function SettleScreen({
   /** Ya la archivó (solo para ella) */
   archivada?: boolean;
 }) {
+  const t = useT();
+  const $ = useDinero();
+  const formatCOP = $.fmt;
   const router = useRouter();
   const [supabase] = useState(() => createClient());
   const [, startRefresh] = useTransition();
@@ -69,7 +76,7 @@ export function SettleScreen({
   const cerrada = d.account.status === 'closed';
   const s = d.settlement;
   const people = new Map(d.people.map((p) => [p.id, p]));
-  const nombre = (id: string | null) => (id && people.get(id)?.name) || 'Alguien';
+  const nombre = (id: string | null) => (id && people.get(id)?.name) || t('Alguien');
 
   const refresh = () => startRefresh(() => router.refresh());
   // Otra persona marca una transferencia, liquidan o llega un gasto: se vuelve a pedir
@@ -86,32 +93,35 @@ export function SettleScreen({
 
   const transfers: SettlementTransfer[] = s
     ? s.transfers
-    : calculo.transfers.map((t, i) => ({ id: `previa-${i}`, from: t.from, to: t.to, amount: t.amount, paid_at: null, paid_by: null }));
+    : calculo.transfers.map((x, i) => ({ id: `previa-${i}`, from: x.from, to: x.to, amount: x.amount, paid_at: null, paid_by: null }));
   const total = d.people.reduce((sum, p) => sum + p.paid, 0);
-  const pagadas = transfers.filter((t) => t.paid_at).length;
-  const pendiente = transfers.reduce((sum, t) => sum + (t.paid_at ? 0 : t.amount), 0);
+  const pagadas = transfers.filter((x) => x.paid_at).length;
+  const pendiente = transfers.reduce((sum, x) => sum + (x.paid_at ? 0 : x.amount), 0);
   const todoPagado = Boolean(s) && pagadas === transfers.length;
   const partes = new Set(d.people.map((p) => p.share));
   const porCabeza = partes.size === 1 && total > 0 ? d.people[0].share : null;
   const bloqueos = d.pending_count + d.incomplete_count;
-  const queSe = evento ? 'el paseo' : monthName(d.month as string).toLowerCase();
-  const puedeMarcar = (t: SettlementTransfer) => !cerrada && (d.is_admin || t.from === d.my_person_id || t.to === d.my_person_id);
+  const mesDe = (m: string) => (t.idioma === 'en' ? monthName(m, 'en') : monthName(m).toLowerCase());
+  const queSe = evento ? t('el paseo') : mesDe(d.month as string);
+  const puedeMarcar = (x: SettlementTransfer) => !cerrada && (d.is_admin || x.from === d.my_person_id || x.to === d.my_person_id);
 
   // Cobrar por WhatsApp: el admin, o a quien le deben. El mensaje lleva el link
   // donde esa persona ve lo suyo (sin instalar nada) y la publicidad de Luks.
-  const puedeCobrar = (t: SettlementTransfer) => !cerrada && !t.paid_at && (d.is_admin || t.to === d.my_person_id);
+  const puedeCobrar = (x: SettlementTransfer) => !cerrada && !x.paid_at && (d.is_admin || x.to === d.my_person_id);
   const mesDelLink = evento ? null : d.month;
-  const cobro = (t: SettlementTransfer, tk: string | null) =>
+  const cobro = (x: SettlementTransfer, tk: string | null) =>
     whatsappUrl(
       cobroMessage({
-        debtor: nombre(t.from),
-        creditor: nombre(t.to),
-        amount: t.amount,
+        debtor: nombre(x.from),
+        creditor: nombre(x.to),
+        amount: x.amount,
         accountName: d.account.name,
-        link: tk ? sharedLink(origin, tk, { person: t.from, month: mesDelLink }) : null,
-        creditorIsMe: t.to === d.my_person_id,
+        link: tk ? sharedLink(origin, tk, { person: x.from, month: mesDelLink, idioma: t.idioma }) : null,
+        creditorIsMe: x.to === d.my_person_id,
+        t,
+        moneda: $.moneda,
       }),
-      phones[t.from],
+      phones[x.from],
     );
   /** El link público; si no existe y es admin, se crea (cobrar es compartir) */
   const asegurarLink = async () => {
@@ -134,15 +144,15 @@ export function SettleScreen({
     if (w) w.location.href = destino;
     else window.location.href = destino;
   };
-  const botonCobrar = (t: SettlementTransfer) => (
+  const botonCobrar = (x: SettlementTransfer) => (
     <a
       className="lu-btn lu-btn--sm lu-btn--secondary"
-      href={cobro(t, token)}
+      href={cobro(x, token)}
       target="_blank"
       rel="noreferrer"
-      onClick={(e) => abrirConLink(e, (tk) => cobro(t, tk))}
+      onClick={(e) => abrirConLink(e, (tk) => cobro(x, tk))}
     >
-      {t.to === d.my_person_id ? 'Cobrarle' : 'Recordarle'} por WhatsApp
+      {x.to === d.my_person_id ? t('Cobrarle por WhatsApp') : t('Recordarle por WhatsApp')}
     </a>
   );
 
@@ -150,14 +160,16 @@ export function SettleScreen({
   const mensajeGrupo = (tk: string | null) =>
     grupoMessage({
       accountName: d.account.name,
-      periodo: evento ? null : mesLargo(d.month as string),
+      periodo: evento ? null : mesLargo(d.month as string, t),
       total,
       people: d.people.length,
       porCabeza,
       transfers,
       nombre,
       liquidada: Boolean(s),
-      link: tk ? sharedLink(origin, tk, { month: mesDelLink }) : null,
+      link: tk ? sharedLink(origin, tk, { month: mesDelLink, idioma: t.idioma }) : null,
+      t,
+      moneda: $.moneda,
     });
 
   const correr = async (clave: string, fn: () => PromiseLike<{ error: { message?: string } | null }>) => {
@@ -179,27 +191,28 @@ export function SettleScreen({
         p_transfers: calculo.transfers.map(({ from, to, amount }) => ({ from, to, amount })),
       }),
     );
-  const marcar = (t: SettlementTransfer, pagada: boolean) => correr(t.id, () => supabase.rpc('mark_transfer', { p_transfer_id: t.id, p_paid: pagada }));
+  const marcar = (x: SettlementTransfer, pagada: boolean) => correr(x.id, () => supabase.rpc('mark_transfer', { p_transfer_id: x.id, p_paid: pagada }));
   const reabrir = () => correr('reabrir', () => supabase.rpc('reopen_settlement', { p_settlement_id: (s as NonNullable<typeof s>).id }));
   const cerrar = () => correr('cerrar', () => supabase.rpc('close_account', { p_account_id: accountId }));
 
   let subtitulo: string;
-  if (total === 0) subtitulo = evento ? 'Todavía no hay gastos para dividir.' : `Todavía no hay gastos en ${queSe}.`;
-  else if (s && todoPagado) subtitulo = cerrada ? 'El paseo quedó saldado y archivado.' : 'Todas las transferencias están pagadas: quedaron a mano.';
-  else if (s) subtitulo = `Con ${plural(transfers.length, 'transferencia', 'transferencias')} quedan todos a paz y salvo. Márquenlas cuando se hagan.`;
+  const nTransfers = plural(transfers.length, t('transferencia'), t('transferencias'));
+  if (total === 0) subtitulo = evento ? t('Todavía no hay gastos para dividir.') : t('Todavía no hay gastos en {que}.', { que: queSe });
+  else if (s && todoPagado) subtitulo = cerrada ? t('El paseo quedó saldado y archivado.') : t('Todas las transferencias están pagadas: quedaron a mano.');
+  else if (s) subtitulo = t('Con {n} quedan todos a paz y salvo. Márquenlas cuando se hagan.', { n: nTransfers });
   else if (transfers.length)
-    subtitulo = `Así quedan a mano, con ${plural(transfers.length, 'transferencia', 'transferencias')}. ${d.is_admin ? `Cuando estén de acuerdo, liquiden ${queSe}.` : 'Quien administra la cuenta la liquida.'}`;
-  else subtitulo = 'Cada quien puso lo que le tocaba: nadie le debe a nadie.';
+    subtitulo = `${t('Así quedan a mano, con {n}.', { n: nTransfers })} ${d.is_admin ? t('Cuando estén de acuerdo, liquiden {que}.', { que: queSe }) : t('Quien administra la cuenta la liquida.')}`;
+  else subtitulo = t('Cada quien puso lo que le tocaba: nadie le debe a nadie.');
 
   return (
     <div className="st">
       <header className="st-head">
         <span className="lu-label">
-          {evento ? `Evento${d.account.starts_on ? ` · ${formatRange(d.account.starts_on, d.account.ends_on)}` : ''}` : 'Hogar · mes a mes'}
+          {evento
+            ? `${t('Evento')}${d.account.starts_on ? ` · ${formatRange(d.account.starts_on, d.account.ends_on, t.idioma)}` : ''}`
+            : t('Hogar · mes a mes')}
         </span>
-        <h1 className="lu-display">
-          ¿Quién le paga <span className="lu-mark">a quién?</span>
-        </h1>
+        <h1 className="lu-display">{rico(t('¿Quién le paga {a_quien}'), { a_quien: <span className="lu-mark">{t('a quién?')}</span> })}</h1>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
           {subtitulo}
         </p>
@@ -210,19 +223,25 @@ export function SettleScreen({
         <div className="ed-alert" role="status">
           {d.pending_count > 0 && (
             <Sticker tone="revisar" rotate={-5}>
-              {d.pending_count} por revisar
+              {t('{n} por revisar', { n: d.pending_count })}
             </Sticker>
           )}
           <span className="lu-small" style={{ flex: 1, minWidth: 180 }}>
             {d.pending_count > 0
-              ? `${d.pending_count === 1 ? 'Falta revisar un gasto' : `Faltan ${d.pending_count} gastos por revisar`}. Ya cuentan abajo, pero para liquidar tienen que estar revisados.`
+              ? d.pending_count === 1
+                ? t('Falta revisar un gasto. Ya cuenta abajo, pero para liquidar tiene que estar revisado.')
+                : t('Faltan {n} gastos por revisar. Ya cuentan abajo, pero para liquidar tienen que estar revisados.', { n: d.pending_count })
               : ''}
             {d.incomplete_count > 0
-              ? ` ${plural(d.incomplete_count, 'gasto no tiene', 'gastos no tienen')} quién pagó o la división completa, y no ${d.incomplete_count === 1 ? 'cuenta' : 'cuentan'} hasta corregirlo.`
+              ? ` ${
+                  d.incomplete_count === 1
+                    ? t('1 gasto no tiene quién pagó o la división completa, y no cuenta hasta corregirlo.')
+                    : t('{n} gastos no tienen quién pagó o la división completa, y no cuentan hasta corregirlos.', { n: d.incomplete_count })
+                }`
               : ''}
           </span>
           <Link href={`/c/${accountId}/${d.pending_count > 0 ? 'revisar' : 'gastos'}`} className="lu-btn lu-btn--sm lu-btn--primary">
-            {d.pending_count > 0 ? 'Revisar' : 'Ver gastos'}
+            {d.pending_count > 0 ? t('Revisar') : t('Ver gastos')}
           </Link>
         </div>
       )}
@@ -230,35 +249,29 @@ export function SettleScreen({
       <div className="st-main">
         {s ? (
           <BillCard
-            label={todoPagado ? 'Todo pagado' : 'Falta por pagar'}
+            label={todoPagado ? t('Todo pagado') : t('Falta por pagar')}
             amount={pendiente}
             roll
             highlight={false}
-            aside={
-              <span className="lu-bill__denom">
-                {pagadas} DE {transfers.length}
-              </span>
-            }
+            aside={<span className="lu-bill__denom">{t('{n} DE {total}', { n: pagadas, total: transfers.length })}</span>}
           >
             {transfers.length > 0 && (
               <div className="st-prog" aria-hidden="true">
-                {transfers.map((t) => (
-                  <i key={t.id} className={t.paid_at ? 'on' : ''} />
+                {transfers.map((x) => (
+                  <i key={x.id} className={x.paid_at ? 'on' : ''} />
                 ))}
               </div>
             )}
           </BillCard>
         ) : (
           <BillCard
-            label="Para quedar a mano"
-            amount={transfers.reduce((sum, t) => sum + t.amount, 0)}
+            label={t('Para quedar a mano')}
+            amount={transfers.reduce((sum, x) => sum + x.amount, 0)}
             roll
-            denom={`${d.people.length} ${d.people.length === 1 ? 'PERSONA' : 'PERSONAS'}`}
+            denom={d.people.length === 1 ? t('1 PERSONA') : t('{n} PERSONAS', { n: d.people.length })}
           >
-            <span>
-              Gastaron <b>{formatCOP(total)}</b>
-            </span>
-            <span>{porCabeza ? `${formatCOP(porCabeza)} a cada uno` : 'cada quien su parte'}</span>
+            <span>{rico(t('Gastaron {monto}'), { monto: <b>{formatCOP(total)}</b> })}</span>
+            <span>{porCabeza ? t('{monto} a cada uno', { monto: formatCOP(porCabeza) }) : t('cada quien su parte')}</span>
           </BillCard>
         )}
 
@@ -266,61 +279,61 @@ export function SettleScreen({
           <div className="ap-empty">
             <LottieSlot name="vacio" width={72} height={72} />
             <span className="lu-small lu-muted">
-              {evento ? 'Cuando lleguen gastos al paseo, aquí sale quién le paga a quién.' : 'Cuando lleguen gastos este mes, aquí sale quién le paga a quién.'}
+              {evento
+                ? t('Cuando lleguen gastos al paseo, aquí sale quién le paga a quién.')
+                : t('Cuando lleguen gastos este mes, aquí sale quién le paga a quién.')}
             </span>
           </div>
         )}
         {transfers.length > 0 ? (
-          <ol className="st-list lu-stagger" aria-label={s ? 'Transferencias' : 'Así quedarían las transferencias'}>
-            {transfers.map((t, i) => {
-              const de = people.get(t.from);
-              const para = people.get(t.to);
+          <ol className="st-list lu-stagger" aria-label={s ? t('Transferencias') : t('Así quedarían las transferencias')}>
+            {transfers.map((x, i) => {
+              const de = people.get(x.from);
+              const para = people.get(x.to);
               return (
                 <li
-                  key={t.id}
-                  className={`st-t${t.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}${!s && puedeCobrar(t) ? ' has-act' : ''}`}
+                  key={x.id}
+                  className={`st-t${x.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}${!s && puedeCobrar(x) ? ' has-act' : ''}`}
                   style={{ '--i': i } as React.CSSProperties}
                 >
                   <div className="st-pair" aria-hidden="true">
-                    <Avatar name={nombre(t.from)} tone={asTone(de?.tone, nombre(t.from))} registered={de?.registered} size="sm" />
+                    <Avatar name={nombre(x.from)} tone={asTone(de?.tone, nombre(x.from))} registered={de?.registered} size="sm" />
                     <svg className="st-arrow" viewBox="0 0 40 16" aria-hidden="true">
                       <path d="M2 8h32M28 3l6 5-6 5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <Avatar name={nombre(t.to)} tone={asTone(para?.tone, nombre(t.to))} registered={para?.registered} size="sm" />
+                    <Avatar name={nombre(x.to)} tone={asTone(para?.tone, nombre(x.to))} registered={para?.registered} size="sm" />
                   </div>
                   <div className="st-txt">
-                    <span className="st-sent">
-                      <b>{nombre(t.from)}</b> le paga a <b>{nombre(t.to)}</b>
-                    </span>
-                    <span className="st-lucas">{lucas(t.amount)}</span>
+                    <span className="st-sent">{rico(t('{de} le paga a {para}'), { de: <b>{nombre(x.from)}</b>, para: <b>{nombre(x.to)}</b> })}</span>
+                    <span className="st-lucas">{$.corto(x.amount)}</span>
                   </div>
-                  <Amount value={t.amount} size="lg" className="st-amt" />
-                  {!s && puedeCobrar(t) && <div className="st-act">{botonCobrar(t)}</div>}
+                  <Amount value={x.amount} size="lg" className="st-amt" />
+                  {!s && puedeCobrar(x) && <div className="st-act">{botonCobrar(x)}</div>}
                   {s && (
                     <div className="st-act">
-                      {puedeCobrar(t) && botonCobrar(t)}
-                      {t.paid_at ? (
+                      {puedeCobrar(x) && botonCobrar(x)}
+                      {x.paid_at ? (
                         <>
-                          <Sticker tone="pagado" rotate={i % 2 ? 5 : -5} sub={formatDay(new Date(t.paid_at))} />
-                          {puedeMarcar(t) && (
-                            <button type="button" className="st-undo" onClick={() => marcar(t, false)} disabled={busy === t.id}>
-                              deshacer
+                          <Sticker tone="pagado" rotate={i % 2 ? 5 : -5} sub={formatDay(new Date(x.paid_at), undefined, t.idioma)} />
+                          {puedeMarcar(x) && (
+                            <button type="button" className="st-undo" onClick={() => marcar(x, false)} disabled={busy === x.id}>
+                              {t('deshacer')}
                             </button>
                           )}
                         </>
-                      ) : puedeMarcar(t) ? (
+                      ) : puedeMarcar(x) ? (
                         <Button
                           size="sm"
                           onClick={(e) => {
                             lanzarChispas(e);
-                            marcar(t, true);
+                            marcar(x, true);
                           }}
-                          disabled={busy === t.id}
+                          disabled={busy === x.id}
                         >
-                          {busy === t.id ? 'Guardando…' : 'Marcar pagada'}
+                          {busy === x.id ? t('Guardando…') : t('Marcar pagada')}
                         </Button>
                       ) : (
-                        <span className="lu-small lu-muted">Sin pagar</span>
+                        <span className="lu-small lu-muted">{t('Sin pagar')}</span>
                       )}
                     </div>
                   )}
@@ -332,13 +345,13 @@ export function SettleScreen({
           total > 0 && (
             <div className="st-cero">
               <LottieSlot name="todo-revisado" width={72} height={72} />
-              <span className="lu-small">Nadie le debe a nadie: cada quien ya puso exactamente lo suyo.</span>
+              <span className="lu-small">{t('Nadie le debe a nadie: cada quien ya puso exactamente lo suyo.')}</span>
             </div>
           )
         )}
         {!calculo.ok && !s && (
           <p className="lu-small" role="alert">
-            Los saldos no cuadran ({calculo.error}). Recarguen la página; si sigue, revisen los gastos.
+            {t('Los saldos no cuadran ({error}). Recarguen la página; si sigue, revisen los gastos.', { error: calculo.error })}
           </p>
         )}
 
@@ -360,12 +373,12 @@ export function SettleScreen({
 
       <section className="st-people" aria-labelledby="st-people-t">
         <h2 id="st-people-t" className="lu-title" style={{ margin: 0 }}>
-          ¿Cuánto puso cada uno?
+          {t('¿Cuánto puso cada uno?')}
         </h2>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
           {porCabeza
-            ? `A cada uno le tocaba ${formatCOP(porCabeza)}. Toca a alguien para ver qué pagó.`
-            : 'A cada quien le toca su parte de los gastos en que participó. Toca a alguien para ver qué pagó.'}
+            ? t('A cada uno le tocaba {monto}. Toca a alguien para ver qué pagó.', { monto: formatCOP(porCabeza) })
+            : t('A cada quien le toca su parte de los gastos en que participó. Toca a alguien para ver qué pagó.')}
         </p>
         <ul className="st-pp lu-stagger">
           {d.people.map((p, i) => (
@@ -398,41 +411,39 @@ export function SettleScreen({
           accountId={accountId}
           isAdmin={d.is_admin}
           token={token}
-          link={token ? sharedLink(origin, token, { month: mesDelLink }) : null}
+          link={token ? sharedLink(origin, token, { month: mesDelLink, idioma: t.idioma }) : null}
           onToken={setToken}
           onError={(e) => setError(humanError(e))}
         />
 
         <section>
           <h2 className="lu-title" style={{ marginBottom: 12 }}>
-            Descargar
+            {t('Descargar')}
           </h2>
           <div className="st-exp">
-            <button type="button" className="st-file" onClick={() => descargarCsv(d, transfers)}>
+            <button type="button" className="st-file" onClick={() => descargarCsv(d, transfers, t, $.moneda)}>
               <span className="st-file__ext" style={{ background: 'var(--tono-azul)' }}>
                 CSV
               </span>
-              Para Excel
+              {t('Para Excel')}
             </button>
           </div>
           <p className="lu-small lu-muted" style={{ margin: '10px 0 0' }}>
-            Con {plural(d.expenses.length, 'gasto', 'gastos')}, lo que puso cada uno y las transferencias.
+            {t('Con {gastos}, lo que puso cada uno y las transferencias.', { gastos: plural(d.expenses.length, t('gasto'), t('gastos')) })}
           </p>
         </section>
 
         <section className="st-why">
           <h2 className="lu-label" style={{ margin: '0 0 6px' }}>
-            ¿Cómo se calculó?
+            {t('¿Cómo se calculó?')}
           </h2>
           <p className="lu-small" style={{ margin: 0 }}>
             {porCabeza ? (
-              <>
-                A cada quien le tocaba <b className="lu-num">{formatCOP(porCabeza)}</b>.{' '}
-              </>
+              <>{rico(t('A cada quien le tocaba {monto}.'), { monto: <b className="lu-num">{formatCOP(porCabeza)}</b> })} </>
             ) : (
-              'A cada quien le toca su parte de cada gasto en que participó. '
+              `${t('A cada quien le toca su parte de cada gasto en que participó.')} `
             )}
-            Al que puso de más le devuelven, el que puso de menos completa, y se cruzan las deudas para hacer el menor número de transferencias.
+            {t('Al que puso de más le devuelven, el que puso de menos completa, y se cruzan las deudas para hacer el menor número de transferencias.')}
           </p>
         </section>
       </aside>
@@ -440,39 +451,40 @@ export function SettleScreen({
       <ConfirmDialog
         open={confirmar === 'liquidar'}
         onOpenChange={(o) => !o && setConfirmar(null)}
-        title={`¿Liquidar ${queSe}?`}
-        confirmLabel={`Liquidar ${queSe}`}
+        title={t('¿Liquidar {que}?', { que: queSe })}
+        confirmLabel={t('Liquidar {que}', { que: queSe })}
         danger={false}
         busy={busy === 'liquidar'}
         onConfirm={liquidar}
       >
-        Quedan {plural(transfers.length, 'transferencia', 'transferencias')} por hacer.{' '}
+        {t('Quedan {n} por hacer.', { n: nTransfers })}{' '}
         {evento
-          ? 'Los gastos del paseo quedan congelados y no entran gastos nuevos.'
-          : `Los gastos de ${queSe} quedan congelados; los otros meses siguen igual.`}{' '}
-        Si falta algo, se puede reabrir mientras nadie haya pagado.
+          ? t('Los gastos del paseo quedan congelados y no entran gastos nuevos.')
+          : t('Los gastos de {que} quedan congelados; los otros meses siguen igual.', { que: queSe })}{' '}
+        {t('Si falta algo, se puede reabrir mientras nadie haya pagado.')}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirmar === 'reabrir'}
         onOpenChange={(o) => !o && setConfirmar(null)}
-        title="¿Reabrir la liquidación?"
-        confirmLabel="Reabrir"
+        title={t('¿Reabrir la liquidación?')}
+        confirmLabel={t('Reabrir')}
         busy={busy === 'reabrir'}
         onConfirm={reabrir}
       >
-        Se borran las transferencias y los gastos se pueden volver a corregir{evento ? '; el paseo vuelve a recibir gastos' : ''}. Después pueden liquidar de
-        nuevo.
+        {evento
+          ? t('Se borran las transferencias y los gastos se pueden volver a corregir; el paseo vuelve a recibir gastos. Después pueden liquidar de nuevo.')
+          : t('Se borran las transferencias y los gastos se pueden volver a corregir. Después pueden liquidar de nuevo.')}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirmar === 'cerrar'}
         onOpenChange={(o) => !o && setConfirmar(null)}
-        title="¿Cerrar el paseo?"
-        confirmLabel="Cerrar paseo"
+        title={t('¿Cerrar el paseo?')}
+        confirmLabel={t('Cerrar paseo')}
         danger={false}
         busy={busy === 'cerrar'}
         onConfirm={cerrar}
       >
-        Queda archivado con su liquidación, en solo lectura. Ya no entran gastos ni personas.
+        {t('Queda archivado con su liquidación, en solo lectura. Ya no entran gastos ni personas.')}
       </ConfirmDialog>
     </div>
   );
@@ -502,19 +514,22 @@ function MandarAlGrupo({
   onMandar: (e: React.MouseEvent<HTMLAnchorElement>) => void;
   onCopiar: () => Promise<boolean>;
 }) {
+  const t = useT();
   const [copiado, setCopiado] = useState<'si' | 'no' | null>(null);
   return (
     <section className="st-grupo" aria-labelledby="st-grupo-t">
       <div className="st-grupo__txt">
         <span className="st-grupo__kicker">
           {ICONS.whatsapp}
-          Para todo el grupo
+          {t('Para todo el grupo')}
         </span>
         <h2 id="st-grupo-t" className="lu-title" style={{ margin: 0 }}>
-          Mándenle las cuentas a todos
+          {t('Mándenle las cuentas a todos')}
         </h2>
         <p className="lu-small" style={{ margin: 0 }}>
-          Un solo mensaje con cuánto fue y quién le paga a quién{conLink ? ', y el link donde cada uno ve lo suyo' : ''}. Escojan el grupo en WhatsApp y listo.
+          {conLink
+            ? t('Un solo mensaje con cuánto fue y quién le paga a quién, y el link donde cada uno ve lo suyo. Escojan el grupo en WhatsApp y listo.')
+            : t('Un solo mensaje con cuánto fue y quién le paga a quién. Escojan el grupo en WhatsApp y listo.')}
         </p>
         <div className="st-exp">
           <a
@@ -528,7 +543,7 @@ function MandarAlGrupo({
             }}
           >
             {ICONS.whatsapp}
-            Mandar al grupo
+            {t('Mandar al grupo')}
           </a>
           <Button
             size="sm"
@@ -538,17 +553,17 @@ function MandarAlGrupo({
               setTimeout(() => setCopiado(null), 2200);
             }}
           >
-            {copiado === 'si' ? '¡Copiado!' : copiado === 'no' ? 'No se pudo copiar' : 'Copiar mensaje'}
+            {copiado === 'si' ? t('¡Copiado!') : copiado === 'no' ? t('No se pudo copiar') : t('Copiar mensaje')}
           </Button>
         </div>
       </div>
 
       <figure className="st-grupo__chat">
-        <figcaption className="lu-label">Así les llega</figcaption>
+        <figcaption className="lu-label">{t('Así les llega')}</figcaption>
         <div className="st-grupo__burbuja">
           {conLink && (
             // biome-ignore lint/performance/noImgElement: la imagen la genera una ruta propia (next/og); next/image no le suma nada
-            <img className="st-grupo__img" src={imagen} alt="Imagen con el total y quién le paga a quién" width={1200} height={630} loading="lazy" />
+            <img className="st-grupo__img" src={imagen} alt={t('Imagen con el total y quién le paga a quién')} width={1200} height={630} loading="lazy" />
           )}
           <p className="st-grupo__msg">{formatoWhatsapp(vista)}</p>
         </div>
@@ -564,18 +579,18 @@ function formatoWhatsapp(texto: string) {
   for (const m of texto.matchAll(/https?:\/\/\S+|\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~/g)) {
     const i = m.index ?? 0;
     if (i > desde) partes.push(texto.slice(desde, i));
-    const t = m[0];
-    const dentro = t.slice(1, -1);
-    if (t.startsWith('http')) {
+    const trozo = m[0];
+    const dentro = trozo.slice(1, -1);
+    if (trozo.startsWith('http')) {
       partes.push(
         <span key={i} className="st-grupo__url">
-          {t}
+          {trozo}
         </span>,
       );
-    } else if (t[0] === '*') partes.push(<b key={i}>{dentro}</b>);
-    else if (t[0] === '_') partes.push(<i key={i}>{dentro}</i>);
+    } else if (trozo[0] === '*') partes.push(<b key={i}>{dentro}</b>);
+    else if (trozo[0] === '_') partes.push(<i key={i}>{dentro}</i>);
     else partes.push(<s key={i}>{dentro}</s>);
-    desde = i + t.length;
+    desde = i + trozo.length;
   }
   if (desde < texto.length) partes.push(texto.slice(desde));
   return partes;
@@ -598,9 +613,10 @@ function Compartir({
   isAdmin: boolean;
   token: string | null;
   link: string | null;
-  onToken: (t: string | null) => void;
+  onToken: (token: string | null) => void;
   onError: (e: { message?: string }) => void;
 }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const [busy, setBusy] = useState(false);
   const [copiado, setCopiado] = useState<'si' | 'no' | null>(null);
@@ -625,12 +641,12 @@ function Compartir({
   return (
     <section className="st-share" aria-labelledby="st-share-t">
       <h2 id="st-share-t" className="lu-title" style={{ margin: 0 }}>
-        Compartir las cuentas
+        {t('Compartir las cuentas')}
       </h2>
       {token && link ? (
         <>
           <p className="lu-small" style={{ margin: 0 }}>
-            Cada uno ve cuánto puso, cuánto le toca y a quién le paga, sin instalar nada. Al cobrarle a alguien, el mensaje le lleva directo a lo suyo.
+            {t('Cada uno ve cuánto puso, cuánto le toca y a quién le paga, sin instalar nada. Al cobrarle a alguien, el mensaje le lleva directo a lo suyo.')}
           </p>
           <div className="st-share__link lu-num">{displayShare(link)}</div>
           <div className="st-exp">
@@ -641,36 +657,44 @@ function Compartir({
                 setTimeout(() => setCopiado(null), 2200);
               }}
             >
-              {copiado === 'si' ? '¡Copiado!' : copiado === 'no' ? 'Cópialo a mano' : 'Copiar link'}
+              {copiado === 'si' ? t('¡Copiado!') : copiado === 'no' ? t('Cópialo a mano') : t('Copiar link')}
             </Button>
           </div>
           {isAdmin && (
             <div className="st-exp">
               <button type="button" className="st-undo" onClick={() => crear(true)} disabled={busy}>
-                Cambiar el link
+                {t('Cambiar el link')}
               </button>
               <button type="button" className="st-undo" onClick={() => setQuitar(true)} disabled={busy}>
-                Dejar de compartir
+                {t('Dejar de compartir')}
               </button>
             </div>
           )}
-          <ConfirmDialog open={quitar} onOpenChange={setQuitar} title="¿Dejar de compartir?" confirmLabel="Dejar de compartir" busy={busy} onConfirm={dejar}>
-            El link deja de funcionar para todos. Si después lo vuelven a crear, sale uno nuevo.
+          <ConfirmDialog
+            open={quitar}
+            onOpenChange={setQuitar}
+            title={t('¿Dejar de compartir?')}
+            confirmLabel={t('Dejar de compartir')}
+            busy={busy}
+            onConfirm={dejar}
+          >
+            {t('El link deja de funcionar para todos. Si después lo vuelven a crear, sale uno nuevo.')}
           </ConfirmDialog>
         </>
       ) : isAdmin ? (
         <>
           <p className="lu-small" style={{ margin: 0 }}>
-            Un link para que cada uno vea cuánto puso, cuánto le toca y a quién le paga, aunque nunca haya abierto Luks. Lo ve cualquiera que tenga el link; no
-            muestra fotos ni números.
+            {t(
+              'Un link para que cada uno vea cuánto puso, cuánto le toca y a quién le paga, aunque nunca haya abierto Luks. Lo ve cualquiera que tenga el link; no muestra fotos ni números.',
+            )}
           </p>
           <Button size="sm" onClick={() => crear(false)} disabled={busy}>
-            {busy ? 'Creando…' : 'Crear el link'}
+            {busy ? t('Creando…') : t('Crear el link')}
           </Button>
         </>
       ) : (
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          Quien administra la cuenta puede crear un link para que todos vean las cuentas, aunque no usen Luks.
+          {t('Quien administra la cuenta puede crear un link para que todos vean las cuentas, aunque no usen Luks.')}
         </p>
       )}
     </section>
@@ -679,21 +703,22 @@ function Compartir({
 
 /** ‹ Agosto · Septiembre 2026 · Octubre › (hasta el mes en curso) */
 function MesNav({ accountId, mes, hoy, liquidados }: { accountId: string; mes: string; hoy: string; liquidados: string[] }) {
+  const t = useT();
   const antes = otroMes(mes, -1);
   const despues = otroMes(mes, 1);
   const hayDespues = despues <= `${hoy.slice(0, 7)}-01`;
   const ir = (m: string) => `/c/${accountId}/liquidar?mes=${m.slice(0, 7)}`;
   return (
-    <nav className="st-mes" aria-label="Mes">
-      <Link href={ir(antes)} className="st-mes__btn" aria-label={`Mes anterior: ${mesLargo(antes)}`}>
+    <nav className="st-mes" aria-label={t('Mes')}>
+      <Link href={ir(antes)} className="st-mes__btn" aria-label={t('Mes anterior: {mes}', { mes: mesLargo(antes, t) })}>
         ‹
       </Link>
       <span className="st-mes__now">
-        {mesLargo(mes)}
-        {liquidados.includes(mes) && <span className="st-mes__ok">liquidado</span>}
+        {mesLargo(mes, t)}
+        {liquidados.includes(mes) && <span className="st-mes__ok">{t('liquidado')}</span>}
       </span>
       {hayDespues ? (
-        <Link href={ir(despues)} className="st-mes__btn" aria-label={`Mes siguiente: ${mesLargo(despues)}`}>
+        <Link href={ir(despues)} className="st-mes__btn" aria-label={t('Mes siguiente: {mes}', { mes: mesLargo(despues, t) })}>
           ›
         </Link>
       ) : (
@@ -707,6 +732,8 @@ function MesNav({ accountId, mes, hoy, liquidados }: { accountId: string; mes: s
 
 /** Una persona: lo que pagó, lo que le tocaba y su saldo; al tocarla, qué pagó. */
 function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boolean; gastos: SettlementOverview['expenses'] }) {
+  const t = useT();
+  const formatCOP = useDinero().fmt;
   return (
     <li style={{ '--i': i } as React.CSSProperties}>
       <details className="st-p">
@@ -715,15 +742,15 @@ function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boo
           <span className="st-p__who">
             <b>
               {p.name}
-              {yo ? ' (tú)' : ''}
+              {yo ? ` ${t('(tú)')}` : ''}
             </b>
             <span className="lu-muted st-p__sub">
-              pagó {formatCOP(p.paid)} · le tocaba {formatCOP(p.share)}
+              {t('pagó {monto}', { monto: formatCOP(p.paid) })} · {t('le tocaba {monto}', { monto: formatCOP(p.share) })}
             </span>
           </span>
           <span className="st-p__bal">
             <Amount value={p.balance} sign tone={p.balance >= 0 ? 'pos' : 'neg'} />
-            <span className="lu-muted">{p.balance === 0 ? 'a paz y salvo' : p.balance > 0 ? 'le deben' : 'debe'}</span>
+            <span className="lu-muted">{p.balance === 0 ? t('a paz y salvo') : p.balance > 0 ? t('le deben') : t('debe')}</span>
           </span>
         </summary>
         {gastos.length ? (
@@ -737,14 +764,14 @@ function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boo
                 )}
                 <span className="st-p__m">
                   {e.merchant}
-                  <span className="lu-muted"> · {formatDay(e.expense_date)}</span>
+                  <span className="lu-muted"> · {formatDay(e.expense_date, undefined, t.idioma)}</span>
                 </span>
                 <Amount value={e.total_cop} size="sm" />
               </li>
             ))}
           </ul>
         ) : (
-          <p className="lu-small lu-muted st-p__nada">No pagó ningún gasto.</p>
+          <p className="lu-small lu-muted st-p__nada">{t('No pagó ningún gasto.')}</p>
         )}
       </details>
     </li>
@@ -778,6 +805,7 @@ function Cierre({
   /** Cerrada: archivarla o borrarla del todo */
   fin?: ReactNode;
 }) {
+  const t = useT();
   const s = d.settlement;
   if (cerrada) {
     return (
@@ -786,15 +814,15 @@ function Cierre({
           <LottieSlot name="cierre-evento" width={88} height={88} />
           <div>
             <h2 className="lu-title" style={{ margin: 0 }}>
-              {evento ? 'Paseo cerrado' : 'Cuenta cerrada'}
+              {evento ? t('Paseo cerrado') : t('Cuenta cerrada')}
             </h2>
             <p className="lu-small" style={{ margin: '4px 0 0' }}>
-              Queda guardado con su liquidación.
+              {t('Queda guardado con su liquidación.')}
             </p>
           </div>
         </div>
         <Sticker tone="cerrado" size="lg" rotate={-5}>
-          Saldado
+          {t('Saldado')}
         </Sticker>
         {fin}
       </section>
@@ -805,16 +833,20 @@ function Cierre({
       <section className="st-close">
         <LottieSlot name="transferencia" width={64} height={64} />
         <p className="lu-small" style={{ margin: 0 }}>
-          <b>¿Listos?</b> Al liquidar {queSe} sus gastos quedan congelados
-          {evento ? ' y ya no entran gastos nuevos' : ''}. Si falta algo, se puede reabrir mientras nadie haya pagado.
+          <b>{t('¿Listos?')}</b>{' '}
+          {evento
+            ? t('Al liquidar {que} sus gastos quedan congelados y ya no entran gastos nuevos. Si falta algo, se puede reabrir mientras nadie haya pagado.', {
+                que: queSe,
+              })
+            : t('Al liquidar {que} sus gastos quedan congelados. Si falta algo, se puede reabrir mientras nadie haya pagado.', { que: queSe })}
         </p>
         {d.is_admin ? (
           <Button onClick={() => onAccion('liquidar')} disabled={!puedeLiquidar || busy !== null}>
-            Liquidar {queSe}
+            {t('Liquidar {que}', { que: queSe })}
           </Button>
         ) : (
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            Quien administra la cuenta es quien liquida.
+            {t('Quien administra la cuenta es quien liquida.')}
           </p>
         )}
       </section>
@@ -827,16 +859,18 @@ function Cierre({
           <LottieSlot name="cierre-evento" width={88} height={88} />
           <div>
             <h2 className="lu-title" style={{ margin: 0 }}>
-              ¡Todo pagado!
+              {t('¡Todo pagado!')}
             </h2>
             <p className="lu-small" style={{ margin: '4px 0 0' }}>
-              {evento ? 'Ya pueden cerrar el paseo. Después no entran más gastos.' : `${monthName(d.month as string)} quedó a paz y salvo.`}
+              {evento
+                ? t('Ya pueden cerrar el paseo. Después no entran más gastos.')
+                : t('{mes} quedó a paz y salvo.', { mes: monthName(d.month as string, t.idioma) })}
             </p>
           </div>
         </div>
         {evento && d.is_admin && (
           <Button onClick={() => onAccion('cerrar')} disabled={busy !== null}>
-            Cerrar paseo
+            {t('Cerrar paseo')}
           </Button>
         )}
       </section>
@@ -845,12 +879,12 @@ function Cierre({
   return (
     <section className="st-close">
       <p className="lu-small" style={{ margin: 0 }}>
-        <b>{faltan === 1 ? 'Falta 1 transferencia.' : `Faltan ${faltan} transferencias.`}</b>{' '}
-        {evento ? 'El paseo se cierra cuando todas estén pagadas.' : 'El mes queda saldado cuando todas estén pagadas.'}
+        <b>{faltan === 1 ? t('Falta 1 transferencia.') : t('Faltan {n} transferencias.', { n: faltan })}</b>{' '}
+        {evento ? t('El paseo se cierra cuando todas estén pagadas.') : t('El mes queda saldado cuando todas estén pagadas.')}
       </p>
       {d.is_admin && pagadas === 0 && (
         <button type="button" className="st-undo" onClick={() => onAccion('reabrir')} disabled={busy !== null}>
-          Reabrir la liquidación
+          {t('Reabrir la liquidación')}
         </button>
       )}
     </section>
@@ -858,33 +892,37 @@ function Cierre({
 }
 
 /** CSV para Excel (separado por «;» y con BOM, como lo abre Excel en español). */
-function descargarCsv(d: SettlementOverview, transfers: SettlementTransfer[]) {
+function descargarCsv(d: SettlementOverview, transfers: SettlementTransfer[], t: T, moneda: Moneda) {
+  // En la moneda de verdad: en dólares, 1250 centavos → 12.5
+  const plata = (n: number) => unidades(n, moneda);
   const nombre = (id: string | null) => d.people.find((p) => p.id === id)?.name ?? '';
   const celda = (v: string | number | null) => {
-    const t = String(v ?? '');
-    return /[;"\r\n]/.test(t) ? `"${t.replaceAll('"', '""')}"` : t;
+    const texto = String(v ?? '');
+    return /[;,"\r\n]/.test(texto) ? `"${texto.replaceAll('"', '""')}"` : texto;
   };
   const filas: (string | number | null)[][] = [
-    ['Luks', d.account.name, d.month ? mesLargo(d.month) : 'Todo el paseo'],
+    ['Luks', d.account.name, d.month ? mesLargo(d.month, t) : t('Todo el paseo')],
     [],
-    ['Persona', 'Pagó', 'Le tocaba', 'Saldo'],
-    ...d.people.map((p) => [p.name, p.paid, p.share, p.balance]),
+    [t('Persona'), t('Pagó'), t('Le tocaba'), t('Saldo')],
+    ...d.people.map((p) => [p.name, plata(p.paid), plata(p.share), plata(p.balance)]),
     [],
-    ['Paga', 'Recibe', 'Monto', 'Pagada'],
-    ...transfers.map((t) => [nombre(t.from), nombre(t.to), t.amount, t.paid_at ? t.paid_at.slice(0, 10) : 'no']),
+    [t('Paga'), t('Recibe'), t('Monto'), t('Pagada')],
+    ...transfers.map((x) => [nombre(x.from), nombre(x.to), plata(x.amount), x.paid_at ? x.paid_at.slice(0, 10) : t('no')]),
     [],
-    ['Fecha', 'Comercio', 'Categoría', 'Total', 'Pagó', ...d.people.map((p) => `Parte de ${p.name}`)],
+    [t('Fecha'), t('Comercio'), t('Categoría'), t('Total'), t('Quién pagó'), ...d.people.map((p) => t('Parte de {nombre}', { nombre: p.name }))],
     ...d.expenses.map((e) => [
       e.expense_date,
       e.merchant,
       e.category,
-      e.total_cop,
+      plata(e.total_cop),
       nombre(e.payer_person_id),
-      ...d.people.map((p) => e.shares.find((x) => x.person_id === p.id)?.amount_cop ?? 0),
+      ...d.people.map((p) => plata(e.shares.find((x) => x.person_id === p.id)?.amount_cop ?? 0)),
     ]),
   ];
-  const csv = String.fromCharCode(0xfeff) + filas.map((f) => f.map(celda).join(';')).join('\r\n');
-  const archivo = `luks-${d.account.name}-${d.month ? d.month.slice(0, 7) : 'liquidacion'}`
+  // Excel en español abre «;»; en inglés, «,»
+  const sep = t.idioma === 'en' ? ',' : ';';
+  const csv = String.fromCharCode(0xfeff) + filas.map((f) => f.map(celda).join(sep)).join('\r\n');
+  const archivo = `luks-${d.account.name}-${d.month ? d.month.slice(0, 7) : t('liquidacion')}`
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9-]+/g, '-')

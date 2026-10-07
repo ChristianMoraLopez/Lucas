@@ -1,7 +1,7 @@
 /* Compartir las cuentas con quien no usa la app (el link /r/TOKEN) y cobrar
    por WhatsApp. Funciones puras: las usan Liquidar y la página pública. */
 
-import { crearT, type T } from '@/lib/i18n';
+import { crearT, type Idioma, type T } from '@/lib/i18n';
 import { corto, DECIMALES, dinero, type Moneda } from '@/lib/moneda';
 import { minTransfers } from './settlement';
 import type { SettlementPerson, SettlementTransfer } from './types';
@@ -39,11 +39,15 @@ export function recomendacionMessage(t: T = ES) {
   };
 }
 
-/** /r/TOKEN, con la vista de una persona (?p=) y el mes de un hogar (?mes=2026-09) */
-export function sharedLink(origin: string, token: string, o: { person?: string | null; month?: string | null } = {}) {
+/**
+ * /r/TOKEN, con la vista de una persona (?p=) y el mes de un hogar
+ * (?mes=2026-09). Si el mensaje va en inglés, la página también (?l=en).
+ */
+export function sharedLink(origin: string, token: string, o: { person?: string | null; month?: string | null; idioma?: Idioma } = {}) {
   const q = new URLSearchParams();
   if (o.person) q.set('p', o.person);
   if (o.month) q.set('mes', o.month.slice(0, 7));
+  if (o.idioma && o.idioma !== 'es') q.set('l', o.idioma);
   const s = q.toString();
   return `${origin}/r/${token}${s ? `?${s}` : ''}`;
 }
