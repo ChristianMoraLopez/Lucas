@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { useT } from '@/components/idioma';
-import { formatCOP } from '@/components/lucas-core';
 import { Avatar, Button, Chip, LottieSlot } from '@/components/lucas-ui';
+import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
 import { dividirPorConsumo, separable, separarUnidades } from '@/lib/consumo';
 import { formatWhen } from '@/lib/dates';
@@ -121,7 +121,7 @@ function Editor({
   volver: React.ReactNode;
 }) {
   const t = useT();
-  const cop = (n: number) => formatCOP(n, { idioma: t.idioma });
+  const cop = useDinero().fmt;
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const queryClient = useQueryClient();

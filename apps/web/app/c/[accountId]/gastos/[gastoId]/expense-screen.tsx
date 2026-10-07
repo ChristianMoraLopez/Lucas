@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { ExpenseForm } from '@/components/expense-form';
-import { formatCOP } from '@/components/lucas-core';
+import { useT } from '@/components/idioma';
 import { Sticker } from '@/components/lucas-ui';
+import { useDinero } from '@/components/moneda';
 import { formatWhen } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { type AccountCategory, type AccountPerson, asTone, type ReviewExpense, type Role } from '@/lib/types';
@@ -25,6 +26,8 @@ const ORIGEN = { whatsapp: 'El grupo de WhatsApp', web: 'Subido en la web', impo
 
 /** Un gasto cualquiera (confirmado o por revisar): la foto, todo su detalle y, para admins, corregirlo o eliminarlo. */
 export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: string; expenseId: string; myRole: Role }) {
+  const t = useT();
+  const $ = useDinero();
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -58,7 +61,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
 
   const back = (
     <Link href={`/c/${accountId}/gastos`} className="lu-btn lu-btn--sm lu-btn--ghost">
-      ← Gastos
+      {t('← Gastos')}
     </Link>
   );
 
@@ -67,7 +70,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
       <div className="rv">
         {back}
         <p className={data.isError ? 'lu-error' : 'lu-small lu-muted'} role={data.isError ? 'alert' : undefined}>
-          {data.isPending ? 'Cargando…' : data.isError ? humanError(data.error) : 'Ese gasto ya no existe: puede que lo hayan eliminado.'}
+          {data.isPending ? t('Cargando…') : data.isError ? humanError(data.error) : t('Ese gasto ya no existe: puede que lo hayan eliminado.')}
         </p>
       </div>
     );
@@ -90,46 +93,46 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
       </h1>
 
       <div className="rv-split">
-        <section className="rv-evi" aria-label="Evidencia">
+        <section className="rv-evi" aria-label={t('Evidencia')}>
           <EvidenceViewer
             kind={expense.messages?.kind ?? null}
             path={expense.evidence_path}
             text={expense.messages?.text_body ?? null}
             fileName={expense.messages?.file_name ?? null}
-            sender={sender?.display_name ?? 'Alguien'}
+            sender={sender?.display_name ?? t('Alguien')}
             senderTone={sender ? asTone(sender.tone, sender.display_name) : undefined}
-            when={formatWhen(expense.messages?.received_at ?? expense.created_at)}
+            when={formatWhen(expense.messages?.received_at ?? expense.created_at, t.idioma)}
             source={expense.source}
           />
           <dl className="gd-facts">
             <div>
-              <dt>Llegó por</dt>
-              <dd>{ORIGEN[expense.source] ?? expense.source}</dd>
+              <dt>{t('Llegó por')}</dt>
+              <dd>{ORIGEN[expense.source] ? t(ORIGEN[expense.source]) : expense.source}</dd>
             </div>
             <div>
-              <dt>Lo mandó</dt>
+              <dt>{t('Lo mandó')}</dt>
               <dd>
-                {quienSubio?.display_name ?? 'Alguien'} · {formatWhen(expense.messages?.received_at ?? expense.created_at)}
+                {quienSubio?.display_name ?? t('Alguien')} · {formatWhen(expense.messages?.received_at ?? expense.created_at, t.idioma)}
               </dd>
             </div>
             {expense.confidence != null && (
               <div>
-                <dt>Luks lo leyó</dt>
-                <dd>con {Math.round(Number(expense.confidence) * 100)} % de confianza</dd>
+                <dt>{t('Luks lo leyó')}</dt>
+                <dd>{t('con {n} % de confianza', { n: Math.round(Number(expense.confidence) * 100) })}</dd>
               </div>
             )}
             {expense.corrected_by && (
               <div>
-                <dt>Lo corrigió</dt>
+                <dt>{t('Lo corrigió')}</dt>
                 <dd className="gd-fix">
-                  {corrector?.display_name ?? 'Un admin'}
-                  {expense.corrected_at ? ` · ${formatWhen(expense.corrected_at)}` : ''}
+                  {corrector?.display_name ?? t('Un admin')}
+                  {expense.corrected_at ? ` · ${formatWhen(expense.corrected_at, t.idioma)}` : ''}
                 </dd>
               </div>
             )}
             {expense.cufe && (
               <div>
-                <dt>Factura electrónica</dt>
+                <dt>{t('Factura electrónica')}</dt>
                 <dd className="lu-num" title={expense.cufe}>
                   CUFE …{expense.cufe.slice(-8)}
                 </dd>
@@ -137,9 +140,9 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
             )}
           </dl>
           {expense.expense_items.length > 0 && (
-            <section aria-label="Ítems del recibo">
+            <section aria-label={t('Ítems del recibo')}>
               <h2 className="lu-label" style={{ margin: '0 0 6px' }}>
-                Ítems
+                {t('Ítems')}
               </h2>
               <ul className="gd-items">
                 {expense.expense_items.map((it) => (
@@ -148,14 +151,14 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
                       {it.quantity && Number(it.quantity) !== 1 ? `${Number(it.quantity)} × ` : ''}
                       {it.name}
                     </span>
-                    <span className="lu-num">{formatCOP(it.total_cop)}</span>
+                    <span className="lu-num">{$.fmt(it.total_cop)}</span>
                   </li>
                 ))}
               </ul>
             </section>
           )}
         </section>
-        <section className="rv-data" aria-label="Datos del gasto">
+        <section className="rv-data" aria-label={t('Datos del gasto')}>
           <ExpenseForm
             key={`${expense.id}-${expense.status}`}
             accountId={accountId}
@@ -177,7 +180,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
           />
           {saved && (
             <p className="lu-success" role="status">
-              Cambios guardados. Ya cuentan en el resumen.
+              {t('Cambios guardados. Ya cuentan en el resumen.')}
             </p>
           )}
         </section>

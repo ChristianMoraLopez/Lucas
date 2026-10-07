@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { useT } from '@/components/idioma';
 import { Button, ExpenseCard, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { compressImage, evidencePath, extensionFor, MAX_PDF_BYTES } from '@/lib/compress';
 import { humanError } from '@/lib/errors';
@@ -36,6 +37,7 @@ interface MessageState {
 }
 
 export function UploadScreen({ accountId, accountName, closed }: { accountId: string; accountName: string; closed: boolean }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const camera = useRef<HTMLInputElement>(null);
@@ -113,7 +115,7 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
   const enviarTexto = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) {
-      setTextError('Escribe el gasto, por ejemplo «taxis al aeropuerto 100 lucas»');
+      setTextError(t('Escribe el gasto, por ejemplo «taxis al aeropuerto 100 lucas»'));
       return;
     }
     setSendingText(true);
@@ -133,8 +135,8 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
   if (closed) {
     return (
       <div className="up">
-        <h1 className="lu-display">Subir un gasto</h1>
-        <p className="lu-small lu-muted">«{accountName}» está cerrada: ya no recibe gastos.</p>
+        <h1 className="lu-display">{t('Subir un gasto')}</h1>
+        <p className="lu-small lu-muted">{t('«{cuenta}» está cerrada: ya no recibe gastos.', { cuenta: accountName })}</p>
       </div>
     );
   }
@@ -142,24 +144,24 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
   return (
     <div className="up">
       <header className="up-head">
-        <h1 className="lu-display">Subir un gasto</h1>
+        <h1 className="lu-display">{t('Subir un gasto')}</h1>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          Una foto del recibo, un PDF o escríbelo como en el grupo. Luks lo lee y lo deja en Revisar.
+          {t('Una foto del recibo, un PDF o escríbelo como en el grupo. Luks lo lee y lo deja en Revisar.')}
         </p>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          ¿Uno pagó la cuenta de todos y no pidieron lo mismo? Suban la foto de la factura y después la dividen por consumo: quién pidió qué.
+          {t('¿Uno pagó la cuenta de todos y no pidieron lo mismo? Suban la foto de la factura y después la dividen por consumo: quién pidió qué.')}
         </p>
       </header>
 
       <div className="up-main">
         <div className="up-options">
           <button type="button" className="up-opt up-opt--cam" onClick={() => camera.current?.click()}>
-            <b>Tomar foto</b>
-            <span>Abre la cámara del celular. Que se vea el total.</span>
+            <b>{t('Tomar foto')}</b>
+            <span>{t('Abre la cámara del celular. Que se vea el total.')}</span>
           </button>
           <button type="button" className="up-opt" onClick={() => files.current?.click()}>
-            <b>Foto o PDF</b>
-            <span>De la galería o de tus archivos. Puedes elegir varios.</span>
+            <b>{t('Foto o PDF')}</b>
+            <span>{t('De la galería o de tus archivos. Puedes elegir varios.')}</span>
           </button>
           <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFiles(e.target.files)} />
           <input ref={files} type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => onFiles(e.target.files)} />
@@ -167,7 +169,7 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
 
         <form className="up-text" onSubmit={enviarTexto}>
           <label className="lu-label" htmlFor="gasto-texto">
-            O escríbelo
+            {t('O escríbelo')}
           </label>
           <textarea
             id="gasto-texto"
@@ -175,7 +177,7 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
             maxLength={1000}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="taxis al aeropuerto 100 lucas, la pagó Santi"
+            placeholder={t('taxis al aeropuerto 100 lucas, la pagó Santi')}
           />
           {textError && (
             <p className="lu-field-error" role="alert">
@@ -183,16 +185,16 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
             </p>
           )}
           <Button type="submit" variant="secondary" disabled={sendingText}>
-            {sendingText ? 'Enviando…' : 'Enviar'}
+            {sendingText ? t('Enviando…') : t('Enviar')}
           </Button>
         </form>
       </div>
 
-      <section className="up-list" aria-label="Lo que subiste" aria-live="polite">
+      <section className="up-list" aria-label={t('Lo que subiste')} aria-live="polite">
         {uploads.length === 0 ? (
           <div className="up-empty">
             <LottieSlot name="vacio" width={72} height={72} />
-            <span className="lu-small lu-muted">Las fotos se comprimen en tu celular antes de subir: pesan poco y se leen igual.</span>
+            <span className="lu-small lu-muted">{t('Las fotos se comprimen en tu celular antes de subir: pesan poco y se leen igual.')}</span>
           </div>
         ) : (
           uploads.map((u) => <UploadRow key={u.key} upload={u} state={u.messageId ? states.data?.[u.messageId] : undefined} accountId={accountId} />)
@@ -203,6 +205,7 @@ export function UploadScreen({ accountId, accountName, closed }: { accountId: st
 }
 
 function UploadRow({ upload, state, accountId }: { upload: Upload; state: MessageState | undefined; accountId: string }) {
+  const t = useT();
   if (state?.status === 'duplicate' && state.original) {
     const o = state.original;
     return (
@@ -210,16 +213,16 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
         merchant={o.merchant}
         category={o.categories?.name}
         total={o.total_cop}
-        meta="Ya estaba registrado: es la misma foto o la misma factura. No se contó dos veces."
+        meta={t('Ya estaba registrado: es la misma foto o la misma factura. No se contó dos veces.')}
         sticker={
           <Sticker tone="pendiente" size="sm" rotate={-4} animate>
-            Repetido
+            {t('Repetido')}
           </Sticker>
         }
       >
         {o.status === 'pending_review' && (
           <Link href={`/c/${accountId}/revisar?gasto=${o.id}`} className="lu-btn lu-btn--sm lu-btn--secondary">
-            Revisar el original
+            {t('Revisar el original')}
           </Link>
         )}
       </ExpenseCard>
@@ -234,16 +237,16 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
         merchant={gasto.merchant}
         category={gasto.categories?.name}
         total={gasto.total_cop}
-        meta={pendiente ? 'Lo leímos. Revísalo antes de que cuente.' : 'Lo conocíamos: ya quedó registrado.'}
+        meta={pendiente ? t('Lo leímos. Revísalo antes de que cuente.') : t('Lo conocíamos: ya quedó registrado.')}
         sticker={pendiente ? <Sticker tone="revisar" size="sm" rotate={5} animate /> : <Sticker tone="confirmado" size="sm" rotate={-5} animate />}
       >
         {pendiente && (
           <>
             <Link href={`/c/${accountId}/revisar?gasto=${gasto.id}`} className="lu-btn lu-btn--sm lu-btn--secondary">
-              Revisar ahora
+              {t('Revisar ahora')}
             </Link>
             <Link href={`/c/${accountId}/gastos/${gasto.id}/dividir?volver=revisar`} className="lu-btn lu-btn--sm lu-btn--ghost">
-              Dividir por consumo
+              {t('Dividir por consumo')}
             </Link>
           </>
         )}
@@ -253,20 +256,20 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
 
   const estado =
     upload.local === 'comprimiendo'
-      ? 'Comprimiendo la foto…'
+      ? t('Comprimiendo la foto…')
       : upload.local === 'subiendo'
-        ? 'Subiendo…'
+        ? t('Subiendo…')
         : upload.local === 'error'
           ? upload.error
           : state?.status === 'failed'
-            ? 'No pudimos leerlo. Intenta con otra foto.'
+            ? t('No pudimos leerlo. Intenta con otra foto.')
             : state?.status === 'not_expense'
-              ? 'No parece un gasto. Si lo es, escríbelo con el monto: «almuerzo 45 lucas».'
+              ? t('No parece un gasto. Si lo es, escríbelo con el monto: «almuerzo 45 lucas».')
               : state?.status === 'duplicate'
-                ? 'Ya estaba registrado: no se contó dos veces.'
+                ? t('Ya estaba registrado: no se contó dos veces.')
                 : state?.status === 'processing'
-                  ? 'Leyendo…'
-                  : 'En cola: Luks lo lee en menos de un minuto';
+                  ? t('Leyendo…')
+                  : t('En cola: Luks lo lee en menos de un minuto');
 
   return (
     <div className={`up-row${upload.local === 'error' || state?.status === 'failed' ? ' is-error' : ''}`}>
@@ -275,7 +278,7 @@ function UploadRow({ upload, state, accountId }: { upload: Upload; state: Messag
           name={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? 'subiendo' : 'escaneo'}
           width={40}
           height={40}
-          label={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? 'Subiendo' : 'Procesando'}
+          label={upload.local === 'subiendo' || upload.local === 'comprimiendo' ? t('Subiendo') : t('Procesando')}
         />
       )}
       <span className="up-row__txt">

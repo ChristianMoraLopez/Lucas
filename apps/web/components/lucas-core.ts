@@ -2,24 +2,19 @@
    lucas-ui.tsx, que es 'use client', para poder usarlas en Server Components.
    Mismo comportamiento que lucas-design-kit/components/lucas-ui.jsx. */
 
+import type { Idioma } from '@/lib/i18n';
+import { corto, dinero, type Moneda } from '@/lib/moneda';
+
 export type Tone = 'morado' | 'naranja' | 'azul' | 'coral' | 'verde' | 'amarillo' | 'turquesa' | 'rosa';
 
-/** Pesos colombianos: 84300 → "$84.300" (en inglés, "$84,300") */
-export function formatCOP(n: number, { sign = false, idioma = 'es' }: { sign?: boolean; idioma?: 'es' | 'en' } = {}) {
-  const v = Math.round(Number(n) || 0);
-  const s = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, idioma === 'en' ? ',' : '.');
-  return (v < 0 ? '−' : sign && v > 0 ? '+' : '') + '$' + s;
+/** Pesos colombianos: 84300 → "$84.300" (en inglés, "$84,300"). Otras monedas: dinero() de lib/moneda */
+export function formatCOP(n: number, { sign = false, idioma = 'es', moneda = 'COP' }: { sign?: boolean; idioma?: Idioma; moneda?: Moneda } = {}) {
+  return dinero(n, moneda, idioma, { sign });
 }
 
 /** "412 lucas" — la forma de decirlo en voz alta (miles de pesos); en inglés, "$412K" */
-export function lucas(n: number, idioma: 'es' | 'en' = 'es') {
-  const k = Math.abs(Number(n) || 0) / 1000;
-  if (idioma === 'en') {
-    return k >= 1000 ? `$${(k / 1000).toFixed(1).replace('.0', '')}M` : `$${Number.isInteger(k) ? k : k.toFixed(1)}K`;
-  }
-  return k >= 1000
-    ? (k / 1000).toFixed(1).replace('.0', '').replace('.', ',') + ' palos'
-    : (Number.isInteger(k) ? k : k.toFixed(1).replace('.', ',')) + ' lucas';
+export function lucas(n: number, idioma: Idioma = 'es', moneda: Moneda = 'COP') {
+  return corto(n, moneda, idioma);
 }
 
 /* ---------- tonos: personas y categorías ---------- */

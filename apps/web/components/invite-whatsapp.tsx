@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useT } from '@/components/idioma';
 import { Button } from '@/components/lucas-ui';
 import { humanError } from '@/lib/errors';
 import { inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
@@ -51,6 +52,7 @@ export function InviteWhatsapp({
   accountType: AccountType;
   variant?: 'primary' | 'secondary';
 }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function InviteWhatsapp({
     const w = window.open('', '_blank');
     try {
       const code = await codigoVigente(supabase, accountId, accountType);
-      const url = whatsappUrl(inviteMessage({ accountName, code, link: inviteLink(window.location.origin, code) }));
+      const url = whatsappUrl(inviteMessage({ accountName, code, link: inviteLink(window.location.origin, code), t }));
       if (w) w.location.href = url;
       else window.location.href = url;
     } catch (e) {
@@ -76,7 +78,7 @@ export function InviteWhatsapp({
   return (
     <span className="lu-invite">
       <Button size="sm" variant={variant} onClick={invitar} disabled={busy}>
-        {busy ? 'Abriendo WhatsApp…' : 'Invitar por WhatsApp'}
+        {busy ? t('Abriendo WhatsApp…') : t('Invitar por WhatsApp')}
       </Button>
       {error && (
         <span className="lu-field-error" role="alert">

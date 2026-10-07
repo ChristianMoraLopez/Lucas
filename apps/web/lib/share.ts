@@ -1,28 +1,40 @@
 /* Compartir las cuentas con quien no usa la app (el link /r/TOKEN) y cobrar
    por WhatsApp. Funciones puras: las usan Liquidar y la página pública. */
 
-import { formatCOP, lucas } from '@/components/lucas-core';
+import { crearT, type T } from '@/lib/i18n';
+import { corto, DECIMALES, dinero, type Moneda } from '@/lib/moneda';
 import { minTransfers } from './settlement';
 import type { SettlementPerson, SettlementTransfer } from './types';
+
+const ES = crearT('es');
+
+/** La plata en el mensaje: «$45.000 (45 lucas)» en pesos y en español; si no, solo el monto */
+function plata(n: number, t: T, moneda: Moneda, conCorto = true) {
+  const m = dinero(n, moneda, t.idioma);
+  return conCorto && t.idioma === 'es' && !DECIMALES[moneda] ? `${m} (${corto(n, moneda, 'es')})` : m;
+}
 
 /** El dominio que se muestra como publicidad en los mensajes y en la página pública */
 export const MARCA = 'mrluks.com';
 export const MARCA_URL = `https://${MARCA}`;
 /** La publicidad que va en los mensajes, la imagen del link y la página pública */
-export const PUBLICIDAD = `Esto se hizo en ${MARCA}`;
+export const publicidad = (t: T = ES) => t('Esto se hizo en {marca}', { marca: MARCA });
+export const PUBLICIDAD = publicidad();
 
 /** Para recomendar Luks a otros (el home): el mensaje y el link */
-export function recomendacionMessage() {
+export function recomendacionMessage(t: T = ES) {
   return {
     url: MARCA_URL,
     texto: [
-      'Te recomiendo *Luks* 🧾',
+      t('Te recomiendo *Luks* 🧾'),
       '',
-      '👥 *Para las cuentas del grupo:* mandan la foto del recibo al grupo de WhatsApp y Luks anota el gasto, lo divide y dice quién le paga a quién.',
+      t('👥 *Para las cuentas del grupo:* mandan la foto del recibo al grupo de WhatsApp y Luks anota el gasto, lo divide y dice quién le paga a quién.'),
       '',
-      '🙋 *Y para tus gastos personales:* arma un grupo de WhatsApp contigo mismo (solo tú y Luks), mándate ahí tus facturas y Luks las organiza por categoría para que las veas en la app.',
+      t(
+        '🙋 *Y para tus gastos personales:* arma un grupo de WhatsApp contigo mismo (solo tú y Luks), mándate ahí tus facturas y Luks las organiza por categoría para que las veas en la app.',
+      ),
       '',
-      `Es gratis 👉 ${MARCA_URL}`,
+      t('Es gratis 👉 {url}', { url: MARCA_URL }),
     ].join('\n'),
   };
 }
@@ -49,6 +61,8 @@ export function cobroMessage({
   accountName,
   link,
   creditorIsMe,
+  t = ES,
+  moneda = 'COP',
 }: {
   debtor: string;
   creditor: string;
@@ -56,11 +70,15 @@ export function cobroMessage({
   accountName: string;
   link?: string | null;
   creditorIsMe: boolean;
+  t?: T;
+  moneda?: Moneda;
 }) {
-  const quien = creditorIsMe ? 'me debes' : `le debes a ${creditor}`;
-  const lineas = [`Hola ${debtor} 👋 De «${accountName}» ${quien} ${formatCOP(amount)} (${lucas(amount)}).`];
-  if (link) lineas.push(`Acá ves cuánto puso cada uno y en qué se fue la plata: ${link}`);
-  lineas.push('', `_${PUBLICIDAD}_`);
+  const vars = { nombre: debtor, cuenta: accountName, monto: plata(amount, t, moneda), acreedor: creditor };
+  const lineas = [
+    creditorIsMe ? t('Hola {nombre} 👋 De «{cuenta}» me debes {monto}.', vars) : t('Hola {nombre} 👋 De «{cuenta}» le debes a {acreedor} {monto}.', vars),
+  ];
+  if (link) lineas.push(t('Acá ves cuánto puso cada uno y en qué se fue la plata: {link}', { link }));
+  lineas.push('', `_${publicidad(t)}_`);
   return lineas.join('\n');
 }
 
@@ -90,6 +108,8 @@ export function grupoMessage({
   nombre,
   liquidada,
   link,
+  t = ES,
+  moneda = 'COP',
 }: {
   accountName: string;
   /** «septiembre 2026» en un hogar; nada en un evento */
@@ -102,31 +122,33 @@ export function grupoMessage({
   nombre: (personId: string) => string;
   liquidada: boolean;
   link?: string | null;
+  t?: T;
+  moneda?: Moneda;
 }) {
+  const $ = (n: number) => dinero(n, moneda, t.idioma);
   const lineas = [`🧾 *${sinFormato(accountName)}*${periodo ? ` · ${periodo}` : ''}`];
-  const entre = people === 1 ? '1 persona' : `${people}`;
-  lineas.push(
-    porCabeza
-      ? `Gastamos *${formatCOP(total)}* (${lucas(total)}) entre ${entre}: *${formatCOP(porCabeza)}* cada uno.`
-      : `Gastamos *${formatCOP(total)}* (${lucas(total)}) entre ${entre}, cada quien su parte.`,
-    '',
-  );
+  const vars = {
+    total: `*${$(total)}*${t.idioma === 'es' && !DECIMALES[moneda] ? ` (${corto(total, moneda, 'es')})` : ''}`,
+    entre: people === 1 ? t('1 persona') : String(people),
+    cada: porCabeza ? `*${$(porCabeza)}*` : '',
+  };
+  lineas.push(porCabeza ? t('Gastamos {total} entre {entre}: {cada} cada uno.', vars) : t('Gastamos {total} entre {entre}, cada quien su parte.', vars), '');
 
   if (transfers.length) {
-    const pagadas = transfers.filter((t) => t.paid_at).length;
-    lineas.push('💸 *Quién le paga a quién*');
-    for (const t of transfers) {
-      const quien = `${sinFormato(nombre(t.from))} → ${sinFormato(nombre(t.to))}`;
-      lineas.push(t.paid_at ? `• ~${quien}: ${formatCOP(t.amount)}~ ✅` : `• ${quien}: *${formatCOP(t.amount)}*`);
+    const pagadas = transfers.filter((x) => x.paid_at).length;
+    lineas.push(t('💸 *Quién le paga a quién*'));
+    for (const x of transfers) {
+      const quien = `${sinFormato(nombre(x.from))} → ${sinFormato(nombre(x.to))}`;
+      lineas.push(x.paid_at ? `• ~${quien}: ${$(x.amount)}~ ✅` : `• ${quien}: *${$(x.amount)}*`);
     }
-    if (liquidada && pagadas === transfers.length) lineas.push('', '✅ Todo pagado: quedamos a mano 🙌');
-    else if (pagadas > 0) lineas.push('', `Van ${pagadas} de ${transfers.length} pagadas.`);
+    if (liquidada && pagadas === transfers.length) lineas.push('', t('✅ Todo pagado: quedamos a mano 🙌'));
+    else if (pagadas > 0) lineas.push('', t('Van {n} de {total} pagadas.', { n: pagadas, total: transfers.length }));
   } else {
-    lineas.push('✨ Nadie le debe a nadie: cada quien puso lo suyo.');
+    lineas.push(t('✨ Nadie le debe a nadie: cada quien puso lo suyo.'));
   }
 
-  if (link) lineas.push('', '👀 Cuánto puso cada uno y en qué se fue la plata:', link);
-  lineas.push('', `_${PUBLICIDAD}_`);
+  if (link) lineas.push('', t('👀 Cuánto puso cada uno y en qué se fue la plata:'), link);
+  lineas.push('', `_${publicidad(t)}_`);
   return lineas.join('\n');
 }
 

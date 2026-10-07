@@ -2,7 +2,9 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { formatCOP } from '@/components/lucas-core';
+import { useT } from '@/components/idioma';
+import { nombreCategoria } from '@/components/lucas-core';
+import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
 import { monthName } from '@/lib/dates';
 import { plural } from '@/lib/types';
@@ -39,6 +41,8 @@ export function GastosFiltros({
   /** Se llegó al máximo de gastos que muestra la lista */
   tope: boolean;
 }) {
+  const t = useT();
+  const $ = useDinero();
   const router = useRouter();
   const pathname = usePathname();
   const [buscando, startTransition] = useTransition();
@@ -60,10 +64,10 @@ export function GastosFiltros({
       saltar.current = false;
       return;
     }
-    const t = setTimeout(() => {
+    const reloj = setTimeout(() => {
       if (q.trim() !== filtros.q) irRef.current({ q: q.trim() });
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(reloj);
   }, [q, filtros.q]);
 
   const hay = Boolean(filtros.q || filtros.cat || filtros.quien || filtros.mes || filtros.ver);
@@ -74,7 +78,7 @@ export function GastosFiltros({
   };
 
   return (
-    <search className="gf" aria-label="Buscar gastos">
+    <search className="gf" aria-label={t('Buscar gastos')}>
       <label className="gf-q">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />
@@ -84,40 +88,40 @@ export function GastosFiltros({
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar comercio: panadería, Uber, Éxito…"
-          aria-label="Buscar por comercio"
+          placeholder={t('Buscar comercio: panadería, Uber, Éxito…')}
+          aria-label={t('Buscar por comercio')}
           enterKeyHint="search"
           maxLength={60}
         />
         {q && (
-          <button type="button" className="gf-x" onClick={() => setQ('')} aria-label="Borrar la búsqueda">
+          <button type="button" className="gf-x" onClick={() => setQ('')} aria-label={t('Borrar la búsqueda')}>
             ×
           </button>
         )}
       </label>
 
       <div className="gf-sel">
-        <select aria-label="Categoría" value={filtros.cat} onChange={(e) => ir({ cat: e.target.value })} className={filtros.cat ? 'is-on' : ''}>
-          <option value="">Categoría</option>
+        <select aria-label={t('Categoría')} value={filtros.cat} onChange={(e) => ir({ cat: e.target.value })} className={filtros.cat ? 'is-on' : ''}>
+          <option value="">{t('Categoría')}</option>
           {categorias.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {nombreCategoria(c.name, t)}
             </option>
           ))}
         </select>
-        <select aria-label="Quién pagó" value={filtros.quien} onChange={(e) => ir({ quien: e.target.value })} className={filtros.quien ? 'is-on' : ''}>
-          <option value="">Quién pagó</option>
+        <select aria-label={t('Quién pagó')} value={filtros.quien} onChange={(e) => ir({ quien: e.target.value })} className={filtros.quien ? 'is-on' : ''}>
+          <option value="">{t('Quién pagó')}</option>
           {personas.map((p) => (
             <option key={p.id} value={p.id}>
-              Pagó {p.name}
+              {t('Pagó {nombre}', { nombre: p.name })}
             </option>
           ))}
         </select>
-        <select aria-label="Mes" value={filtros.mes} onChange={(e) => ir({ mes: e.target.value })} className={filtros.mes ? 'is-on' : ''}>
-          <option value="">Mes</option>
+        <select aria-label={t('Mes')} value={filtros.mes} onChange={(e) => ir({ mes: e.target.value })} className={filtros.mes ? 'is-on' : ''}>
+          <option value="">{t('Mes')}</option>
           {meses.map((m) => (
             <option key={m} value={m}>
-              {monthName(`${m}-01`)} {m.slice(0, 4)}
+              {monthName(`${m}-01`, t.idioma)} {m.slice(0, 4)}
             </option>
           ))}
         </select>
@@ -125,20 +129,20 @@ export function GastosFiltros({
 
       <div className="gf-foot">
         <Segmento
-          label="Qué gastos ver"
+          label={t('Qué gastos ver')}
           value={filtros.ver === 'pendientes' ? 'pendientes' : 'todos'}
           onChange={(v) => ir({ ver: v === 'pendientes' ? 'pendientes' : '' })}
           opciones={[
-            { value: 'todos', label: 'Todos' },
-            { value: 'pendientes', label: 'Por revisar' },
+            { value: 'todos', label: t('Todos') },
+            { value: 'pendientes', label: t('Por revisar') },
           ]}
         />
         <span className="lu-small lu-muted gf-n" aria-live="polite">
-          {buscando ? 'Buscando…' : `${plural(total, 'gasto', 'gastos')} · ${formatCOP(suma)}${tope ? ' (los más recientes)' : ''}`}
+          {buscando ? t('Buscando…') : `${plural(total, t('gasto'), t('gastos'))} · ${$.fmt(suma)}${tope ? ` ${t('(los más recientes)')}` : ''}`}
         </span>
         {hay && (
           <button type="button" className="gf-clear" onClick={quitar}>
-            Quitar filtros
+            {t('Quitar filtros')}
           </button>
         )}
       </div>

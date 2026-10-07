@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useT } from '@/components/idioma';
 import { Button } from '@/components/lucas-ui';
 import { humanError } from '@/lib/errors';
 import type { AccountCategory } from '@/lib/types';
@@ -12,6 +13,7 @@ import { createClient } from '@/utils/supabase/client';
  * clave: «droguería, citas médicas, exámenes, EPS».
  */
 export function NuevaCategoria({ accountId, onCreated, onCancel }: { accountId: string; onCreated: (c: AccountCategory) => void; onCancel: () => void }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -39,12 +41,12 @@ export function NuevaCategoria({ accountId, onCreated, onCancel }: { accountId: 
   return (
     <div className="ncat" role="group" aria-labelledby="nc-t">
       <span className="lu-label" id="nc-t">
-        Nueva categoría
+        {t('Nueva categoría')}
       </span>
       <input
         className="wa-input"
-        aria-label="Nombre de la categoría"
-        placeholder="Salud"
+        aria-label={t('Nombre de la categoría')}
+        placeholder={t('Salud')}
         maxLength={30}
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
@@ -53,13 +55,13 @@ export function NuevaCategoria({ accountId, onCreated, onCancel }: { accountId: 
       />
       <input
         className="wa-input"
-        aria-label="¿Qué entra en ella?"
-        placeholder="¿Qué entra? Droguería, citas médicas, exámenes, EPS"
+        aria-label={t('¿Qué entra en ella?')}
+        placeholder={t('¿Qué entra? Droguería, citas médicas, exámenes, EPS')}
         maxLength={300}
         value={descripcion}
         onChange={(e) => setDescripcion(e.target.value)}
       />
-      <span className="lu-small lu-muted">Con la descripción, Luks aprende a ponerla sola en los próximos gastos.</span>
+      <span className="lu-small lu-muted">{t('Con la descripción, Luks aprende a ponerla sola en los próximos gastos.')}</span>
       {error && (
         <p className="lu-error" role="alert" style={{ margin: 0 }}>
           {error}
@@ -67,10 +69,10 @@ export function NuevaCategoria({ accountId, onCreated, onCancel }: { accountId: 
       )}
       <div className="wa-row">
         <Button size="sm" onClick={crear} disabled={busy || nombre.trim().length < 2}>
-          {busy ? 'Creando…' : 'Crear categoría'}
+          {busy ? t('Creando…') : t('Crear categoría')}
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
-          Cancelar
+          {t('Cancelar')}
         </Button>
       </div>
     </div>

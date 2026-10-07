@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { crearT } from './i18n';
 import { cobroMessage, grupoMessage, PUBLICIDAD, personView, recomendacionMessage, sharedLink, transfersFor } from './share';
 
 describe('compartir las cuentas', () => {
@@ -95,5 +96,47 @@ describe('compartir las cuentas', () => {
     expect(transfersFor({ people, settlement: { transfers: [guardada] } })).toEqual([guardada]);
     // Saldos que no cuadran: nada, en vez de romper la página
     expect(transfersFor({ people: [{ id: 'x', name: 'X', balance: 5 }], settlement: null })).toEqual([]);
+  });
+});
+
+describe('los mensajes en inglés y en otras monedas', () => {
+  const en = crearT('en');
+  it('el cobro en dólares, en inglés', () => {
+    const m = cobroMessage({ debtor: 'Mafe', creditor: 'Chris', amount: 4_550, accountName: 'Bowling', creditorIsMe: true, t: en, moneda: 'USD' });
+    expect(m).toContain('Hi Mafe 👋 For “Bowling” you owe me $45.50.');
+    expect(m.endsWith('_Made with mrluks.com_')).toBe(true);
+  });
+
+  it('el mensaje del grupo en pesos chilenos, en español, con lucas', () => {
+    const m = grupoMessage({
+      accountName: 'Asado',
+      total: 120_000,
+      people: 4,
+      porCabeza: 30_000,
+      transfers: [],
+      nombre: () => '',
+      liquidada: false,
+      moneda: 'CLP',
+    });
+    expect(m).toContain('Gastamos *$120.000* (120 lucas) entre 4: *$30.000* cada uno.');
+  });
+
+  it('el mensaje del grupo en inglés', () => {
+    const m = grupoMessage({
+      accountName: 'Road trip',
+      total: 48_000,
+      people: 3,
+      porCabeza: 16_000,
+      transfers: [{ from: 'a', to: 'b', amount: 16_000, paid_at: null }],
+      nombre: (id) => (id === 'a' ? 'Sam' : 'Alex'),
+      liquidada: false,
+      link: 'https://mrluks.com/r/abc',
+      t: en,
+      moneda: 'USD',
+    });
+    expect(m).toContain('We spent *$480.00* among 3: *$160.00* each.');
+    expect(m).toContain('💸 *Who pays whom*');
+    expect(m).toContain('• Sam → Alex: *$160.00*');
+    expect(recomendacionMessage(en).texto).toContain('I recommend *Luks*');
   });
 });

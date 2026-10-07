@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useT } from '@/components/idioma';
 import type { LottieName } from '@/components/lottie';
 import { LottieOGiro } from '@/components/lottie-o-giro';
 
@@ -44,6 +45,7 @@ const RINDE_MS = 25_000; // si no llegó nada, se suelta el link para volver a i
  * - sin internet, un aviso; cuando vuelve, otro.
  */
 export function Conexion() {
+  const tr = useT();
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -149,13 +151,18 @@ export function Conexion() {
   // Cada aviso con su Lottie (y un giro mientras llega); el de red lenta, solo un punto
   type Aviso = { tono: 'sin' | 'lenta' | 'ok'; texto: string; cerrar?: () => void; lottie?: LottieName };
   let aviso: Aviso | null = null;
-  if (!enLinea) aviso = { tono: 'sin', texto: 'Sin internet. Revisa tu conexión: lo que abras carga cuando vuelva.', lottie: 'sin-conexion' };
+  if (!enLinea) aviso = { tono: 'sin', texto: tr('Sin internet. Revisa tu conexión: lo que abras carga cuando vuelva.'), lottie: 'sin-conexion' };
   else if (noCargo)
-    aviso = { tono: 'sin', texto: 'No cargó: la conexión está muy lenta. Toca otra vez cuando mejore.', cerrar: () => setNoCargo(false), lottie: 'error' };
-  else if (navegando && tarda) aviso = { tono: 'lenta', texto: 'Cargando… la conexión está lenta, ya casi.', lottie: 'cargando' };
-  else if (volvio) aviso = { tono: 'ok', texto: 'Volvió la conexión.', lottie: 'todo-revisado' };
+    aviso = {
+      tono: 'sin',
+      texto: tr('No cargó: la conexión está muy lenta. Toca otra vez cuando mejore.'),
+      cerrar: () => setNoCargo(false),
+      lottie: 'error',
+    };
+  else if (navegando && tarda) aviso = { tono: 'lenta', texto: tr('Cargando… la conexión está lenta, ya casi.'), lottie: 'cargando' };
+  else if (volvio) aviso = { tono: 'ok', texto: tr('Volvió la conexión.'), lottie: 'todo-revisado' };
   else if (lenta && !lentaVista)
-    aviso = { tono: 'lenta', texto: 'Tu conexión está lenta: las cosas pueden tardar un poco.', cerrar: () => setLentaVista(true) };
+    aviso = { tono: 'lenta', texto: tr('Tu conexión está lenta: las cosas pueden tardar un poco.'), cerrar: () => setLentaVista(true) };
 
   // Al irse, el aviso sale suave (200 ms) en vez de desaparecer de golpe
   const clave = aviso ? `${aviso.tono}|${aviso.texto}` : null;
@@ -193,7 +200,7 @@ export function Conexion() {
             )}
             <span>{visible.texto}</span>
             {visible.cerrar && (
-              <button type="button" className="lu-red__x" onClick={visible.cerrar} aria-label="Cerrar aviso">
+              <button type="button" className="lu-red__x" onClick={visible.cerrar} aria-label={tr('Cerrar aviso')}>
                 ×
               </button>
             )}

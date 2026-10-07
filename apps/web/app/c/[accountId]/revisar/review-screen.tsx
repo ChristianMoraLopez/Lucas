@@ -6,8 +6,9 @@ import { useState } from 'react';
 import { Cargando } from '@/components/cargando';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { ExpenseForm, type SavedExpense } from '@/components/expense-form';
-import { formatCOP } from '@/components/lucas-core';
+import { useT } from '@/components/idioma';
 import { Avatar, Button, ExpenseCard, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { useDinero } from '@/components/moneda';
 import { formatDateCO, formatWhen } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { useAccountChanges } from '@/lib/realtime';
@@ -36,6 +37,8 @@ export function ReviewScreen({
   focus: string | null;
   unknownSenders?: number;
 }) {
+  const t = useT();
+  const $ = useDinero();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const canReview = myRole === 'owner' || myRole === 'admin';
@@ -79,7 +82,7 @@ export function ReviewScreen({
   if (data.isPending) {
     return (
       <div className="rv">
-        <h1 className="lu-display">Por revisar</h1>
+        <h1 className="lu-display">{t('Por revisar')}</h1>
         <Cargando />
       </div>
     );
@@ -87,7 +90,7 @@ export function ReviewScreen({
   if (data.isError) {
     return (
       <div className="rv">
-        <h1 className="lu-display">Por revisar</h1>
+        <h1 className="lu-display">{t('Por revisar')}</h1>
         <p className="lu-error" role="alert">
           {humanError(data.error)}
         </p>
@@ -101,7 +104,7 @@ export function ReviewScreen({
   const queue = [...pending.map((p) => p.id), ...doneIds];
   const current = selected && (queue.includes(selected) || done[selected]) ? selected : (pending[0]?.id ?? doneIds[0] ?? null);
   const item = pending.find((p) => p.id === current);
-  const personName = (id: string | null | undefined) => people.find((p) => p.id === id)?.display_name ?? 'Alguien';
+  const personName = (id: string | null | undefined) => people.find((p) => p.id === id)?.display_name ?? t('Alguien');
   const personTone = (id: string | null | undefined) => {
     const p = people.find((x) => x.id === id);
     return p ? asTone(p.tone, p.display_name) : undefined;
@@ -112,33 +115,35 @@ export function ReviewScreen({
     <div className="rv">
       <div className="rv-top">
         <div className="rv-head">
-          <h1 className="lu-display">Por revisar</h1>
+          <h1 className="lu-display">{t('Por revisar')}</h1>
           {pending.length > 0 && <span className="rv-count lu-num">{pending.length}</span>}
         </div>
         <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--sm lu-btn--secondary">
-          Subir gasto
+          {t('Subir gasto')}
         </Link>
       </div>
       <p className="lu-small lu-muted" style={{ margin: '-8px 0 0' }}>
-        Lo que llegó al grupo o subieron aquí y todavía no es gasto.
+        {t('Lo que llegó al grupo o subieron aquí y todavía no es gasto.')}
       </p>
 
       {unknownSenders > 0 && (
         <div className="ed-alert" role="status">
           <Sticker tone="revisar" rotate={-5}>
-            {unknownSenders === 1 ? '1 número' : `${unknownSenders} números`}
+            {unknownSenders === 1 ? t('1 número') : t('{n} números', { n: unknownSenders })}
           </Sticker>
           <span className="lu-small" style={{ flex: 1, minWidth: 160 }}>
-            Escribieron en el grupo y no sabemos de quién {unknownSenders === 1 ? 'es' : 'son'}: sus gastos quedan sin pagador.
+            {unknownSenders === 1
+              ? t('Escribieron en el grupo y no sabemos de quién es: sus gastos quedan sin pagador.')
+              : t('Escribieron en el grupo y no sabemos de quién son: sus gastos quedan sin pagador.')}
           </span>
           <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--sm lu-btn--secondary">
-            ¿Quién es?
+            {t('¿Quién es?')}
           </Link>
         </div>
       )}
 
       {(queue.length > 0 || processing.length > 0) && (
-        <ol className="rv-queue" aria-label="Cola de revisión">
+        <ol className="rv-queue" aria-label={t('Cola de revisión')}>
           {queue.map((id) => {
             const q = pending.find((p) => p.id === id);
             const d = done[id];
@@ -156,13 +161,13 @@ export function ReviewScreen({
                   <span className="rv-q__txt">
                     <span className="rv-q__m">{q?.merchant ?? d.merchant}</span>
                     <span className="rv-q__s">
-                      {q ? KIND_LABEL[q.messages?.kind ?? 'text'] : 'Listo'} · <span className="lu-num">{formatCOP(q?.total_cop ?? d.total)}</span>
+                      {q ? t(KIND_LABEL[q.messages?.kind ?? 'text']) : t('Listo')} · <span className="lu-num">{$.fmt(q?.total_cop ?? d.total)}</span>
                     </span>
                   </span>
                   {d ? (
                     <Sticker tone="confirmado" size="sm" rotate={-8} className="rv-q__st" />
                   ) : low ? (
-                    <span className="rv-q__dot" title="Tiene datos por revisar" />
+                    <span className="rv-q__dot" title={t('Tiene datos por revisar')} />
                   ) : null}
                 </button>
               </li>
@@ -171,10 +176,10 @@ export function ReviewScreen({
           {processing.map((m) => (
             <li key={m.id}>
               <div className="rv-q rv-q--proc">
-                <LottieSlot name="escaneo" width={32} height={32} label="Procesando" />
+                <LottieSlot name="escaneo" width={32} height={32} label={t('Procesando')} />
                 <span className="rv-q__txt">
-                  <span className="rv-q__m">{m.kind === 'photo' ? 'Leyendo foto…' : m.kind === 'pdf' ? 'Leyendo PDF…' : 'Leyendo mensaje…'}</span>
-                  <span className="rv-q__s">de {personName(m.sender_person_id)}</span>
+                  <span className="rv-q__m">{m.kind === 'photo' ? t('Leyendo foto…') : m.kind === 'pdf' ? t('Leyendo PDF…') : t('Leyendo mensaje…')}</span>
+                  <span className="rv-q__s">{t('de {nombre}', { nombre: personName(m.sender_person_id) })}</span>
                 </span>
               </div>
             </li>
@@ -187,19 +192,19 @@ export function ReviewScreen({
           <LottieSlot name={processing.length ? 'escaneo' : 'todo-revisado'} width={96} height={96} />
           <div>
             <p className="lu-title" style={{ margin: 0 }}>
-              {processing.length ? 'Luks está leyendo lo último' : 'Todo revisado'}
+              {processing.length ? t('Luks está leyendo lo último') : t('Todo revisado')}
             </p>
             <p className="lu-small lu-muted" style={{ margin: '4px 0 var(--space-4)' }}>
               {processing.length
-                ? 'En unos segundos aparece aquí para que lo revises.'
-                : 'Cuando manden fotos al grupo o suban un gasto, llega aquí si Luks no lo leyó seguro.'}
+                ? t('En unos segundos aparece aquí para que lo revises.')
+                : t('Cuando manden fotos al grupo o suban un gasto, llega aquí si Luks no lo leyó seguro.')}
             </p>
             <div className="wa-row">
               <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--primary">
-                Subir un gasto
+                {t('Subir un gasto')}
               </Link>
               <Link href={`/c/${accountId}/whatsapp`} className="lu-btn lu-btn--ghost">
-                Conectar el grupo de WhatsApp
+                {t('Conectar el grupo de WhatsApp')}
               </Link>
             </div>
           </div>
@@ -207,7 +212,7 @@ export function ReviewScreen({
       ) : (
         <div className="rv-split">
           {item ? (
-            <section className="rv-evi" aria-label="Evidencia">
+            <section className="rv-evi" aria-label={t('Evidencia')}>
               <EvidenceViewer
                 kind={item.messages?.kind ?? null}
                 path={item.evidence_path}
@@ -215,7 +220,7 @@ export function ReviewScreen({
                 fileName={item.messages?.file_name ?? null}
                 sender={personName(item.messages?.sender_person_id ?? item.payer_person_id)}
                 senderTone={personTone(item.messages?.sender_person_id ?? item.payer_person_id)}
-                when={formatWhen(item.messages?.received_at ?? item.created_at)}
+                when={formatWhen(item.messages?.received_at ?? item.created_at, t.idioma)}
                 source={item.source}
               />
             </section>
@@ -223,12 +228,12 @@ export function ReviewScreen({
             <div />
           )}
 
-          <section className="rv-data" aria-label="Datos extraídos">
+          <section className="rv-data" aria-label={t('Datos extraídos')}>
             {current && done[current] ? (
               <DoneCard
                 d={done[current]}
                 next={nextPending ? () => setSelected(nextPending.id) : null}
-                nextLabel={nextPending ? `Siguiente · quedan ${pending.filter((p) => !done[p.id]).length}` : null}
+                nextLabel={nextPending ? t('Siguiente · quedan {n}', { n: pending.filter((p) => !done[p.id]).length }) : null}
                 accountId={accountId}
               />
             ) : (
@@ -242,7 +247,7 @@ export function ReviewScreen({
                   people={people}
                   categories={categories}
                   canEdit={canReview}
-                  position={`${pending.indexOf(item) + 1} de ${pending.length}`}
+                  position={t('{n} de {total}', { n: pending.indexOf(item) + 1, total: pending.length })}
                   onSaved={(d) => {
                     setDone((x) => ({ ...x, [item.id]: d }));
                     setSelected(item.id);
@@ -263,25 +268,27 @@ export function ReviewScreen({
 }
 
 function DoneCard({ d, next, nextLabel, accountId }: { d: Done; next: (() => void) | null; nextLabel: string | null; accountId: string }) {
+  const t = useT();
+  const $ = useDinero();
   return (
     <div className="rv-done">
       <ExpenseCard
         appear
         merchant={d.merchant}
         category={d.category ?? undefined}
-        meta={`${formatDateCO(d.date)} · pagó ${d.payer}`}
+        meta={`${formatDateCO(d.date, t.idioma)} · ${t('pagó {nombre}', { nombre: d.payer })}`}
         total={d.total}
-        each={d.porConsumo ? `÷ ${d.n} · por consumo` : `÷ ${d.n} · ${formatCOP(d.each)}`}
+        each={d.porConsumo ? `÷ ${d.n} · ${t('por consumo')}` : `÷ ${d.n} · ${$.fmt(d.each)}`}
         sticker={<Sticker tone="confirmado" animate rotate={-6} />}
       />
       <div className="rv-done__row">
         <LottieSlot name="gasto-registrado" width={64} height={64} />
         <div>
           <p className="lu-title" style={{ margin: 0 }}>
-            Quedó registrado
+            {t('Quedó registrado')}
           </p>
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            Ya cuenta en el resumen y en la liquidación.
+            {t('Ya cuenta en el resumen y en la liquidación.')}
           </p>
         </div>
       </div>
@@ -289,7 +296,7 @@ function DoneCard({ d, next, nextLabel, accountId }: { d: Done; next: (() => voi
         <Button onClick={next}>{nextLabel}</Button>
       ) : (
         <Link href={`/c/${accountId}/resumen`} className="lu-btn lu-btn--primary">
-          Ver el resumen
+          {t('Ver el resumen')}
         </Link>
       )}
     </div>

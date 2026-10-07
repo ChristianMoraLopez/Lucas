@@ -5,8 +5,9 @@ import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
-import { formatCOP, nombreCategoria } from '@/components/lucas-core';
+import { nombreCategoria } from '@/components/lucas-core';
 import { Button, Chip, Field } from '@/components/lucas-ui';
+import { useDinero } from '@/components/moneda';
 import { formatDateCO } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { notifyAccountChanged } from '@/lib/realtime';
@@ -60,7 +61,7 @@ export function ExpenseForm({
   onCategoriesChanged?: () => void;
 }) {
   const t = useT();
-  const cop = (n: number) => formatCOP(n, { idioma: t.idioma });
+  const cop = useDinero().fmt;
   const [supabase] = useState(() => createClient());
   // Las que se crean aquí mismo se suman mientras la lista se vuelve a pedir
   const [nuevas, setNuevas] = useState<AccountCategory[]>([]);

@@ -5707,3 +5707,38 @@ iframe {
   background: var(--verde-suave);
   border: 1.5px solid var(--verde);
 }
+/* Región: la bandera en vez del código y la moneda debajo del país */
+.mn-codigo--bandera {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.mn-region {
+  display: grid;
+  line-height: 1.2;
+}
+.mn-region small {
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+/* Con tantas opciones, en un celular bajito el menú se desliza */
+.mn {
+  max-height: min(var(--radix-dropdown-menu-content-available-height, 80vh), 80vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ---------- Número de WhatsApp con su país (components/campo-telefono.tsx) ---------- */
+.tel {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr);
+  gap: 8px;
+}
+.tel-pais {
+  text-overflow: ellipsis;
+}
+/* El número con su país ocupa la fila; el botón va al lado (o abajo en celulares angostos) */
+.pf-row--tel .tel {
+  flex: 1 1 18rem;
+  min-width: 0;
+}

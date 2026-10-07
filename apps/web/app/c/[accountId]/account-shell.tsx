@@ -5,9 +5,12 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Guia } from '@/components/guia';
+import { useT } from '@/components/idioma';
 import { LogoLink } from '@/components/logo-link';
 import { AppShell, ICONS } from '@/components/lucas-ui';
 import { MenuPrincipal } from '@/components/menu-principal';
+import { MonedaProvider } from '@/components/moneda';
+import type { Moneda } from '@/lib/moneda';
 import { useAccountChanges } from '@/lib/realtime';
 import { type AccountType, accountGlyph, accountTone, type EstadoWhatsapp, estadoWhatsapp, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
@@ -98,12 +101,13 @@ const DOT: Record<EstadoWhatsapp, 'ok' | 'warn' | 'off'> = { leyendo: 'ok', caid
  * todavía no tiene grupo, «Conectar WhatsApp» resaltado.
  */
 function WhatsappPill({ accountId, wa, here }: { accountId: string; wa: ReturnType<typeof estadoWhatsapp>; here: boolean }) {
+  const t = useT();
   const label =
     wa.estado === 'leyendo'
-      ? `WhatsApp: Luks está leyendo «${wa.grupo ?? 'el grupo'}»`
+      ? t('WhatsApp: Luks está leyendo «{grupo}»', { grupo: wa.grupo ?? t('el grupo') })
       : wa.estado === 'caido'
-        ? 'WhatsApp: Luks no está leyendo el grupo ahora'
-        : 'Conectar el grupo de WhatsApp';
+        ? t('WhatsApp: Luks no está leyendo el grupo ahora')
+        : t('Conectar el grupo de WhatsApp');
   return (
     <Link
       href={`/c/${accountId}/whatsapp`}
@@ -116,7 +120,8 @@ function WhatsappPill({ accountId, wa, here }: { accountId: string; wa: ReturnTy
       <span className="lu-wa-pill__txt">
         {wa.estado === 'sin-grupo' ? (
           <>
-            Conectar<span className="lu-wa-pill__mas"> WhatsApp</span>
+            {t('Conectar')}
+            <span className="lu-wa-pill__mas"> WhatsApp</span>
           </>
         ) : (
           'WhatsApp'
@@ -136,7 +141,7 @@ export function AccountShell({
   guiaVista = true,
   children,
 }: {
-  account: { id: string; name: string; type: AccountType };
+  account: { id: string; name: string; type: AccountType; currency: Moneda };
   pending: number;
   /** Quien está viendo (la guía recuerda por persona) */
   usuario: string;
@@ -148,34 +153,37 @@ export function AccountShell({
   whatsapp: WhatsappOverview | null;
   children: React.ReactNode;
 }) {
+  const tr = useT();
   const router = useRouter();
   const pathname = usePathname();
   const active = pathname.split('/').filter(Boolean)[2] ?? 'resumen';
   const count = usePendingCount(account.id, pending);
   const wa = useWhatsapp(account.id, whatsapp);
   // En escritorio, WhatsApp también va en el menú lateral, justo después de Resumen
-  const base = TABS[account.type].map((t) => (t.id === 'revisar' ? { ...t, count } : t));
+  const base = TABS[account.type].map((t) => ({ ...t, label: tr(t.label), ...(t.id === 'revisar' ? { count } : {}) }));
   const tabs = [base[0], { id: 'whatsapp', label: 'WhatsApp', railOnly: true, dot: DOT[wa.estado] }, ...base.slice(1)];
 
   return (
-    <AppShell
-      account={account.name}
-      accountTone={accountTone(account.name)}
-      accountGlyph={accountGlyph(account.name)}
-      tabs={tabs}
-      active={active}
-      onTab={(id) => router.push(`/c/${account.id}/${id}`)}
-      onAccount={() => router.push('/')}
-      brand={<LogoLink />}
-      barExtra={
-        <>
-          <Guia nombre="cuenta" usuario={usuario} auto={!guiaVista} />
-          <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
-        </>
-      }
-      barEnd={<MenuPrincipal nombre={nombre} guia />}
-    >
-      {children}
-    </AppShell>
+    <MonedaProvider moneda={account.currency}>
+      <AppShell
+        account={account.name}
+        accountTone={accountTone(account.name)}
+        accountGlyph={accountGlyph(account.name)}
+        tabs={tabs}
+        active={active}
+        onTab={(id) => router.push(`/c/${account.id}/${id}`)}
+        onAccount={() => router.push('/')}
+        brand={<LogoLink />}
+        barExtra={
+          <>
+            <Guia nombre="cuenta" usuario={usuario} auto={!guiaVista} />
+            <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
+          </>
+        }
+        barEnd={<MenuPrincipal nombre={nombre} guia />}
+      >
+        {children}
+      </AppShell>
+    </MonedaProvider>
   );
 }

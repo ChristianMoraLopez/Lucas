@@ -2,6 +2,7 @@
 
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import type { ReactNode } from 'react';
+import { useT } from '@/components/idioma';
 import { Button } from '@/components/lucas-ui';
 
 /**
@@ -28,6 +29,7 @@ export function ConfirmDialog({
   danger?: boolean;
   onConfirm: () => void;
 }) {
+  const t = useT();
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
@@ -38,7 +40,7 @@ export function ConfirmDialog({
           <div className="lu-dialog__btns">
             <AlertDialog.Cancel asChild>
               <Button variant="secondary" size="sm">
-                Cancelar
+                {t('Cancelar')}
               </Button>
             </AlertDialog.Cancel>
             <Button
@@ -51,7 +53,7 @@ export function ConfirmDialog({
                 onConfirm();
               }}
             >
-              {busy ? 'Un momento…' : confirmLabel}
+              {busy ? t('Un momento…') : confirmLabel}
             </Button>
           </div>
         </AlertDialog.Content>

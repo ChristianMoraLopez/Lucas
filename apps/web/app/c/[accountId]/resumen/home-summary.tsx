@@ -1,22 +1,37 @@
 import Link from 'next/link';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
-import { formatCOP } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, BudgetBar, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
-import { formatRecent, monthName } from '@/lib/dates';
+import { formatRecent, mesCorto, monthName } from '@/lib/dates';
+import type { T } from '@/lib/i18n';
+import { rico } from '@/lib/i18n/rico';
+import { abreviado, dinero, type Moneda } from '@/lib/moneda';
 import { asTone, type Dashboard } from '@/lib/types';
 
-const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-const mesDe = (iso: string) => Number(iso.slice(5, 7)) - 1;
 const param = (iso: string) => iso.slice(0, 7);
 
 /** Resumen de una cuenta hogar (captura 3): el mes, en qué se fue, tendencia, presupuestos y últimos gastos. */
-export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard; invitar?: boolean; aviso?: React.ReactNode }) {
+export function HomeSummary({
+  d,
+  invitar = false,
+  aviso = null,
+  t,
+  moneda,
+}: {
+  d: Dashboard;
+  invitar?: boolean;
+  aviso?: React.ReactNode;
+  t: T;
+  moneda: Moneda;
+}) {
+  const formatCOP = (v: number) => dinero(v, moneda, t.idioma);
+  const mes = (iso: string) => monthName(iso, t.idioma);
+  // «septiembre» en una frase en español; «September» en inglés
+  const mesEnFrase = (iso: string) => (t.idioma === 'en' ? mes(iso) : mes(iso).toLowerCase());
   const base = `/c/${d.account.id}/resumen`;
   const esEsteMes = d.month.slice(0, 7) === d.today.slice(0, 7);
   const nombres = d.people.map((p) => p.name);
   const trend = d.trend ?? [];
-  const maxBar = Math.max(d.budget ?? 0, ...trend.map((t) => t.total), 1) * 1.08;
+  const maxBar = Math.max(d.budget ?? 0, ...trend.map((x) => x.total), 1) * 1.08;
   const mesAnterior = trend.length > 1 ? trend[trend.length - 2] : null;
   const conPresupuesto = d.categories.filter((c) => c.budget);
   const pasados = conPresupuesto.filter((c) => c.total > (c.budget as number)).length;
@@ -32,7 +47,11 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
         <header className="hd-head">
           <div>
             <h1 className="lu-display-xl">{d.account.name}</h1>
-            <span className="lu-small lu-muted">Hogar de {nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : nombres[0]}</span>
+            <span className="lu-small lu-muted">
+              {t('Hogar de {nombres}', {
+                nombres: nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} ${t('y')} ${nombres.at(-1)}` : (nombres[0] ?? ''),
+              })}
+            </span>
             {invitar && (
               <div className="ed-invite">
                 <InviteWhatsapp accountId={d.account.id} accountName={d.account.name} accountType="hogar" variant="secondary" />
@@ -48,16 +67,16 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
         {aviso}
 
         <BillCard
-          label={`${monthName(d.month)} ${d.month.slice(0, 4)}${esEsteMes ? ` · va el día ${Number(d.today.slice(8, 10))}` : ''}`}
+          label={`${mes(d.month)} ${d.month.slice(0, 4)}${esEsteMes ? ` · ${t('va el día {n}', { n: Number(d.today.slice(8, 10)) })}` : ''}`}
           amount={d.total}
           roll
           highlight={esEsteMes}
           href={`/c/${d.account.id}/gastos?mes=${param(d.month)}`}
-          linkLabel={`Ver los gastos de ${monthName(d.month).toLowerCase()}`}
+          linkLabel={t('Ver los gastos de {mes}', { mes: mesEnFrase(d.month) })}
           aside={
             <span className="hd-nav">
               {prevParam ? (
-                <Link href={`${base}?mes=${prevParam}`} aria-label="Mes anterior" scroll={false}>
+                <Link href={`${base}?mes=${prevParam}`} aria-label={t('Mes anterior')} scroll={false}>
                   ‹
                 </Link>
               ) : (
@@ -68,7 +87,7 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
                   ›
                 </span>
               ) : (
-                <Link href={`${base}?mes=${nextParam}`} aria-label="Mes siguiente" scroll={false}>
+                <Link href={`${base}?mes=${nextParam}`} aria-label={t('Mes siguiente')} scroll={false}>
                   ›
                 </Link>
               )}
@@ -76,32 +95,30 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
           }
         >
           {d.budget ? (
-            <span>
-              de <b>{formatCOP(d.budget)}</b> · {Math.round((d.total / d.budget) * 100)} %
-            </span>
+            <span>{rico(t('de {monto} · {n} %'), { monto: <b>{formatCOP(d.budget)}</b>, n: Math.round((d.total / d.budget) * 100) })}</span>
           ) : (
-            <span>Sin presupuesto este mes</span>
+            <span>{t('Sin presupuesto este mes')}</span>
           )}
           {mesAnterior && d.prev_total != null && (
             <span>
-              {d.total >= d.prev_total ? '▲' : '▼'} <b>{formatCOP(Math.abs(d.total - d.prev_total))}</b> vs. {MESES_CORTOS[mesDe(mesAnterior.month)]}
+              {d.total >= d.prev_total ? '▲' : '▼'} <b>{formatCOP(Math.abs(d.total - d.prev_total))}</b> {t('vs.')} {mesCorto(mesAnterior.month, t.idioma)}
             </span>
           )}
           <span className="lu-bill__more" aria-hidden="true">
-            Ver gastos ›
+            {t('Ver gastos ›')}
           </span>
         </BillCard>
 
-        <section aria-label="Gasto por categoría">
+        <section aria-label={t('Gasto por categoría')}>
           <div className="hd-sec">
-            <h2 className="lu-title">¿En qué se fue?</h2>
-            <span className="lu-label">{monthName(d.month)}</span>
+            <h2 className="lu-title">{t('¿En qué se fue?')}</h2>
+            <span className="lu-label">{mes(d.month)}</span>
           </div>
           {gastado.length === 0 ? (
-            <EmptyMonth accountId={d.account.id} />
+            <EmptyMonth accountId={d.account.id} t={t} />
           ) : (
             <>
-              <div className="hd-stack" role="img" aria-label={`Reparto del gasto de ${monthName(d.month).toLowerCase()} por categoría`}>
+              <div className="hd-stack" role="img" aria-label={t('Reparto del gasto de {mes} por categoría', { mes: mesEnFrase(d.month) })}>
                 {gastado.map((c) => (
                   <i key={c.id} style={{ flex: c.total, background: `var(--tono-${asTone(c.tone)})` }} />
                 ))}
@@ -120,28 +137,28 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
         </section>
 
         {trend.length > 0 && (
-          <section aria-label="Tendencia de 6 meses">
+          <section aria-label={t('Tendencia de 6 meses')}>
             <div className="hd-sec">
-              <h2 className="lu-title">Últimos seis meses</h2>
+              <h2 className="lu-title">{t('Últimos seis meses')}</h2>
               {d.budget ? (
                 <span className="hd-legend lu-small">
-                  <i /> tope {formatCOP(d.budget)}
+                  <i /> {t('tope {monto}', { monto: formatCOP(d.budget) })}
                 </span>
               ) : null}
             </div>
-            <div className="hd-bars" role="img" aria-label="Gasto de los últimos seis meses">
+            <div className="hd-bars" role="img" aria-label={t('Gasto de los últimos seis meses')}>
               {d.budget ? <div className="hd-budgetline" style={{ bottom: `${(d.budget / maxBar) * 100}%` }} /> : null}
-              {trend.map((t) => (
+              {trend.map((x) => (
                 <Link
-                  key={t.month}
-                  href={`${base}?mes=${param(t.month)}`}
+                  key={x.month}
+                  href={`${base}?mes=${param(x.month)}`}
                   scroll={false}
-                  className={`hd-bar${t.month === d.month ? ' is-on' : ''}`}
-                  aria-label={`${monthName(t.month)}: ${formatCOP(t.total)}`}
+                  className={`hd-bar${x.month === d.month ? ' is-on' : ''}`}
+                  aria-label={`${mes(x.month)}: ${formatCOP(x.total)}`}
                 >
-                  <span className="hd-bar__v lu-num">{t.total ? `${(t.total / 1e6).toFixed(2).replace('.', ',')}M` : '—'}</span>
-                  <span className="hd-bar__col" style={{ height: `${(t.total / maxBar) * 100}%` }} />
-                  <span className="hd-bar__k">{MESES_CORTOS[mesDe(t.month)]}</span>
+                  <span className="hd-bar__v lu-num">{x.total ? abreviado(x.total, moneda, t.idioma) : '—'}</span>
+                  <span className="hd-bar__col" style={{ height: `${(x.total / maxBar) * 100}%` }} />
+                  <span className="hd-bar__k">{mesCorto(x.month, t.idioma)}</span>
                 </Link>
               ))}
             </div>
@@ -150,12 +167,12 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
       </div>
 
       <div className="hd-aside">
-        <section className="hd-budgets" aria-label="Presupuestos">
+        <section className="hd-budgets" aria-label={t('Presupuestos')}>
           <div className="hd-sec">
-            <h2 className="lu-title">Presupuestos</h2>
+            <h2 className="lu-title">{t('Presupuestos')}</h2>
             {pasados ? (
               <Sticker tone="alerta" size="sm" rotate={4}>
-                {pasados} {pasados === 1 ? 'pasado' : 'pasados'}
+                {pasados === 1 ? t('1 pasado') : t('{n} pasados', { n: pasados })}
               </Sticker>
             ) : null}
           </div>
@@ -169,42 +186,42 @@ export function HomeSummary({ d, invitar = false, aviso = null }: { d: Dashboard
             </div>
           ) : (
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              Todavía no hay presupuestos para {monthName(d.month).toLowerCase()}. Con ellos, Luks les avisa cuando se pasan.
+              {t('Todavía no hay presupuestos para {mes}. Con ellos, Luks les avisa cuando se pasan.', { mes: mesEnFrase(d.month) })}
             </p>
           )}
         </section>
 
-        <section className="hd-liq" aria-label="Liquidar el mes">
+        <section className="hd-liq" aria-label={t('Liquidar el mes')}>
           <h2 className="lu-title" style={{ margin: 0 }}>
-            ¿Quién le paga a quién?
+            {t('¿Quién le paga a quién?')}
           </h2>
           <p className="lu-small lu-muted" style={{ margin: 0 }}>
-            Lo que puso cada uno en {monthName(d.month).toLowerCase()} y cómo quedan a mano.
+            {t('Lo que puso cada uno en {mes} y cómo quedan a mano.', { mes: mesEnFrase(d.month) })}
           </p>
           <Link href={`/c/${d.account.id}/liquidar?mes=${param(d.month)}`} className="lu-btn lu-btn--sm lu-btn--secondary">
-            Liquidar {monthName(d.month).toLowerCase()}
+            {t('Liquidar {mes}', { mes: mesEnFrase(d.month) })}
           </Link>
         </section>
 
-        <section aria-label="Últimos gastos">
+        <section aria-label={t('Últimos gastos')}>
           <div className="hd-sec">
-            <h2 className="lu-title">Últimos gastos</h2>
+            <h2 className="lu-title">{t('Últimos gastos')}</h2>
             <Link className="hd-all lu-small" href={`/c/${d.account.id}/gastos`}>
-              Ver todos
+              {t('Ver todos')}
             </Link>
           </div>
-          <RecentList d={d} />
+          <RecentList d={d} t={t} />
         </section>
       </div>
     </div>
   );
 }
 
-export function RecentList({ d }: { d: Dashboard }) {
+export function RecentList({ d, t }: { d: Dashboard; t: T }) {
   if (!d.recent.length) {
     return (
       <p className="lu-small lu-muted" style={{ margin: 0 }}>
-        Aún no hay gastos.
+        {t('Aún no hay gastos.')}
       </p>
     );
   }
@@ -218,7 +235,7 @@ export function RecentList({ d }: { d: Dashboard }) {
               {r.merchant}
             </Link>
             <span className="hd-r__s">
-              {formatRecent(r.expense_date, r.created_at, d.today)}
+              {formatRecent(r.expense_date, r.created_at, d.today, t.idioma)}
               {r.payer && (
                 <>
                   {' · '}
@@ -226,7 +243,7 @@ export function RecentList({ d }: { d: Dashboard }) {
                 </>
               )}
               {r.kind === 'pdf' ? ' · PDF' : ''}
-              {r.status === 'pending_review' && <span className="ap-pend">por revisar</span>}
+              {r.status === 'pending_review' && <span className="ap-pend">{t('por revisar')}</span>}
             </span>
           </span>
           <Amount value={r.total_cop} />
@@ -236,14 +253,14 @@ export function RecentList({ d }: { d: Dashboard }) {
   );
 }
 
-function EmptyMonth({ accountId }: { accountId: string }) {
+function EmptyMonth({ accountId, t }: { accountId: string; t: T }) {
   return (
     <div className="ap-empty">
       <LottieSlot name="vacio" width={72} height={72} />
       <span className="lu-small lu-muted" style={{ display: 'grid', gap: 8, justifyItems: 'start' }}>
-        Este mes todavía no hay gastos.
+        {t('Este mes todavía no hay gastos.')}
         <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--sm lu-btn--secondary">
-          Subir el primero
+          {t('Subir el primero')}
         </Link>
       </span>
     </div>

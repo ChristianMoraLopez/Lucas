@@ -1,4 +1,7 @@
 import { TONES, type Tone, toneFor } from '@/components/lucas-core';
+import type { Idioma } from '@/lib/i18n';
+import type { Moneda } from '@/lib/moneda';
+import { formatear, normalizar } from '@/lib/telefono';
 
 /* Contratos de lo que devuelve Supabase (tablas y RPC de supabase/migrations).
    Se escriben a mano mientras no haya tipos generados con `supabase gen types`. */
@@ -161,7 +164,11 @@ export interface SettlementOverview {
 }
 
 /** public.shared_overview(token): lo que ve quien abre el link público (lo de Liquidar, sin datos de quien mira) */
-export type SharedOverview = Omit<SettlementOverview, 'is_admin' | 'my_person_id'>;
+export type SharedOverview = Omit<SettlementOverview, 'is_admin' | 'my_person_id'> & {
+  /** La moneda y el idioma de la cuenta (migración 250; antes, pesos y español) */
+  currency?: Moneda;
+  language?: Idioma;
+};
 
 /** public.my_profile() */
 export interface MyProfile {
@@ -308,28 +315,20 @@ export interface MyWhatsappLink {
   stopping: boolean;
 }
 
-/** «573001234567» → «+57 300 123 4567»; «lid:…» → null (WhatsApp no mostró el número) */
-export function formatWaNumber(waId: string | null | undefined): string | null {
-  if (!waId || waId.startsWith('lid:')) return null;
-  const m = waId.match(/^57(\d{3})(\d{3})(\d{4})$/);
-  return m ? `+57 ${m[1]} ${m[2]} ${m[3]}` : `+${waId}`;
-}
+/** «573001234567» → «+57 300 123 4567»; «lid:…» → null (WhatsApp no mostró el número). Ver lib/telefono */
+export const formatWaNumber = formatear;
 
 /**
  * Número para pedir el código de vinculación de WhatsApp: solo dígitos, con
  * indicativo. Un celular colombiano escrito sin el 57 («300 123 4567») se completa.
  */
-export function numeroParaCodigo(raw: string): string | null {
-  const d = raw.replace(/\D/g, '');
-  if (/^3\d{9}$/.test(d)) return `57${d}`;
-  return /^\d{8,15}$/.test(d) ? d : null;
-}
+export const numeroParaCodigo = (raw: string) => normalizar(raw, 'CO');
 
 /** «Mafe, Santi y Caro» (o uno por renglón) → ['Mafe', 'Santi', 'Caro'], sin repetidos */
 export function separarNombres(raw: string): string[] {
   const vistos = new Set<string>();
   const out: string[] = [];
-  for (const parte of raw.split(/[,;\n]|\s+y\s+/)) {
+  for (const parte of raw.split(/[,;\n]|\s+(?:y|and)\s+/)) {
     const nombre = parte.replace(/\s+/g, ' ').trim();
     const clave = nombre.toLocaleLowerCase('es');
     if (!nombre || vistos.has(clave)) continue;

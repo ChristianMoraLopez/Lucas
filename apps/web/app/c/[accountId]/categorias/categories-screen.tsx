@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Cargando } from '@/components/cargando';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import type { Tone } from '@/components/lucas-core';
+import { useT } from '@/components/idioma';
+import { nombreCategoria, type Tone } from '@/components/lucas-core';
 import { Button, CategoryTag } from '@/components/lucas-ui';
 import { NuevaCategoria } from '@/components/new-category';
 import { humanError } from '@/lib/errors';
@@ -18,6 +19,7 @@ import { createClient } from '@/utils/supabase/client';
  * propias se crean, cambian y borran. La descripción es lo que lee Laya.
  */
 export function CategoriesScreen({ accountId, myRole }: { accountId: string; myRole: Role }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const isAdmin = myRole !== 'member';
@@ -49,13 +51,13 @@ export function CategoriesScreen({ accountId, myRole }: { accountId: string; myR
     <div className="cg">
       <header className="cg-head">
         <div>
-          <h1 className="lu-display">Categorías</h1>
+          <h1 className="lu-display">{t('Categorías')}</h1>
           <p className="lu-small lu-muted" style={{ margin: '4px 0 0', maxWidth: '56ch' }}>
-            En qué se va la plata. Si algo no cabe en las de siempre, creen la suya: con una buena descripción, Luks la empieza a usar sola.
+            {t('En qué se va la plata. Si algo no cabe en las de siempre, creen la suya: con una buena descripción, Luks la empieza a usar sola.')}
           </p>
         </div>
         <Link href={`/c/${accountId}/gastos`} className="lu-btn lu-btn--sm lu-btn--ghost">
-          ← Gastos
+          {t('← Gastos')}
         </Link>
       </header>
 
@@ -91,7 +93,7 @@ export function CategoriesScreen({ accountId, myRole }: { accountId: string; myR
           />
         ) : (
           <Button variant="secondary" onClick={() => setCreando(true)}>
-            + Nueva categoría
+            {t('+ Nueva categoría')}
           </Button>
         ))}
     </div>
@@ -99,6 +101,8 @@ export function CategoriesScreen({ accountId, myRole }: { accountId: string; myR
 }
 
 function Fila({ c, usos, isAdmin, onDone, onError }: { c: AccountCategory; usos: number; isAdmin: boolean; onDone: () => void; onError: (e: string) => void }) {
+  const t = useT();
+  const nombreVisible = nombreCategoria(c.name, t);
   const [supabase] = useState(() => createClient());
   const [editando, setEditando] = useState(false);
   const [nombre, setNombre] = useState(c.name);
@@ -132,48 +136,57 @@ function Fila({ c, usos, isAdmin, onDone, onError }: { c: AccountCategory; usos:
       <CategoryTag name={c.name} letter={c.letter} tone={c.tone as Tone} showName={false} size="lg" />
       {editando ? (
         <div className="cg-edit">
-          {!c.is_default && <input className="wa-input" aria-label="Nombre" maxLength={30} value={nombre} onChange={(e) => setNombre(e.target.value)} />}
+          {!c.is_default && <input className="wa-input" aria-label={t('Nombre')} maxLength={30} value={nombre} onChange={(e) => setNombre(e.target.value)} />}
           <input
             className="wa-input"
-            aria-label={`Qué entra en ${c.name}`}
-            placeholder="¿Qué entra en ella?"
+            aria-label={t('Qué entra en {nombre}', { nombre: nombreVisible })}
+            placeholder={t('¿Qué entra en ella?')}
             maxLength={300}
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
           />
           <div className="wa-row">
             <Button size="sm" onClick={guardar} disabled={busy || (!c.is_default && nombre.trim().length < 2)}>
-              Guardar
+              {t('Guardar')}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEditando(false)} disabled={busy}>
-              Cancelar
+              {t('Cancelar')}
             </Button>
           </div>
         </div>
       ) : (
         <div className="cg-t">
           <b>
-            {c.name}
-            {!c.is_default && <span className="cg-own">propia</span>}
+            {nombreVisible}
+            {!c.is_default && <span className="cg-own">{t('propia')}</span>}
           </b>
-          <span className="lu-small lu-muted">{c.description || 'Sin descripción'}</span>
-          <span className="lu-small lu-muted">{plural(usos, 'gasto', 'gastos')}</span>
+          {/* Las descripciones de siempre también vienen en inglés (si nadie las cambió) */}
+          <span className="lu-small lu-muted">{c.description ? (c.is_default ? t(c.description) : c.description) : t('Sin descripción')}</span>
+          <span className="lu-small lu-muted">{plural(usos, t('gasto'), t('gastos'))}</span>
         </div>
       )}
       {isAdmin && !editando && (
         <div className="cg-acts">
           <Button size="sm" variant="ghost" onClick={() => setEditando(true)}>
-            Editar
+            {t('Editar')}
           </Button>
           {!c.is_default && (
             <Button size="sm" variant="ghost" onClick={() => setBorrar(true)}>
-              Borrar
+              {t('Borrar')}
             </Button>
           )}
         </div>
       )}
-      <ConfirmDialog open={borrar} onOpenChange={setBorrar} title={`¿Borrar «${c.name}»?`} confirmLabel="Borrar" busy={busy} onConfirm={eliminar}>
-        {usos ? `Sus ${plural(usos, 'gasto pasa', 'gastos pasan')} a «Otros». ` : ''}Luks olvida los comercios que tenía en esta categoría.
+      <ConfirmDialog
+        open={borrar}
+        onOpenChange={setBorrar}
+        title={t('¿Borrar «{nombre}»?', { nombre: nombreVisible })}
+        confirmLabel={t('Borrar')}
+        busy={busy}
+        onConfirm={eliminar}
+      >
+        {usos ? `${usos === 1 ? t('Su gasto pasa a «Otros».') : t('Sus {n} gastos pasan a «Otros».', { n: usos })} ` : ''}
+        {t('Luks olvida los comercios que tenía en esta categoría.')}
       </ConfirmDialog>
     </li>
   );

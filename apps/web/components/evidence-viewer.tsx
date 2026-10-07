@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useT } from '@/components/idioma';
 import { Avatar, type Tone } from '@/components/lucas-ui';
 import { PhotoViewer } from '@/components/photo-viewer';
 import type { MessageKind } from '@/lib/types';
@@ -33,6 +34,7 @@ export function EvidenceViewer({
   when: string;
   source: 'whatsapp' | 'web' | 'import';
 }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const signed = useQuery({
     queryKey: ['evidencia', path],
@@ -54,7 +56,7 @@ export function EvidenceViewer({
         <span style={{ display: 'grid' }}>
           <b>{sender}</b>
           <span>
-            {KIND_TEXT[efectivo]} · {when} · {source === 'whatsapp' ? 'por WhatsApp' : 'desde la web'}
+            {t(KIND_TEXT[efectivo])} · {when} · {source === 'whatsapp' ? t('por WhatsApp') : t('desde la web')}
           </span>
         </span>
       </figcaption>
@@ -63,7 +65,7 @@ export function EvidenceViewer({
         <div className="lu-evi__chat">
           <div className="lu-evi__msg lu-evi__msg--target" style={{ '--c': 'var(--morado)' } as React.CSSProperties}>
             <span className="who">{sender}</span>
-            {text || 'Sin texto'}
+            {text || t('Sin texto')}
           </div>
         </div>
       )}
@@ -73,7 +75,7 @@ export function EvidenceViewer({
           <PhotoPreview src={signed.data} />
         ) : (
           <div className="lu-evi__photo ev-missing">
-            <span>{signed.isError ? 'La foto no está disponible' : 'Cargando la foto…'}</span>
+            <span>{signed.isError ? t('La foto no está disponible') : t('Cargando la foto…')}</span>
           </div>
         ))}
 
@@ -81,18 +83,18 @@ export function EvidenceViewer({
         <div className="lu-evi__pdf">
           {signed.data ? (
             <object data={signed.data} type="application/pdf" className="ev-pdf" aria-label={fileName ?? 'PDF'}>
-              <p className="lu-small lu-muted">Tu navegador no muestra el PDF aquí.</p>
+              <p className="lu-small lu-muted">{t('Tu navegador no muestra el PDF aquí.')}</p>
             </object>
           ) : (
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              {signed.isError ? 'El PDF no está disponible' : 'Cargando el PDF…'}
+              {signed.isError ? t('El PDF no está disponible') : t('Cargando el PDF…')}
             </p>
           )}
           <div className="lu-evi__file">
-            <span>{fileName ?? 'documento.pdf'}</span>
+            <span>{fileName ?? t('documento.pdf')}</span>
             {signed.data && (
               <a href={signed.data} target="_blank" rel="noreferrer" className="ev-open">
-                Abrir
+                {t('Abrir')}
               </a>
             )}
           </div>
@@ -104,20 +106,21 @@ export function EvidenceViewer({
 
 /** La foto entera en su recuadro; al tocarla se abre a pantalla completa (PhotoViewer). */
 function PhotoPreview({ src }: { src: string }) {
+  const t = useT();
   const [abierta, setAbierta] = useState(false);
   return (
     <>
-      <button type="button" className="lu-evi__photo ev-photo" onClick={() => setAbierta(true)} aria-label="Ver la foto del recibo completa">
+      <button type="button" className="lu-evi__photo ev-photo" onClick={() => setAbierta(true)} aria-label={t('Ver la foto del recibo completa')}>
         {/* biome-ignore lint/performance/noImgElement: URL firmada de Storage que vence; next/image no aporta aquí */}
-        <img src={src} alt="Foto del recibo" draggable={false} />
+        <img src={src} alt={t('Foto del recibo')} draggable={false} />
         <span className="ev-hint">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
           </svg>
-          Ver completa
+          {t('Ver completa')}
         </span>
       </button>
-      {abierta && <PhotoViewer src={src} alt="Foto del recibo" onClose={() => setAbierta(false)} />}
+      {abierta && <PhotoViewer src={src} alt={t('Foto del recibo')} onClose={() => setAbierta(false)} />}
     </>
   );
 }

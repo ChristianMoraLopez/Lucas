@@ -3,8 +3,10 @@
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { useEffect, useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
+import { useT } from '@/components/idioma';
 import { Button, ICONS } from '@/components/lucas-ui';
 import { copiar } from '@/lib/clipboard';
+import { rico } from '@/lib/i18n/rico';
 
 /* Compartir en una historia de Instagram. Instagram no recibe historias desde
    una página: se arma la imagen vertical y se abre el menú de compartir del
@@ -44,6 +46,7 @@ export function HistoriaInstagram({
   textoEnlace: string;
   variante?: 'primary' | 'secondary';
 }) {
+  const t = useT();
   const [abierto, setAbierto] = useState(false);
   const [imagen, setImagen] = useState<File | null>(null);
   const [cargada, setCargada] = useState(false);
@@ -104,47 +107,47 @@ export function HistoriaInstagram({
       <AlertDialog.Trigger asChild>
         <Button size="sm" variant={variante} className="hi-boton">
           {ICONS.instagram}
-          Historia de Instagram
+          {t('Historia de Instagram')}
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="lu-dialog__overlay" />
         <AlertDialog.Content className="lu-dialog hi">
-          <AlertDialog.Title className="lu-title">Para tu historia</AlertDialog.Title>
+          <AlertDialog.Title className="lu-title">{t('Para tu historia')}</AlertDialog.Title>
           <div className={`hi-vista${cargada ? ' is-lista' : ''}`}>
             {/* biome-ignore lint/performance/noImgElement: imagen generada en el servidor (next/og), sin optimizar */}
-            <img src={src} alt="Vista previa de la historia" width={1080} height={1920} onLoad={() => setCargada(true)} />
+            <img src={src} alt={t('Vista previa de la historia')} width={1080} height={1920} onLoad={() => setCargada(true)} />
           </div>
           <AlertDialog.Description className="lu-dialog__text hi-texto">
-            {compartirArchivos ? (
-              <>
-                Toca <b>Compartir</b> y elige Instagram → <b>Historia</b>. Luego agrega el sticker de enlace y pega <b>{textoEnlace}</b>.
-              </>
-            ) : (
-              <>
-                Descárgala, pásala al celular y súbela a tu historia. Agrega el sticker de enlace con <b>{textoEnlace}</b>.
-              </>
-            )}
+            {compartirArchivos
+              ? rico(t('Toca {compartir} y elige Instagram → {historia}. Luego agrega el sticker de enlace y pega {enlace}.'), {
+                  compartir: <b>{t('Compartir')}</b>,
+                  historia: <b>{t('Historia')}</b>,
+                  enlace: <b>{textoEnlace}</b>,
+                })
+              : rico(t('Descárgala, pásala al celular y súbela a tu historia. Agrega el sticker de enlace con {enlace}.'), {
+                  enlace: <b>{textoEnlace}</b>,
+                })}
           </AlertDialog.Description>
           {estado !== 'quieto' && (
             <p className="hi-listo" role="status">
-              {estado === 'compartida' ? '¡Lista para tu historia!' : 'Se descargó la imagen.'}
-              {copiado ? ` Copiamos ${textoEnlace} para el sticker.` : ''}
+              {estado === 'compartida' ? t('¡Lista para tu historia!') : t('Se descargó la imagen.')}
+              {copiado ? ` ${t('Copiamos {enlace} para el sticker.', { enlace: textoEnlace })}` : ''}
             </p>
           )}
           <div className="lu-dialog__btns hi-btns">
             <AlertDialog.Cancel asChild>
               <Button variant="ghost" size="sm">
-                Cerrar
+                {t('Cerrar')}
               </Button>
             </AlertDialog.Cancel>
             {compartirArchivos && (
               <Button variant="secondary" size="sm" onClick={descargar}>
-                Descargar
+                {t('Descargar')}
               </Button>
             )}
             <Button size="sm" onClick={compartirArchivos ? compartir : descargar} disabled={compartirArchivos && !imagen}>
-              {compartirArchivos ? (imagen ? 'Compartir' : 'Preparando…') : 'Descargar imagen'}
+              {compartirArchivos ? (imagen ? t('Compartir') : t('Preparando…')) : t('Descargar imagen')}
             </Button>
           </div>
         </AlertDialog.Content>

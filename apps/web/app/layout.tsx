@@ -4,7 +4,8 @@ import { Suspense } from 'react';
 import { Conexion } from '@/components/conexion';
 import { IdiomaProvider } from '@/components/idioma';
 import { Providers } from '@/components/providers';
-import { getIdioma, getT } from '@/lib/i18n/server';
+import { RegionProvider } from '@/components/region';
+import { getIdioma, getRegion, getT } from '@/lib/i18n/server';
 import '@/styles/tokens.css';
 import '@/styles/lucas.css';
 import '@/styles/app.css';
@@ -54,7 +55,7 @@ export const viewport: Viewport = {
 const themeScript = `var r=document.documentElement;try{var t=localStorage.getItem('lucas-theme');if(t==='dark'||t==='light'){r.dataset.theme=t}}catch(e){}try{if(sessionStorage.getItem('luks-intro')||matchMedia('(prefers-reduced-motion: reduce)').matches){r.classList.add('sin-intro')}else{sessionStorage.setItem('luks-intro','1')}}catch(e){r.classList.add('sin-intro')}`;
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
-  const idioma = await getIdioma();
+  const [idioma, region] = await Promise.all([getIdioma(), getRegion()]);
   return (
     <html lang={idioma} suppressHydrationWarning>
       <head>
@@ -73,13 +74,15 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
             estaban escribiendo); components/conexion.tsx refresca los datos y avisa */}
         <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === 'development'} reloadOnOnline={false}>
           <IdiomaProvider idioma={idioma}>
-            <Providers>
-              {children}
-              {/* Sin internet, conexión lenta y el link que se tocó cargando */}
-              <Suspense fallback={null}>
-                <Conexion />
-              </Suspense>
-            </Providers>
+            <RegionProvider region={region}>
+              <Providers>
+                {children}
+                {/* Sin internet, conexión lenta y el link que se tocó cargando */}
+                <Suspense fallback={null}>
+                  <Conexion />
+                </Suspense>
+              </Providers>
+            </RegionProvider>
           </IdiomaProvider>
         </SerwistProvider>
       </body>

@@ -3,9 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
+import { useT } from '@/components/idioma';
 import { Button } from '@/components/lucas-ui';
 import { formatRange } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import { rico } from '@/lib/i18n/rico';
 import { accountGlyph, accountTone, type InvitacionRecibida, plural } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -15,6 +17,7 @@ import { createClient } from '@/utils/supabase/client';
  * pusieron); «Ahora no» la quita.
  */
 export function InvitacionesRecibidas({ invitaciones }: { invitaciones: InvitacionRecibida[] }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -48,10 +51,10 @@ export function InvitacionesRecibidas({ invitaciones }: { invitaciones: Invitaci
   };
 
   return (
-    <section className="ap-invs lu-stagger" aria-label="Te agregaron a una cuenta">
+    <section className="ap-invs lu-stagger" aria-label={t('Te agregaron a una cuenta')}>
       {visibles.map((i, n) => {
         const evento = i.account_type === 'evento';
-        const fechas = evento ? formatRange(i.starts_on, i.ends_on) : null;
+        const fechas = evento ? formatRange(i.starts_on, i.ends_on, t.idioma) : null;
         return (
           <article key={i.id} className="ap-inv" style={{ '--i': n } as React.CSSProperties}>
             <span
@@ -62,19 +65,18 @@ export function InvitacionesRecibidas({ invitaciones }: { invitaciones: Invitaci
               {accountGlyph(i.account_name)}
             </span>
             <div className="ap-inv__txt">
-              <p className="ap-inv__t">
-                <b>{i.invited_by}</b> te agregó a <b>{i.account_name}</b>
-              </p>
+              <p className="ap-inv__t">{rico(t('{quien} te agregó a {cuenta}'), { quien: <b>{i.invited_by}</b>, cuenta: <b>{i.account_name}</b> })}</p>
               <p className="lu-small lu-muted" style={{ margin: 0 }}>
-                {evento ? `Evento${fechas ? ` · ${fechas}` : ''}` : 'Hogar'} · {plural(i.people_count, 'persona', 'personas')} · entras como {i.person_name}
+                {evento ? `${t('Evento')}${fechas ? ` · ${fechas}` : ''}` : t('Hogar')} · {plural(i.people_count, t('persona'), t('personas'))} ·{' '}
+                {t('entras como {nombre}', { nombre: i.person_name })}
               </p>
             </div>
             <div className="ap-inv__acts">
               <Button size="sm" onClick={(e) => aceptar(i, e)} disabled={busy !== null}>
-                {busy === i.id ? 'Un momento…' : 'Aceptar'}
+                {busy === i.id ? t('Un momento…') : t('Aceptar')}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => ahoraNo(i)} disabled={busy !== null}>
-                Ahora no
+                {t('Ahora no')}
               </Button>
             </div>
           </article>

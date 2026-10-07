@@ -1,6 +1,8 @@
+import { getT } from '@/lib/i18n/server';
 import { historiaLuks } from '@/lib/imagen-historia';
 
-/* La historia de Instagram para recomendar Luks (1080×1920). Es la misma para todos. */
+/* La historia de Instagram para recomendar Luks (1080×1920), en el idioma de quien la pide. */
 export async function GET() {
-  return historiaLuks({ cache: 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400' });
+  // Varía con la cookie del idioma: se guarda solo en el navegador de cada quien
+  return historiaLuks({ t: await getT(), cache: 'private, max-age=86400' });
 }

@@ -1,7 +1,8 @@
 import { ImageResponse } from 'next/og';
-import { formatCOP } from '@/components/lucas-core';
 import { formatRange, monthName } from '@/lib/dates';
+import { crearT, type T } from '@/lib/i18n';
 import { C, cargar, FUENTES, inicial, limpio, TONOS } from '@/lib/imagen-base';
+import { dinero, type Moneda } from '@/lib/moneda';
 import { MARCA, personView, transfersFor } from '@/lib/share';
 import { asTone, type SharedOverview } from '@/lib/types';
 
@@ -20,10 +21,14 @@ export function mesDe(searchParams: URLSearchParams) {
   return mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? `${mes}-01` : null;
 }
 
-export async function imagenCuentas(d: SharedOverview, { personId = null, cache }: { personId?: string | null; cache: string }) {
+export async function imagenCuentas(
+  d: SharedOverview,
+  { personId = null, cache, t = crearT('es'), moneda = 'COP' }: { personId?: string | null; cache: string; t?: T; moneda?: Moneda },
+) {
   const [figtree600, figtree800, bricolage800, logo] = await cargar();
+  const formatCOP = (n: number) => dinero(n, moneda, t.idioma);
   const people = new Map(d.people.map((p) => [p.id, p]));
-  const nombre = (id: string) => limpio(people.get(id)?.name ?? 'Alguien', 18);
+  const nombre = (id: string) => limpio(people.get(id)?.name ?? t('Alguien'), 18);
   const tono = (id: string) => TONOS[asTone(people.get(id)?.tone, people.get(id)?.name ?? '')];
   const evento = d.account.type === 'evento';
   const total = d.people.reduce((s, p) => s + p.paid, 0);
@@ -40,8 +45,8 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
   const grande = Boolean(yo) && filas.length <= 2;
 
   const periodo = evento
-    ? `Evento${d.account.starts_on ? ` · ${formatRange(d.account.starts_on, d.account.ends_on)}` : ''}`
-    : `${monthName(d.month as string)} ${(d.month as string).slice(0, 4)}`;
+    ? `${t('Evento')}${d.account.starts_on ? ` · ${formatRange(d.account.starts_on, d.account.ends_on, t.idioma)}` : ''}`
+    : `${monthName(d.month as string, t.idioma)} ${(d.month as string).slice(0, 4)}`;
 
   const avatar = (id: string, size = 46) => (
     <div
@@ -102,7 +107,7 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
             fontWeight: 600,
           }}
         >
-          Esto se hizo en
+          {t('Esto se hizo en')}
           <span style={{ fontWeight: 800, color: C.amarillo }}>{MARCA}</span>
         </div>
       </div>
@@ -124,12 +129,14 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
               color: '#FFFFFF',
             }}
           >
-            <div style={{ display: 'flex', fontSize: 24, fontWeight: 800, opacity: 0.92 }}>{yo ? `${limpio(yo.name, 18)}, te toca` : 'Gastaron'}</div>
+            <div style={{ display: 'flex', fontSize: 24, fontWeight: 800, opacity: 0.92 }}>
+              {yo ? t('{nombre}, te toca', { nombre: limpio(yo.name, 18) }) : t('Gastaron')}
+            </div>
             <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 84, lineHeight: 1, marginTop: 8 }}>{formatCOP(yo ? yo.share : total)}</div>
             <div style={{ display: 'flex', fontSize: 24, marginTop: 14 }}>
               {yo
-                ? `Puso ${formatCOP(yo.paid)}${porCabeza ? ' · igual que a todos' : ''}`
-                : `entre ${d.people.length} · ${porCabeza ? `${formatCOP(porCabeza)} cada uno` : 'cada quien su parte'}`}
+                ? `${t('Puso {monto}', { monto: formatCOP(yo.paid) })}${porCabeza ? ` · ${t('igual que a todos')}` : ''}`
+                : `${t('entre {n}', { n: d.people.length })} · ${porCabeza ? t('{monto} cada uno', { monto: formatCOP(porCabeza) }) : t('cada quien su parte')}`}
             </div>
           </div>
         </div>
@@ -146,73 +153,83 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
             border: `2px solid ${C.borde}`,
           }}
         >
-          <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 32 }}>{yo ? `Lo de ${limpio(yo.name, 16)}` : '¿Quién le paga a quién?'}</div>
+          <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 32 }}>
+            {yo ? t('Lo de {nombre}', { nombre: limpio(yo.name, 16) }) : t('¿Quién le paga a quién?')}
+          </div>
           {contador && (
             <div style={{ display: 'flex', fontSize: 20, fontWeight: 800, color: C.verde }}>
-              {pagadas === todas.length ? 'Todo pagado: quedaron a mano' : `${pagadas} de ${todas.length} pagadas`}
+              {pagadas === todas.length ? t('Todo pagado: quedaron a mano') : t('{n} de {total} pagadas', { n: pagadas, total: todas.length })}
             </div>
           )}
 
           {filas.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
-              <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 40, color: C.verde }}>{yo ? 'A paz y salvo' : 'Nadie le debe a nadie'}</div>
+              <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 40, color: C.verde }}>
+                {yo ? t('A paz y salvo') : t('Nadie le debe a nadie')}
+              </div>
               <div style={{ display: 'flex', fontSize: 26, color: C.tinta2, marginTop: 8 }}>
-                {yo ? 'No le debe a nadie y nadie le debe.' : 'Cada quien puso lo que le tocaba.'}
+                {yo ? t('No le debe a nadie y nadie le debe.') : t('Cada quien puso lo que le tocaba.')}
               </div>
             </div>
           ) : grande && yo ? (
             // Lo de una persona: a quién le paga (o quién le paga), en grande
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center' }}>
-              {filas.map((t, i) => (
+              {filas.map((x, i) => (
                 <div
-                  key={`${t.from}-${t.to}`}
+                  key={`${x.from}-${x.to}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 16,
                     padding: '18px 0',
                     borderTop: i ? `2px solid ${C.borde}` : 'none',
-                    opacity: t.paid_at ? 0.5 : 1,
+                    opacity: x.paid_at ? 0.5 : 1,
                   }}
                 >
-                  {avatar(t.from, 64)}
+                  {avatar(x.from, 64)}
                   {flecha}
-                  {avatar(t.to, 64)}
+                  {avatar(x.to, 64)}
                   <div style={{ display: 'flex', flexDirection: 'column', marginLeft: 10 }}>
                     <div style={{ display: 'flex', fontSize: 26, color: C.tinta2 }}>
-                      {t.from === yo.id ? `${t.paid_at ? 'Le pagó' : 'Le paga'} a ${nombre(t.to)}` : `${nombre(t.from)} ${t.paid_at ? 'le pagó' : 'le paga'}`}
+                      {x.from === yo.id
+                        ? x.paid_at
+                          ? t('Le pagó a {nombre}', { nombre: nombre(x.to) })
+                          : t('Le paga a {nombre}', { nombre: nombre(x.to) })
+                        : x.paid_at
+                          ? t('{nombre} le pagó', { nombre: nombre(x.from) })
+                          : t('{nombre} le paga', { nombre: nombre(x.from) })}
                     </div>
                     <div
-                      style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 58, lineHeight: 1.05, textDecoration: t.paid_at ? 'line-through' : 'none' }}
+                      style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 58, lineHeight: 1.05, textDecoration: x.paid_at ? 'line-through' : 'none' }}
                     >
-                      {formatCOP(t.amount)}
+                      {formatCOP(x.amount)}
                     </div>
-                    {t.paid_at && <div style={{ display: 'flex', fontSize: 18, fontWeight: 800, color: C.verde, letterSpacing: 1 }}>PAGADO</div>}
+                    {x.paid_at && <div style={{ display: 'flex', fontSize: 18, fontWeight: 800, color: C.verde, letterSpacing: 1 }}>{t('PAGADO')}</div>}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10 }}>
-              {filas.slice(0, caben).map((t, i) => (
+              {filas.slice(0, caben).map((x, i) => (
                 <div
-                  key={`${t.from}-${t.to}`}
+                  key={`${x.from}-${x.to}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 12,
                     height: 68,
                     borderTop: i ? `2px solid ${C.borde}` : 'none',
-                    opacity: t.paid_at ? 0.5 : 1,
+                    opacity: x.paid_at ? 0.5 : 1,
                   }}
                 >
-                  {avatar(t.from)}
+                  {avatar(x.from)}
                   {flecha}
-                  {avatar(t.to)}
+                  {avatar(x.to)}
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1, marginLeft: 6 }}>
-                    <div style={{ display: 'flex', fontSize: 24, fontWeight: 800 }}>{nombre(t.from)}</div>
+                    <div style={{ display: 'flex', fontSize: 24, fontWeight: 800 }}>{nombre(x.from)}</div>
                     <div style={{ display: 'flex', fontSize: 20, color: C.tinta2 }}>
-                      {t.paid_at ? `le pagó a ${nombre(t.to)}` : `le paga a ${nombre(t.to)}`}
+                      {x.paid_at ? t('le pagó a {nombre}', { nombre: nombre(x.to) }) : t('le paga a {nombre}', { nombre: nombre(x.to) })}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -221,17 +238,19 @@ export async function imagenCuentas(d: SharedOverview, { personId = null, cache 
                         display: 'flex',
                         fontFamily: 'Bricolage',
                         fontSize: 32,
-                        textDecoration: t.paid_at ? 'line-through' : 'none',
+                        textDecoration: x.paid_at ? 'line-through' : 'none',
                       }}
                     >
-                      {formatCOP(t.amount)}
+                      {formatCOP(x.amount)}
                     </div>
-                    {t.paid_at && <div style={{ display: 'flex', fontSize: 16, fontWeight: 800, color: C.verde, letterSpacing: 1 }}>PAGADO</div>}
+                    {x.paid_at && <div style={{ display: 'flex', fontSize: 16, fontWeight: 800, color: C.verde, letterSpacing: 1 }}>{t('PAGADO')}</div>}
                   </div>
                 </div>
               ))}
               {filas.length > caben && (
-                <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, color: C.morado, marginTop: 8 }}>+{filas.length - caben} más en el link</div>
+                <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, color: C.morado, marginTop: 8 }}>
+                  {t('+{n} más en el link', { n: filas.length - caben })}
+                </div>
               )}
             </div>
           )}

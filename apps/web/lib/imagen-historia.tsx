@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { crearT, type T } from '@/lib/i18n';
 import { C, cargar, FUENTES } from '@/lib/imagen-base';
 import { MARCA } from '@/lib/share';
 
@@ -16,9 +17,9 @@ const MORADO_OSCURO = '#5527D2';
 const logoSrc = (logo: Buffer) => `data:image/svg+xml;base64,${logo.toString('base64')}`;
 
 /** Recomendar Luks: para las cuentas del grupo y para los gastos personales */
-export async function historiaLuks({ cache }: { cache: string }) {
+export async function historiaLuks({ cache, t = crearT('es') }: { cache: string; t?: T }) {
   const [figtree600, figtree800, bricolage800, logo] = await cargar();
-  const pasos = ['Le mandas el recibo al grupo de WhatsApp', 'Luks anota el gasto y lo divide', 'Y te dice quién le paga a quién'];
+  const pasos = [t('Le mandas el recibo al grupo de WhatsApp'), t('Luks anota el gasto y lo divide'), t('Y te dice quién le paga a quién')];
 
   return new ImageResponse(
     <div
@@ -49,7 +50,7 @@ export async function historiaLuks({ cache }: { cache: string }) {
       </div>
 
       <div style={{ display: 'flex', flexShrink: 0, fontFamily: 'Bricolage', fontSize: 88, lineHeight: 1.04, marginTop: 56 }}>
-        Cuentas claras, sin hacer cuentas.
+        {t('Cuentas claras, sin hacer cuentas.')}
       </div>
 
       <div style={{ display: 'flex', flexShrink: 0, flexDirection: 'column', gap: 22, marginTop: 52 }}>
@@ -94,15 +95,15 @@ export async function historiaLuks({ cache }: { cache: string }) {
           transform: 'rotate(-2deg)',
         }}
       >
-        <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 48 }}>¿Y tus gastos?</div>
+        <div style={{ display: 'flex', fontFamily: 'Bricolage', fontSize: 48 }}>{t('¿Y tus gastos?')}</div>
         <div style={{ display: 'flex', fontSize: 33, fontWeight: 600, lineHeight: 1.25 }}>
-          Arma un grupo de WhatsApp contigo mismo y Luks, mándate tus facturas y quedan organizadas por categoría.
+          {t('Arma un grupo de WhatsApp contigo mismo y Luks, mándate tus facturas y quedan organizadas por categoría.')}
         </div>
       </div>
 
       <div style={{ display: 'flex', flex: 1 }} />
       <div style={{ display: 'flex', flexShrink: 0, flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-        <div style={{ display: 'flex', fontSize: 38, fontWeight: 800 }}>Es gratis</div>
+        <div style={{ display: 'flex', fontSize: 38, fontWeight: 800 }}>{t('Es gratis')}</div>
         <div
           style={{
             display: 'flex',

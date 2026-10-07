@@ -57,6 +57,11 @@ export function formatRange(start: string | null, end: string | null, idioma: Id
   return `${a.d} – ${b.d} ${M[b.m - 1]} ${b.y}`;
 }
 
+/** 'sep' / 'Sep' */
+export function mesCorto(value: string | Date, idioma: Idioma = 'es') {
+  return MESES[idioma][parts(value).m - 1];
+}
+
 /** 'Septiembre' / 'September' */
 export function monthName(value: string | Date = todayInBogota(), idioma: Idioma = 'es') {
   return MESES_LARGOS[idioma][parts(value).m - 1];

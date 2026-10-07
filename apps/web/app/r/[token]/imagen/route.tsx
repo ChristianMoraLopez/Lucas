@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { crearT, esIdioma } from '@/lib/i18n';
 import { imagenCuentas, mesDe } from '@/lib/imagen-cuentas';
 import type { SharedOverview } from '@/lib/types';
 
@@ -19,8 +20,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   if (error) return new Response('No se pudo leer la cuenta', { status: 502 });
   if (!data) return new Response('No existe', { status: 404 });
 
-  return imagenCuentas(data as SharedOverview, {
+  const d = data as SharedOverview;
+  // WhatsApp la pide sin cookies: en el idioma de la cuenta (o el del link, ?l=en)
+  const l = sp.get('l');
+  return imagenCuentas(d, {
     personId: sp.get('p'),
+    t: crearT(esIdioma(l) ? l : (d.language ?? 'es')),
+    moneda: d.currency ?? 'COP',
     // Se marcan pagos: que WhatsApp y el CDN no la guarden mucho tiempo
     cache: 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
   });

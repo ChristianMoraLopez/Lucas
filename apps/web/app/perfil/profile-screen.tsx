@@ -4,13 +4,16 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
+import { CampoTelefono } from '@/components/campo-telefono';
 import { lanzarChispas } from '@/components/chispas';
 import { olvidarGuias } from '@/components/guia';
+import { useT } from '@/components/idioma';
 import { Avatar, Button, LottieSlot } from '@/components/lucas-ui';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatDay, formatWhen, monthName, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
-import { accountGlyph, accountTone, formatWaNumber, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
+import { formatear, variantes } from '@/lib/telefono';
+import { accountGlyph, accountTone, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 const PROVEEDOR: Record<string, string> = { email: 'Correo', google: 'Google' };
@@ -113,6 +116,7 @@ function Seccion({
  * borrar la cuenta.
  */
 export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; archivadas?: string[] }) {
+  const t = useT();
   const router = useRouter();
   const refresh = () => router.refresh();
   // Las cuentas archivadas ya pasaron: no salen en el carné ni en «cómo te llaman»
@@ -122,15 +126,15 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
   return (
     <div className="pf lu-stagger">
       <header className="pf-head" style={{ '--i': 0 } as React.CSSProperties}>
-        <h1 className="lu-display">Tu perfil</h1>
+        <h1 className="lu-display">{t('Tu perfil')}</h1>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          Lo tuyo en Luks: cámbialo, descárgalo o bórralo cuando quieras.
+          {t('Lo tuyo en Luks: cámbialo, descárgalo o bórralo cuando quieras.')}
         </p>
       </header>
 
       <Carne p={p} />
 
-      <Seccion id="pf-nombre" icono="nombre" tono="morado" titulo="Tu nombre" nota="Así te saludamos y es el que sale cuando creas una cuenta." i={2}>
+      <Seccion id="pf-nombre" icono="nombre" tono="morado" titulo={t('Tu nombre')} nota={t('Así te saludamos y es el que sale cuando creas una cuenta.')} i={2}>
         <Nombre actual={p.full_name ?? ''} onSaved={refresh} />
       </Seccion>
 
@@ -139,8 +143,8 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
           id="pf-cuentas"
           icono="cuentas"
           tono="naranja"
-          titulo="Cómo te llaman en cada cuenta"
-          nota="Es el nombre que ven los demás en los gastos y en Liquidar."
+          titulo={t('Cómo te llaman en cada cuenta')}
+          nota={t('Es el nombre que ven los demás en los gastos y en Liquidar.')}
           i={3}
         >
           <ul className="pf-list">
@@ -155,8 +159,8 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
         id="pf-wa"
         icono="whatsapp"
         tono="verde"
-        titulo="Tu WhatsApp"
-        nota="Con tu número, los gastos que mandas a los grupos quedan a tu nombre en todas tus cuentas."
+        titulo={t('Tu WhatsApp')}
+        nota={t('Con tu número, los gastos que mandas a los grupos quedan a tu nombre en todas tus cuentas.')}
         i={4}
       >
         <Whatsapp numeros={p.whatsapp} onChanged={refresh} />
@@ -166,14 +170,14 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
         id="pf-guia"
         icono="guia"
         tono="azul"
-        titulo="La guía"
-        nota="Te muestra Luks paso a paso. Sale sola la primera vez; después, con el «?» de arriba."
+        titulo={t('La guía')}
+        nota={t('Te muestra Luks paso a paso. Sale sola la primera vez; después, desde el menú de arriba.')}
         i={5}
       >
         <VerGuias usuario={p.id} />
       </Seccion>
 
-      <Seccion id="pf-datos" icono="datos" tono="coral" titulo="Tus datos" nota="Son tuyos: llévatelos o bórralos (Ley 1581)." i={6}>
+      <Seccion id="pf-datos" icono="datos" tono="coral" titulo={t('Tus datos')} nota={t('Son tuyos: llévatelos o bórralos (Ley 1581).')} i={6}>
         {/* Borrar tu usuario también toca las archivadas: ahí van todas */}
         <MisDatos p={completo} />
       </Seccion>
@@ -183,16 +187,17 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
 
 /** El carné: lo que solo se ve, con el lenguaje de la tarjeta billete del kit. */
 function Carne({ p }: { p: MyProfile }) {
-  const nombre = p.full_name?.trim() || p.email?.split('@')[0] || 'Tú';
+  const t = useT();
+  const nombre = p.full_name?.trim() || p.email?.split('@')[0] || t('Tú');
   const desde = new Date(p.created_at);
-  const desdeMes = `${monthName(desde).slice(0, 3).toUpperCase()} ${todayInBogota(desde).slice(0, 4)}`;
+  const desdeMes = `${monthName(desde, t.idioma).slice(0, 3).toUpperCase()} ${todayInBogota(desde).slice(0, 4)}`;
   return (
     <section className="lu-bill lu-bill--morado pf-carne" aria-labelledby="pf-carne-t" style={{ '--i': 1 } as React.CSSProperties}>
       <div className="lu-bill__top">
         <span id="pf-carne-t" className="lu-bill__label">
-          Tu cuenta de Luks
+          {t('Tu cuenta de Luks')}
         </span>
-        <span className="lu-bill__denom">DESDE {desdeMes}</span>
+        <span className="lu-bill__denom">{t('DESDE {mes}', { mes: desdeMes })}</span>
       </div>
 
       <div className="pf-carne__id">
@@ -206,10 +211,10 @@ function Carne({ p }: { p: MyProfile }) {
       </div>
 
       {p.providers.length > 0 && (
-        <ul className="pf-carne__chips" aria-label="Entras con">
+        <ul className="pf-carne__chips" aria-label={t('Entras con')}>
           {p.providers.map((x) => (
             <li key={x} className="pf-carne__chip">
-              Entras con {PROVEEDOR[x] ?? x}
+              {t('Entras con {proveedor}', { proveedor: PROVEEDOR[x] ? t(PROVEEDOR[x]) : x })}
             </li>
           ))}
         </ul>
@@ -217,38 +222,38 @@ function Carne({ p }: { p: MyProfile }) {
 
       <dl className="pf-carne__facts">
         <div>
-          <dt>Creaste tu cuenta</dt>
-          <dd>{formatDay(desde, '0000-01-01')}</dd>
+          <dt>{t('Creaste tu cuenta')}</dt>
+          <dd>{formatDay(desde, '0000-01-01', t.idioma)}</dd>
         </div>
         {p.last_sign_in_at && (
           <div>
-            <dt>Última entrada</dt>
-            <dd>{formatWhen(p.last_sign_in_at)}</dd>
+            <dt>{t('Última entrada')}</dt>
+            <dd>{formatWhen(p.last_sign_in_at, t.idioma)}</dd>
           </div>
         )}
         <div>
-          <dt>Política de datos</dt>
+          <dt>{t('Política de datos')}</dt>
           <dd>
             {p.privacy_accepted_at
-              ? `Aceptada el ${formatDay(new Date(p.privacy_accepted_at))}${p.privacy_version ? ` · v${p.privacy_version}` : ''}`
-              : 'Sin aceptar'}
+              ? `${t('Aceptada el {dia}', { dia: formatDay(new Date(p.privacy_accepted_at), undefined, t.idioma) })}${p.privacy_version ? ` · v${p.privacy_version}` : ''}`
+              : t('Sin aceptar')}
           </dd>
         </div>
         <div>
-          <dt>Cuentas</dt>
-          <dd>{p.accounts.length ? plural(p.accounts.length, 'cuenta', 'cuentas') : 'Ninguna todavía'}</dd>
+          <dt>{t('Cuentas')}</dt>
+          <dd>{p.accounts.length ? plural(p.accounts.length, t('cuenta'), t('cuentas')) : t('Ninguna todavía')}</dd>
         </div>
       </dl>
 
       {p.accounts.length > 0 && (
-        <ul className="pf-carne__cuentas" aria-label="Tus cuentas">
+        <ul className="pf-carne__cuentas" aria-label={t('Tus cuentas')}>
           {p.accounts.map((a) => (
             <li key={a.id} className="pf-carne__cuenta">
               <span className="pf-carne__glyph" style={{ background: `var(--tono-${accountTone(a.name)})` }} aria-hidden="true">
                 {accountGlyph(a.name)}
               </span>
               {a.name}
-              <span className="pf-carne__rol">{ROLE_LABEL[a.role]}</span>
+              <span className="pf-carne__rol">{t(ROLE_LABEL[a.role])}</span>
             </li>
           ))}
         </ul>
@@ -257,11 +262,11 @@ function Carne({ p }: { p: MyProfile }) {
       <div className="pf-carne__acts">
         {p.providers.includes('email') && (
           <Link href="/cuenta/clave" className="pf-carne__btn">
-            Cambiar contraseña
+            {t('Cambiar contraseña')}
           </Link>
         )}
         <span className="pf-carne__tema">
-          Tema <ThemeToggle />
+          {t('Tema')} <ThemeToggle />
         </span>
       </div>
     </section>
@@ -269,6 +274,7 @@ function Carne({ p }: { p: MyProfile }) {
 }
 
 function Nombre({ actual, onSaved }: { actual: string; onSaved: () => void }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const [v, setV] = useState(actual);
   const [estado, setEstado] = useState<{ busy?: boolean; error?: string; ok?: boolean }>({});
@@ -290,7 +296,7 @@ function Nombre({ actual, onSaved }: { actual: string; onSaved: () => void }) {
   return (
     <form className="pf-row" onSubmit={guardar}>
       <label htmlFor={id} className="lu-sr">
-        Tu nombre
+        {t('Tu nombre')}
       </label>
       <input
         id={id}
@@ -304,7 +310,7 @@ function Nombre({ actual, onSaved }: { actual: string; onSaved: () => void }) {
         autoComplete="name"
       />
       <Button size="sm" type="submit" disabled={!cambio || estado.busy}>
-        {estado.busy ? 'Guardando…' : 'Guardar'}
+        {estado.busy ? t('Guardando…') : t('Guardar')}
       </Button>
       {estado.error && (
         <p className="lu-error pf-msg" role="alert">
@@ -313,7 +319,7 @@ function Nombre({ actual, onSaved }: { actual: string; onSaved: () => void }) {
       )}
       {estado.ok && (
         <p className="lu-success pf-msg" role="status">
-          Listo, así te vamos a saludar.
+          {t('Listo, así te vamos a saludar.')}
         </p>
       )}
     </form>
@@ -321,6 +327,7 @@ function Nombre({ actual, onSaved }: { actual: string; onSaved: () => void }) {
 }
 
 function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][number]; onSaved: () => void }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const actual = cuenta.person_name ?? '';
   const [v, setV] = useState(actual);
@@ -349,7 +356,7 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
           </span>
           <span>
             <b>{cuenta.name}</b>
-            <span className={`lu-role lu-role--${cuenta.role}`}>{ROLE_LABEL[cuenta.role]}</span>
+            <span className={`lu-role lu-role--${cuenta.role}`}>{t(ROLE_LABEL[cuenta.role])}</span>
           </span>
         </label>
         <input
@@ -363,7 +370,7 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
           maxLength={40}
         />
         <Button size="sm" variant="secondary" type="submit" disabled={!cambio || estado.busy}>
-          {estado.busy ? '…' : 'Guardar'}
+          {estado.busy ? '…' : t('Guardar')}
         </Button>
         {estado.error && (
           <p className="lu-error pf-msg" role="alert">
@@ -376,36 +383,45 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
 }
 
 function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => void }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
-  const [v, setV] = useState('');
+  const [numero, setNumero] = useState<string | null>(null);
+  const [escribio, setEscribio] = useState(false);
+  // Al agregar, el campo se vacía: se vuelve a montar con otra llave
+  const [vuelta, setVuelta] = useState(0);
   const [estado, setEstado] = useState<{ busy?: string; error?: string; aviso?: string; listo?: boolean }>({});
   const id = useId();
 
   const agregar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!v.trim()) return;
+    if (!numero) return setEstado({ error: t('Escribe el número completo, con el país elegido.') });
     const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
     setEstado({ busy: 'agregar' });
-    const { data, error } = await supabase.rpc('add_my_whatsapp', { p_phone: v });
+    const { data, error } = await supabase.rpc('add_my_whatsapp', { p_phone: numero });
     if (error) return setEstado({ error: humanError(error) });
     const r = data as { wa_id: string; accounts: number; taken_in: string[] };
-    setV('');
+    setVuelta((v) => v + 1);
     if (r.accounts) chispasEn(boton);
     setEstado({
       listo: r.accounts > 0,
       aviso: r.taken_in.length
-        ? `En ${r.taken_in.join(', ')} ese número ya es de otra persona: pídele a quien administra que lo arregle en «Conectar WhatsApp».`
+        ? t('En {cuentas} ese número ya es de otra persona: pídele a quien administra que lo arregle en «Conectar WhatsApp».', {
+            cuentas: r.taken_in.join(', '),
+          })
         : r.accounts
-          ? `Listo: quedó en ${plural(r.accounts, 'cuenta', 'cuentas')}.`
+          ? t('Listo: quedó en {cuentas}.', { cuentas: plural(r.accounts, t('cuenta'), t('cuentas')) })
           : undefined,
     });
     onChanged();
   };
 
+  // WhatsApp puede mandar el mismo número de varias formas (México, Brasil): se quitan todas
   const quitar = async (wa: string) => {
     setEstado({ busy: wa });
-    const { error } = await supabase.rpc('remove_my_whatsapp', { p_wa_id: wa });
-    if (error) return setEstado({ error: humanError(error) });
+    for (const v of variantes(wa)) {
+      const { error } = await supabase.rpc('remove_my_whatsapp', { p_wa_id: v });
+      if (error) return setEstado({ error: humanError(error) });
+    }
     setEstado({});
     onChanged();
   };
@@ -417,13 +433,13 @@ function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => 
           {numeros.map((n) => (
             <li key={n} className="pf-num">
               <Icono d="whatsapp" className="pf-num__ico" />
-              <span>{formatWaNumber(n) ?? n}</span>
+              <span>{formatear(n) ?? n}</span>
               <button
                 type="button"
                 className="pf-num__x"
                 onClick={() => quitar(n)}
                 disabled={estado.busy === n}
-                aria-label={`Quitar ${formatWaNumber(n) ?? n}`}
+                aria-label={t('Quitar {numero}', { numero: formatear(n) ?? n })}
               >
                 ×
               </button>
@@ -431,21 +447,20 @@ function Whatsapp({ numeros, onChanged }: { numeros: string[]; onChanged: () => 
           ))}
         </ul>
       )}
-      <form className="pf-row" onSubmit={agregar}>
+      <form className="pf-row pf-row--tel" onSubmit={agregar}>
         <label htmlFor={id} className="lu-sr">
-          Número de WhatsApp
+          {t('Número de WhatsApp')}
         </label>
-        <input
+        <CampoTelefono
+          key={vuelta}
           id={id}
-          className="pf-input"
-          value={v}
-          onChange={(e) => setV(e.target.value)}
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder={numeros.length ? 'Otro número: 300 123 4567' : '300 123 4567'}
+          onNumero={(n, e) => {
+            setNumero(n);
+            setEscribio(e);
+          }}
         />
-        <Button size="sm" variant="secondary" type="submit" disabled={!v.trim() || estado.busy === 'agregar'}>
-          {estado.busy === 'agregar' ? 'Agregando…' : 'Agregar'}
+        <Button size="sm" variant="secondary" type="submit" disabled={!escribio || estado.busy === 'agregar'}>
+          {estado.busy === 'agregar' ? t('Agregando…') : t('Agregar')}
         </Button>
       </form>
       {estado.error && (
@@ -467,6 +482,7 @@ const PALABRA = 'ELIMINAR';
 
 /** «Ver las guías otra vez»: la del inicio y la de las cuentas vuelven a salir solas */
 function VerGuias({ usuario }: { usuario: string }) {
+  const t = useT();
   const [estado, setEstado] = useState<'quieto' | 'cargando' | 'listo'>('quieto');
   const [error, setError] = useState<string | null>(null);
   const reiniciar = async () => {
@@ -484,14 +500,14 @@ function VerGuias({ usuario }: { usuario: string }) {
     <div className="pf-guia">
       {estado === 'listo' ? (
         <p className="lu-small" role="status" style={{ margin: 0 }}>
-          Listo: al volver al inicio sale la guía, y la de las cuentas la primera vez que entres a una.{' '}
+          {t('Listo: al volver al inicio sale la guía, y la de las cuentas la primera vez que entres a una.')}{' '}
           <Link href="/" className="pf-link">
-            Ir al inicio
+            {t('Ir al inicio')}
           </Link>
         </p>
       ) : (
         <Button size="sm" variant="secondary" onClick={reiniciar} disabled={estado === 'cargando'}>
-          {estado === 'cargando' ? 'Un momento…' : 'Ver las guías otra vez'}
+          {estado === 'cargando' ? t('Un momento…') : t('Ver las guías otra vez')}
         </Button>
       )}
       {error && (
@@ -504,6 +520,8 @@ function VerGuias({ usuario }: { usuario: string }) {
 }
 
 function MisDatos({ p }: { p: MyProfile }) {
+  const t = useT();
+  const palabraClave = t(PALABRA);
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const [bajando, setBajando] = useState(false);
@@ -550,8 +568,8 @@ function MisDatos({ p }: { p: MyProfile }) {
             <Icono d="bajar" />
           </span>
           <span className="pf-tile__txt">
-            <b>{bajando ? 'Preparando…' : 'Descargar mis datos'}</b>
-            <span className="lu-small lu-muted">Tu perfil, lo que pagaste, tu parte de cada gasto y tus mensajes, en un archivo.</span>
+            <b>{bajando ? t('Preparando…') : t('Descargar mis datos')}</b>
+            <span className="lu-small lu-muted">{t('Tu perfil, lo que pagaste, tu parte de cada gasto y tus mensajes, en un archivo.')}</span>
           </span>
         </button>
         <button type="button" className="pf-tile pf-tile--peligro" onClick={() => setAbierto(true)}>
@@ -559,8 +577,8 @@ function MisDatos({ p }: { p: MyProfile }) {
             <Icono d="borrar" />
           </span>
           <span className="pf-tile__txt">
-            <b>Eliminar mi cuenta</b>
-            <span className="lu-small lu-muted">Se borra tu usuario. Antes te contamos qué pasa con cada cuenta.</span>
+            <b>{t('Eliminar mi cuenta')}</b>
+            <span className="lu-small lu-muted">{t('Se borra tu usuario. Antes te contamos qué pasa con cada cuenta.')}</span>
           </span>
         </button>
       </div>
@@ -574,51 +592,52 @@ function MisDatos({ p }: { p: MyProfile }) {
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="lu-dialog__overlay" />
           <AlertDialog.Content className="lu-dialog qp">
-            <AlertDialog.Title className="lu-title">¿Eliminar tu cuenta?</AlertDialog.Title>
+            <AlertDialog.Title className="lu-title">{t('¿Eliminar tu cuenta?')}</AlertDialog.Title>
             <AlertDialog.Description asChild>
               <ul className="pf-consecuencias lu-small">
-                <li>Se borran tu usuario, tu perfil y tus números de WhatsApp. No se puede deshacer.</li>
+                <li>{t('Se borran tu usuario, tu perfil y tus números de WhatsApp. No se puede deshacer.')}</li>
                 {titular.length > 0 && (
                   <li>
                     {titular.length === 1
-                      ? `«${titular[0]}» pasa`
-                      : `${titular
-                          .slice(0, -1)
-                          .map((t) => `«${t}»`)
-                          .join(', ')} y «${titular[titular.length - 1]}» pasan`}{' '}
-                    a un admin o a quien lleve más tiempo; si no hay nadie más, se borra con sus gastos.
+                      ? t('«{cuenta}» pasa a un admin o a quien lleve más tiempo; si no hay nadie más, se borra con sus gastos.', { cuenta: titular[0] })
+                      : t('{cuentas} pasan a un admin o a quien lleve más tiempo; si no hay nadie más, se borran con sus gastos.', {
+                          cuentas: `${titular
+                            .slice(0, -1)
+                            .map((x) => `«${x}»`)
+                            .join(', ')} ${t('y')} «${titular[titular.length - 1]}»`,
+                        })}
                   </li>
                 )}
-                <li>En las cuentas que siguen, tus gastos se quedan para que a los demás les cuadren las cuentas.</li>
+                <li>{t('En las cuentas que siguen, tus gastos se quedan para que a los demás les cuadren las cuentas.')}</li>
               </ul>
             </AlertDialog.Description>
             <label className="qp-check">
               <input type="checkbox" checked={anonimizar} onChange={(e) => setAnonimizar(e.target.checked)} />
-              <span className="lu-small">Que en esas cuentas mi nombre pase a «Persona eliminada»</span>
+              <span className="lu-small">{t('Que en esas cuentas mi nombre pase a «Persona eliminada»')}</span>
             </label>
             <div className="qp-a">
               <label htmlFor={id} className="lu-label">
-                Escribe {PALABRA} para confirmar
+                {t('Escribe {palabra} para confirmar', { palabra: palabraClave })}
               </label>
               <input id={id} className="pf-input" value={palabra} onChange={(e) => setPalabra(e.target.value)} autoComplete="off" autoCapitalize="characters" />
             </div>
             <div className="lu-dialog__btns">
               <AlertDialog.Cancel asChild>
                 <Button variant="secondary" size="sm" disabled={borrando}>
-                  Cancelar
+                  {t('Cancelar')}
                 </Button>
               </AlertDialog.Cancel>
               <Button
                 size="sm"
                 variant="secondary"
                 className="lu-btn--danger"
-                disabled={borrando || palabra.trim().toUpperCase() !== PALABRA}
+                disabled={borrando || palabra.trim().toUpperCase() !== palabraClave}
                 onClick={(e) => {
                   e.preventDefault();
                   borrar();
                 }}
               >
-                {borrando ? 'Eliminando…' : 'Eliminar mi cuenta'}
+                {borrando ? t('Eliminando…') : t('Eliminar mi cuenta')}
               </Button>
             </div>
           </AlertDialog.Content>

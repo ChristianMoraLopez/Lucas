@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LiveRefresh } from '@/components/live-refresh';
-import { formatCOP, type Tone } from '@/components/lucas-core';
+import type { Tone } from '@/components/lucas-core';
 import { Amount, Avatar, CategoryTag, LottieSlot } from '@/components/lucas-ui';
 import { formatRecent, monthName, todayInBogota } from '@/lib/dates';
+import { getT } from '@/lib/i18n/server';
+import { dinero, esMoneda } from '@/lib/moneda';
 import { normalizarBusqueda, uuidOrNull } from '@/lib/search';
 import { asTone, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
@@ -35,14 +37,17 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   const cat = uuidOrNull(sp.cat);
   const quien = uuidOrNull(sp.quien);
   const { supabase } = await requireUser(`/c/${accountId}/gastos`);
+  const t = await getT();
 
   const [{ data: account }, { data: cats }, { data: gente }, { data: fechas }] = await Promise.all([
-    supabase.from('accounts').select('id').eq('id', accountId).maybeSingle(),
+    supabase.from('accounts').select('id, currency').eq('id', accountId).maybeSingle(),
     supabase.from('categories').select('id, name').eq('account_id', accountId).order('name'),
     supabase.from('people').select('id, display_name').eq('account_id', accountId).order('display_name'),
     supabase.from('expenses').select('expense_date').eq('account_id', accountId).order('expense_date', { ascending: false }).limit(2000),
   ]);
   if (!account) notFound();
+  const moneda = esMoneda(account.currency) ? account.currency : 'COP';
+  const mesLargo = (m: string) => monthName(`${m}-01`, t.idioma);
   const meses = [...new Set((fechas ?? []).map((f) => (f.expense_date as string).slice(0, 7)))];
 
   let query = supabase
@@ -78,15 +83,15 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
       <LiveRefresh accountId={accountId} />
       <header className="gs-head">
         <div>
-          <h1 className="lu-display">Gastos</h1>
-          <span className="lu-small lu-muted">{plural(rows.length, 'gasto', 'gastos')}</span>
+          <h1 className="lu-display">{t('Gastos')}</h1>
+          <span className="lu-small lu-muted">{plural(rows.length, t('gasto'), t('gastos'))}</span>
         </div>
         <div className="wa-row">
           <Link href={`/c/${accountId}/categorias`} className="lu-btn lu-btn--sm lu-btn--ghost">
-            Categorías
+            {t('Categorías')}
           </Link>
           <Link href={`/c/${accountId}/subir`} className="lu-btn lu-btn--sm lu-btn--secondary">
-            Subir gasto
+            {t('Subir gasto')}
           </Link>
         </div>
       </header>
@@ -106,27 +111,33 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
           <LottieSlot name={busqueda || cat || quien ? 'buscar' : 'vacio'} width={72} height={72} />
           <span className="lu-small lu-muted">
             {busqueda || cat || quien
-              ? 'Ningún gasto coincide con la búsqueda.'
+              ? t('Ningún gasto coincide con la búsqueda.')
               : soloPendientes
-                ? 'No hay nada por revisar.'
+                ? t('No hay nada por revisar.')
                 : mes
-                  ? `No hay gastos en ${monthName(`${mes}-01`).toLowerCase()}.`
-                  : 'Todavía no hay gastos. Manden fotos al grupo o súbanlas aquí.'}
+                  ? t('No hay gastos en {mes}.', { mes: t.idioma === 'en' ? mesLargo(mes) : mesLargo(mes).toLowerCase() })
+                  : t('Todavía no hay gastos. Manden fotos al grupo o súbanlas aquí.')}
           </span>
           {filtrando && (
             <Link href={base} className="lu-btn lu-btn--sm lu-btn--secondary">
-              Quitar filtros
+              {t('Quitar filtros')}
             </Link>
           )}
         </div>
       ) : (
         [...grupos.entries()].map(([mes, lista]) => (
-          <section key={mes} className="gs-month" aria-label={`${monthName(`${mes}-01`)} ${mes.slice(0, 4)}`}>
+          <section key={mes} className="gs-month" aria-label={`${mesLargo(mes)} ${mes.slice(0, 4)}`}>
             <div className="gs-month__head">
               <h2 className="lu-title">
-                {monthName(`${mes}-01`)} {mes.slice(0, 4)}
+                {mesLargo(mes)} {mes.slice(0, 4)}
               </h2>
-              <span className="lu-amount lu-amount--sm">{formatCOP(lista.reduce((s, r) => s + r.total_cop, 0))}</span>
+              <span className="lu-amount lu-amount--sm">
+                {dinero(
+                  lista.reduce((s, r) => s + r.total_cop, 0),
+                  moneda,
+                  t.idioma,
+                )}
+              </span>
             </div>
             <ul className="hd-recent lu-stagger">
               {lista.map((r, i) => (
@@ -144,7 +155,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
                       {r.merchant}
                     </Link>
                     <span className="hd-r__s">
-                      {formatRecent(r.expense_date, r.created_at, hoy)}
+                      {formatRecent(r.expense_date, r.created_at, hoy, t.idioma)}
                       {r.people && (
                         <>
                           {' · '}
@@ -159,10 +170,10 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
                       )}
                       {r.expense_splits.length ? ` · ÷ ${r.expense_splits.length}` : ''}
                       {r.messages?.kind === 'pdf' ? ' · PDF' : ''}
-                      {r.corrected_by && <span className="gs-fix">corregido</span>}
+                      {r.corrected_by && <span className="gs-fix">{t('corregido')}</span>}
                       {r.status === 'pending_review' && (
                         <Link href={`/c/${accountId}/revisar?gasto=${r.id}`} className="ap-pend">
-                          por revisar
+                          {t('por revisar')}
                         </Link>
                       )}
                     </span>

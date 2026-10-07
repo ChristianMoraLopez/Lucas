@@ -5,9 +5,11 @@
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import type { Moneda } from '@/lib/moneda';
 import { useT } from './idioma';
 import { isLottieName, Lottie } from './lottie';
-import { CATEGORIES, CODE_RE, formatCOP, formatCode, nombreCategoria, type Tone, toneFor } from './lucas-core';
+import { CATEGORIES, CODE_RE, formatCode, nombreCategoria, type Tone, toneFor } from './lucas-core';
+import { useDinero } from './moneda';
 
 export { CATEGORIES, CODE_RE, formatCOP, formatCode, lucas, nombreCategoria, setTones, TONES, type Tone, toneFor } from './lucas-core';
 
@@ -53,6 +55,7 @@ export function Amount({
   tone,
   sign = false,
   className,
+  moneda,
 }: {
   value: number;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -61,9 +64,10 @@ export function Amount({
   tone?: 'pos' | 'neg';
   sign?: boolean;
   className?: string;
+  /** Si no, la de la cuenta que se está viendo */
+  moneda?: Moneda;
 }) {
-  const { idioma } = useT();
-  const text = formatCOP(value, { sign, idioma });
+  const text = useDinero(moneda).fmt(value, { sign });
   return (
     <span className={cx('lu-amount', 'lu-amount--' + size, tone && 'lu-amount--' + tone, highlight && 'lu-amount--hl', className)}>
       {roll ? (
@@ -91,9 +95,11 @@ export function BillCard({
   aside,
   href,
   linkLabel,
+  moneda,
 }: {
   label: React.ReactNode;
   amount: number;
+  moneda?: Moneda;
   tone?: 'verde' | 'morado';
   denom?: string;
   aside?: React.ReactNode;
@@ -104,7 +110,7 @@ export function BillCard({
   href?: string;
   linkLabel?: string;
 }) {
-  const cifra = <Amount value={amount} size="xl" roll={roll} highlight={highlight} />;
+  const cifra = <Amount value={amount} size="xl" roll={roll} highlight={highlight} moneda={moneda} />;
   return (
     <section className={cx('lu-bill', tone === 'morado' && 'lu-bill--morado', href && 'lu-bill--link')}>
       <div className="lu-bill__top">
@@ -489,7 +495,7 @@ export function Chip({
 /* ---------- BudgetBar ---------- */
 export function BudgetBar({ name, spent, budget, category }: { name: string; spent: number; budget: number; category?: boolean }) {
   const t = useT();
-  const cop = (n: number) => formatCOP(n, { idioma: t.idioma });
+  const cop = useDinero().fmt;
   const pct = budget > 0 ? spent / budget : 0;
   const state = pct > 1 ? 'over' : pct >= 0.85 ? 'near' : null;
   return (

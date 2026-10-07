@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/components/idioma';
 
 /** Escala, desplazamiento (px desde el centro) y giro (grados) de la foto. */
 interface Vista {
@@ -38,6 +39,7 @@ function zoomEn(v: Vista, s: number, px: number, py: number): Vista {
  * de lado). Esc, el botón o «atrás» del teclado la cierran.
  */
 export function PhotoViewer({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const t = useT();
   const dialog = useRef<HTMLDialogElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
@@ -246,17 +248,17 @@ export function PhotoViewer({ src, alt, onClose }: { src: string; alt: string; o
 
       <div className="pv-top">
         <span className="pv-title">{alt}</span>
-        <button type="button" className="pv-btn" onClick={onClose} aria-label="Cerrar">
+        <button type="button" className="pv-btn" onClick={onClose} aria-label={t('Cerrar')}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
       </div>
 
-      {ayuda && <p className="pv-hint">Pellizca o toca dos veces para acercar</p>}
+      {ayuda && <p className="pv-hint">{t('Pellizca o toca dos veces para acercar')}</p>}
 
-      <div className="pv-tools" role="toolbar" aria-label="Zoom de la foto">
-        <button type="button" className="pv-btn" onClick={() => acercar(1 / 1.5)} disabled={v.s <= 1} aria-label="Alejar">
+      <div className="pv-tools" role="toolbar" aria-label={t('Zoom de la foto')}>
+        <button type="button" className="pv-btn" onClick={() => acercar(1 / 1.5)} disabled={v.s <= 1} aria-label={t('Alejar')}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14" />
           </svg>
@@ -264,12 +266,12 @@ export function PhotoViewer({ src, alt, onClose }: { src: string; alt: string; o
         <button type="button" className="pv-btn pv-btn--txt" onClick={ajustar} disabled={v.s === 1 && v.x === 0 && v.y === 0}>
           {v.s > 1 ? `${Math.round(v.s * 100)} %` : 'Entera'}
         </button>
-        <button type="button" className="pv-btn" onClick={() => acercar(1.5)} disabled={v.s >= MAX} aria-label="Acercar">
+        <button type="button" className="pv-btn" onClick={() => acercar(1.5)} disabled={v.s >= MAX} aria-label={t('Acercar')}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14M12 5v14" />
           </svg>
         </button>
-        <button type="button" className="pv-btn" onClick={girar} aria-label="Girar la foto">
+        <button type="button" className="pv-btn" onClick={girar} aria-label={t('Girar la foto')}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
           </svg>
@@ -278,7 +280,7 @@ export function PhotoViewer({ src, alt, onClose }: { src: string; alt: string; o
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
           </svg>
-          <span className="lu-sr">Abrir la foto original en otra pestaña</span>
+          <span className="lu-sr">{t('Abrir la foto original en otra pestaña')}</span>
         </a>
       </div>
     </dialog>

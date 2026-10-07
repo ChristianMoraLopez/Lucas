@@ -52,9 +52,7 @@ export function corto(n: number, moneda: Moneda = 'COP', idioma: Idioma = 'es') 
   }
   const k = v / 1000;
   if (idioma === 'en') return k >= 1000 ? `$${(k / 1000).toFixed(1).replace('.0', '')}M` : `$${Number.isInteger(k) ? k : k.toFixed(1)}K`;
-  return k >= 1000
-    ? `${(k / 1000).toFixed(1).replace('.0', '').replace('.', ',')} palos`
-    : `${Number.isInteger(k) ? k : k.toFixed(1).replace('.', ',')} lucas`;
+  return k >= 1000 ? `${(k / 1000).toFixed(1).replace('.0', '').replace('.', ',')} palos` : `${Number.isInteger(k) ? k : k.toFixed(1).replace('.', ',')} lucas`;
 }
 
 /**
@@ -68,3 +66,12 @@ export function deCampo(texto: string) {
 
 /** Cuánto es en la unidad grande (para mostrar en gráficas o redondear) */
 export const unidades = (n: number, moneda: Moneda) => n / 10 ** DECIMALES[moneda];
+
+/** Para etiquetas cortas (las barras de los meses): «1,25M», «340K», «$85» */
+export function abreviado(n: number, moneda: Moneda = 'COP', idioma: Idioma = 'es') {
+  const u = Math.abs(unidades(n, moneda));
+  const dec = (v: number, d: number) => (idioma === 'en' ? v.toFixed(d) : v.toFixed(d).replace('.', ','));
+  if (u >= 1e6) return `${dec(u / 1e6, 2)}M`;
+  if (u >= 1e3) return `${dec(u / 1e3, u >= 1e5 ? 0 : 1)}K`;
+  return String(Math.round(u));
+}
