@@ -258,6 +258,49 @@ describe('duplicados', () => {
     });
   });
 
+  it('comprobantes del mismo banco (huella casi igual): otro total u otros códigos es otra compra', async () => {
+    await as(db, U.santi, async (tx) => {
+      // Así se ven dos comprobantes de Nu: la misma pantalla con otros números
+      const nu = (valor: string, autorizacion: string, transaccion: string) =>
+        `nU Comprobante de transacción 19:05, Domingo, 4 de Octubre de 2026 Valor $${valor},00 Código de autorización ${autorizacion} ID transacción: ${transaccion}`;
+      const casi = `${HASH.slice(0, -2)}${(Number.parseInt(HASH.slice(-2), 16) ^ 0x3f).toString(16).padStart(2, '0')}`;
+      const d1 = await mensaje(tx, 'foto D1');
+      const r1 = await guardar(tx, d1, { ...base, merchant: 'Tienda D1', total_cop: 21_350, image_hash: HASH, extracted_text: nu('21.350', '273548', '6ac2a305') });
+      expect(r1.expense_id).toBeTruthy();
+
+      // Otro total (el caso de Farmatodo por $105.900): gasto nuevo
+      const farmatodo = await mensaje(tx, 'foto Farmatodo');
+      const r2 = await guardar(tx, farmatodo, {
+        ...base,
+        merchant: 'Farmatodo',
+        total_cop: 105_900,
+        image_hash: casi,
+        extracted_text: nu('105.900', '434409', '6ac2e9b6'),
+      });
+      expect(r2.expense_id).toBeTruthy();
+
+      // Mismo total y día, pero otro número de autorización: también es otra compra
+      const otra = await mensaje(tx, 'otra compra igual');
+      const r3 = await guardar(tx, otra, { ...base, merchant: 'Tienda D1', total_cop: 21_350, image_hash: casi, extracted_text: nu('21.350', '999001', '7bb1c2d3') });
+      expect(r3.expense_id).toBeTruthy();
+
+      // El mismo comprobante reenviado (mismos códigos): esa sí es repetida
+      const reenviado = await mensaje(tx, 'la misma foto');
+      expect(await guardar(tx, reenviado, { ...base, merchant: 'Tienda D1', total_cop: 21_350, image_hash: casi, extracted_text: nu('21.350', '273548', '6ac2a305') })).toEqual({
+        duplicate_of: r1.expense_id,
+      });
+
+      // Antes de leer la foto (sin total) la huella sola ya no la descarta
+      const { d } = await one<{ d: string | null }>(tx, `select public.worker_find_duplicate($1, null, $2) as d`, [PASEO, HASH]);
+      expect(d).toBeNull();
+    });
+  });
+
+  it('los números largos de un comprobante', async () => {
+    const { c } = await one<{ c: string[] }>(db, `select public.codigos_del_texto('Valor $105.900,00 autorización 434409 ID 6ac2e9b6 tel 3001234567 año 2026') as c`);
+    expect(c).toEqual(['3001234567', '434409']);
+  });
+
   it('distancia de Hamming entre huellas', async () => {
     const { rows } = await db.query<{ d: number | null }>(
       `select public.image_hash_distance(a, b) as d from (values ('ff00ff00ff00ff00', 'ff00ff00ff00ff00'), ('ff00ff00ff00ff00', 'ff00ff00ff00ff0f'),
@@ -319,6 +362,7 @@ describe('permisos', () => {
       `select public.worker_fail_job('e0000000-0000-4000-8000-000000000017', 'x')`,
       `select public.worker_training_export()`,
       `select public.worker_find_duplicate('${PASEO}', null, null)`,
+      `select public.worker_buscar_repetido('${PASEO}', null, null)`,
       'select public.worker_take_over()',
     ]) {
       await expect(as(db, U.valeria, (tx) => tx.query(sql))).rejects.toThrow(DENIED);

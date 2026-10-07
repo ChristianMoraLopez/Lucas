@@ -21,6 +21,10 @@ Rules:
   (S.A.S., Ltda). For chat messages without a store, a short Spanish name of what was paid for.
 - payer_name: only if the text says who paid ('la pagó Santi', 'Vale pagó', 'pagado por Laura').
   'pagué' means the sender paid: return null.
+- items: every product line of a receipt or invoice, as printed, with quantity, unit price and line
+  total. 'PAPA BACON' followed by '2 x 5.000,00 10.000,00' is name 'Papa bacon', quantity 2,
+  unit_price_cop 5000, total_cop 10000. Line totals should add up to the subtotal. Use an empty list
+  for chat messages and for payment or transfer vouchers that list no products.
 - description_en: a short, normalized English description of what was bought (no amounts, no names
   of people). It is used to classify the expense, so name the kind of business and main items.
 - is_expense: false only for messages that are clearly not about spending money.

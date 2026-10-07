@@ -17,6 +17,7 @@ from datetime import date, timedelta
 from rapidfuzz import fuzz
 
 from .extract.cascade import Extraction
+from .extract.items import items_cuadran, items_del_recibo
 from .extract.numbers import normalize_merchant
 from .extract.rules import best_date
 from .llm.schema import ReceiptExtraction, ReceiptItem
@@ -237,7 +238,10 @@ def reconcile(
 
     no_es_gasto = not explicit and total == 0 and not (ex.qr and ex.qr.useful) and (llm is None or not llm.is_expense)
 
-    items = [i for i in (llm.items if llm else []) if i.name and i.name != "?"]
+    items, s_items = _items(ex, llm, total)
+    sources = {"merchant": s_comercio, "date": s_fecha, "total": s_total}
+    if s_items:
+        sources["items"] = s_items
     return Draft(
         merchant=comercio[:80],
         expense_date=fecha,
@@ -250,6 +254,30 @@ def reconcile(
         nit=(ex.qr.nit if ex.qr else None) or ex.hints.nit or (llm.merchant_nit if llm else None),
         not_expense=no_es_gasto,
         confidence={"merchant": _clamp(c_comercio), "date": _clamp(c_fecha), "total": _clamp(c_total)},
-        sources={"merchant": s_comercio, "date": s_fecha, "total": s_total},
+        sources=sources,
         notes=notes,
     )
+
+
+def _items(ex: Extraction, llm: ReceiptExtraction | None, total: int) -> tuple[list[ReceiptItem], str | None]:
+    """
+    Los ítems para dividir por consumo, solo si cuadran con el total. Los que
+    leen las reglas del texto traen los precios tal cual: si suman justo el
+    total, mandan; si no, los del LLM (si cuadran) y si no, los de las reglas.
+    """
+    leidos = (
+        [
+            ReceiptItem(name=i.name, quantity=i.quantity, unit_price_cop=i.unit_price_cop, total_cop=i.total_cop)
+            for i in items_del_recibo(ex.text, total)
+        ]
+        if ex.kind != "text"
+        else []
+    )
+    del_llm = [i for i in (llm.items if llm else []) if i.name and i.name != "?" and i.total_cop]
+    if leidos and sum(i.total_cop or 0 for i in leidos) == total:
+        return leidos, "rules"
+    if del_llm and items_cuadran([i.total_cop or 0 for i in del_llm], total):
+        return del_llm, "llm"
+    if leidos:
+        return leidos, "rules"
+    return [], None

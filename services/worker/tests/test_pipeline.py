@@ -98,17 +98,34 @@ def test_foto_con_qr_de_comercio_conocido_queda_confirmada(db, extractor):
     assert llamado["message_text"] == "la pagó Santi" and "Santi" in llamado["people"]
 
 
-def test_la_misma_foto_otra_vez_es_duplicada_sin_gastar_ocr(db, extractor):
+def test_la_misma_foto_otra_vez_es_duplicada(db, extractor):
     p = procesador(db, extractor, FakeLlm(qwen_honesto))
     primero = db.add_message("photo", file="recibo_panaderia_foto.jpg")
     p.process(Job(id="j1", payload={"message_id": primero}))
     otra = db.add_message("photo", file="recibo_panaderia_otra.webp")
-    llm = FakeLlm(qwen_honesto)
-    p.llm = llm
-    assert "duplicado (foto)" in p.process(Job(id="j2", payload={"message_id": otra}))
+    # Se lee (la huella sola no basta) y sale repetida: este recibo trae QR con CUFE
+    assert "duplicado" in p.process(Job(id="j2", payload={"message_id": otra}))
     assert db.messages[otra]["status"] == "duplicate"
     assert db.messages[otra]["duplicate_of"] == gasto(db, primero)["id"]
-    assert llm.calls == []
+
+
+def test_comprobante_parecido_con_otro_total_no_es_duplicado(db):
+    """Dos comprobantes de Nu: huella casi igual, otro valor (pasó el 4 de octubre con uno de $105.900)."""
+    dup = db._worker_find_duplicate
+    db.expenses.append(
+        {
+            "id": "d1",
+            "total_cop": 21_350,
+            "expense_date": "2026-10-04",
+            "image_hash": "f" * 64,
+            "extracted_text": "autorización 273548",
+        }
+    )
+    casi = "f" * 62 + "00"
+    assert dup("c", None, casi, 12, 105_900, "2026-10-04", "autorización 434409") is None
+    assert dup("c", None, casi, 12, 21_350, "2026-10-04", "autorización 999001") is None
+    assert dup("c", None, casi, 12, 21_350, "2026-10-04", "autorización 273548") == "d1"
+    assert dup("c", None, casi) is None  # sin total, la huella no basta
 
 
 def test_la_misma_factura_en_otra_foto_se_detecta_por_cufe(db, extractor):

@@ -56,7 +56,7 @@ class OllamaClient:
             "format": self.schema,
             "stream": False,
             "keep_alive": self.keep_alive,
-            "options": {"temperature": 0, "seed": 7, "num_ctx": self.num_ctx, "num_predict": 1024},
+            "options": {"temperature": 0, "seed": 7, "num_ctx": self.num_ctx, "num_predict": 1536},
         }
         try:
             r = self.http.post(f"{self.base_url}/api/chat", json=payload)

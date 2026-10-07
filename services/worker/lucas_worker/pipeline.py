@@ -179,9 +179,10 @@ class MessageProcessor:
                 data = self.db.download(self.settings.evidence_bucket, msg["media_path"])
             with stage("huella"):
                 img, image_hash = self.extractor.load_photo(data)
-            if dup := self._duplicado(account_id, None, image_hash):
-                self._marcar(job.message_id, "duplicate", dup)
-                return f"duplicado (foto) de {dup}"
+            # La huella sola no dice que sea la misma foto: los comprobantes de un
+            # mismo banco (Nu, Nequi…) son la misma pantalla con otros números.
+            # Se lee y, al guardar, worker_find_duplicate compara huella, total,
+            # día y los códigos del comprobante.
             with stage("ocr"):
                 ex = self.extractor.photo(img, image_hash, caption, today)
         elif kind == "pdf":

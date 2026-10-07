@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import re
 import uuid
 from collections.abc import Callable
 from datetime import date
@@ -149,13 +150,34 @@ class FakeDb:
         }
 
     def _worker_find_duplicate(
-        self, p_account_id: str, p_cufe: str | None, p_image_hash: str | None, p_max_distance: int = 12
+        self,
+        p_account_id: str,
+        p_cufe: str | None,
+        p_image_hash: str | None,
+        p_max_distance: int = 12,
+        p_total_cop: int | None = None,
+        p_expense_date: str | None = None,
+        p_text: str | None = None,
     ) -> str | None:
+        """Como public.worker_find_duplicate (migración 240): la huella cuenta con el mismo total, día y códigos."""
+
+        def codigos(texto: str | None) -> set[str]:
+            return set(re.findall(r"\d{6,}", texto or ""))
+
         for e in self.expenses:
             if p_cufe and e.get("cufe") == p_cufe.lower():
                 return e["id"]
-            if p_image_hash and e.get("image_hash") and hash_distance(e["image_hash"], p_image_hash) <= p_max_distance:
-                return e["id"]
+            if (
+                p_image_hash
+                and e.get("image_hash")
+                and (p_total_cop or 0) > 0
+                and e.get("total_cop") == p_total_cop
+                and (p_expense_date is None or e.get("expense_date") == p_expense_date)
+                and hash_distance(e["image_hash"], p_image_hash) <= p_max_distance
+            ):
+                a, b = codigos(p_text), codigos(e.get("extracted_text"))
+                if not a or not b or a & b:
+                    return e["id"]
         return None
 
     def _worker_mark_message(
@@ -168,7 +190,15 @@ class FakeDb:
         m = self.messages[p_message_id]
         if m["status"] in ("done", "not_expense", "duplicate"):
             return {"skipped": True, "status": m["status"]}
-        if dup := self._worker_find_duplicate(CUENTA, p_data.get("cufe"), p_data.get("image_hash"), p_max_distance):
+        if dup := self._worker_find_duplicate(
+            CUENTA,
+            p_data.get("cufe"),
+            p_data.get("image_hash"),
+            p_max_distance,
+            p_data.get("total_cop"),
+            p_data.get("expense_date"),
+            p_data.get("extracted_text"),
+        ):
             m.update(status="duplicate", duplicate_of=dup)
             return {"duplicate_of": dup}
         status = p_data["status"] if p_data.get("payer_person_id") and p_data.get("total_cop") else "pending_review"
