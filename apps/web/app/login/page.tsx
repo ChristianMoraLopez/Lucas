@@ -1,7 +1,7 @@
 import { LogoLink } from '@/components/logo-link';
 import { lucas, type Tone } from '@/components/lucas-core';
 import { Avatar, BillCard, Sticker } from '@/components/lucas-ui';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { safeNext } from '@/lib/auth';
 import { LoginForm } from './login-form';
 
@@ -36,7 +36,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <header className="lu-app__bar">
         <LogoLink />
         <span className="ap-me">
-          <ThemeToggle />
+          <MenuPrincipal sesion={false} />
         </span>
       </header>
       <div className="lg">

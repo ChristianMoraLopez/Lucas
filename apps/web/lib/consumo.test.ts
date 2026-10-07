@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dividirPorConsumo, repartir } from './consumo';
+import { dividirPorConsumo, repartir, separable, separarUnidades } from './consumo';
 
 const suma = (o: Record<string, number>) => Object.values(o).reduce((s, v) => s + v, 0);
 
@@ -114,5 +114,21 @@ describe('dividir por consumo', () => {
   it('repartir: el residuo a las fracciones más grandes', () => {
     expect(repartir(10, ['a', 'b', 'c'], { a: 1, b: 1, c: 1 })).toEqual({ a: 4, b: 3, c: 3 });
     expect(repartir(10, ['a', 'b'], { a: 0, b: 0 })).toEqual({ a: 5, b: 5 });
+  });
+});
+
+describe('separar en unidades', () => {
+  it('tres hamburguesas de $90.000: una de $30.000 para cada uno', () => {
+    expect(separarUnidades(90_000, 3)).toEqual([30_000, 30_000, 30_000]);
+  });
+
+  it('si no da exacto, los pesos que sobran van en las primeras y suman el total', () => {
+    const partes = separarUnidades(10_000, 3);
+    expect(partes).toEqual([3_334, 3_333, 3_333]);
+    expect(partes.reduce((a, b) => a + b, 0)).toBe(10_000);
+  });
+
+  it('solo cantidades enteras de 2 a 30', () => {
+    expect([1, 2, 3, 30, 31, 1.5, 0.82].map(separable)).toEqual([false, true, true, true, false, false, false]);
   });
 });

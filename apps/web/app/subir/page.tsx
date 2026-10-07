@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoLink } from '@/components/logo-link';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { type AccountOverview, accountGlyph, accountTone } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
@@ -15,6 +16,9 @@ export default async function SubirAtajoPage() {
     <div className="lu-app">
       <header className="lu-app__bar">
         <LogoLink />
+        <span className="ap-me">
+          <MenuPrincipal />
+        </span>
       </header>
       <div className="nc">
         <div className="ap-intro">

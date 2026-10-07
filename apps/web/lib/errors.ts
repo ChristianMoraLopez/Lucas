@@ -1,9 +1,55 @@
+import { esIdioma, type Idioma, traducir } from '@/lib/i18n';
+
+/** El idioma de la pantalla (lo pone el layout en <html lang>); en el servidor, español */
+function idiomaDePantalla(): Idioma {
+  if (typeof document === 'undefined') return 'es';
+  const l = document.documentElement.lang.slice(0, 2);
+  return esIdioma(l) ? l : 'es';
+}
+
 /**
- * Mensaje para la persona. Los RPC de Luks ya fallan en español y se
- * muestran tal cual; los errores de Supabase Auth y de red se traducen.
+ * Los errores de la base que traen un dato adentro (un nombre, un monto…): el
+ * patrón en español y cómo se dice en inglés con ese mismo dato ($1, $2…).
  */
-export function humanError(error: { message?: string } | null | undefined): string {
-  const m = error?.message ?? '';
+const CON_DATOS: [RegExp, string][] = [
+  [/^(.+) está en una liquidación: reábranla antes de eliminarlo$/, '$1 is part of a settlement: reopen it before removing them'],
+  [/^El mensaje (.+) no existe$/, 'Message $1 does not exist'],
+  [/^El nombre «(.+)…» es muy largo \(máximo 40 letras\)$/, 'The name “$1…” is too long (40 letters max)'],
+  [/^El trabajo (.+) no existe$/, 'Job $1 does not exist'],
+  [/^Elige a quién pasan los gastos de (.+)$/, 'Choose who takes over $1’s expenses'],
+  [/^Estado no permitido para el worker: (.+)$/, 'Status not allowed for the worker: $1'],
+  [/^Faltan 1 transferencia por pagar$/, '1 transfer is still unpaid'],
+  [/^Faltan (\d+) transferencias por pagar$/, '$1 transfers are still unpaid'],
+  [/^Hay 1 gasto sin quién pagó o sin dividir: corríjanlos antes de liquidar$/, '1 expense has no payer or no split: fix it before settling'],
+  [/^Hay (\d+) gastos sin quién pagó o sin dividir: corríjanlos antes de liquidar$/, '$1 expenses have no payer or no split: fix them before settling'],
+  [/^Las partes suman (.+) y el gasto es de (.+): tienen que dar lo mismo$/, 'The shares add up to $1 and the expense is $2: they have to match'],
+  [/^Para confirmar, escribe el nombre de la cuenta tal cual: «(.+)»$/, 'To confirm, type the account name exactly: “$1”'],
+  [/^Primero revisen 1 gasto pendiente$/, 'First review 1 pending expense'],
+  [/^Primero revisen (\d+) gastos pendientes$/, 'First review $1 pending expenses'],
+  [/^Sobran transferencias: con (\d+) personas con saldo bastan (\d+)$/, 'Too many transfers: with $1 people owing or owed, $2 are enough'],
+  [/^Ya hay alguien que se llama «(.+)» en la cuenta$/, 'Someone called “$1” is already in the account'],
+  [/^Ya hay una categoría «(.+)» en esta cuenta$/, 'There is already a “$1” category in this account'],
+  [/^«(.+)» tiene cuenta en Luks: su nombre lo elige desde su perfil$/, '“$1” has a Luks account: they choose their name from their profile'],
+];
+
+/** El error en el idioma de la pantalla (los fijos están en lib/i18n/en.ts) */
+function enIdioma(mensaje: string, idioma: Idioma) {
+  if (idioma === 'en') {
+    for (const [re, en] of CON_DATOS) if (re.test(mensaje)) return mensaje.replace(re, en);
+  }
+  return traducir(idioma, mensaje);
+}
+
+/**
+ * Mensaje para la persona. Los RPC de Luks fallan en español (se traducen si
+ * la pantalla está en inglés); los errores de Supabase Auth y de red se
+ * explican con palabras de aquí.
+ */
+export function humanError(error: { message?: string } | null | undefined, idioma: Idioma = idiomaDePantalla()): string {
+  return enIdioma(explicar(error?.message ?? ''), idioma);
+}
+
+function explicar(m: string): string {
   if (/invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
   if (/user already registered|already been registered/i.test(m)) return 'Ya hay una cuenta con ese correo. Entra o recupera tu contraseña.';
   if (/email not confirmed/i.test(m)) return 'Primero confirma tu correo: te mandamos un enlace cuando creaste la cuenta.';

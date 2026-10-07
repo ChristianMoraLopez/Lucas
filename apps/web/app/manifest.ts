@@ -1,12 +1,15 @@
 import type { MetadataRoute } from 'next';
+import { LOCALE } from '@/lib/i18n';
+import { getT } from '@/lib/i18n/server';
 
 /** PWA instalable: desde el celular se abre como app y va directo a subir un recibo. */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const t = await getT();
   return {
-    name: 'Luks · cuentas compartidas',
+    name: t('Luks · cuentas compartidas'),
     short_name: 'Luks',
-    description: 'Las cuentas del hogar y de los paseos: manden la foto del recibo y Luks la vuelve gasto.',
-    lang: 'es-CO',
+    description: t('Las cuentas del hogar y de los paseos: manden la foto del recibo y Luks la vuelve gasto.'),
+    lang: LOCALE[t.idioma],
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -21,9 +24,9 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: 'Subir un recibo',
-        short_name: 'Subir',
-        description: 'Tomar la foto de un recibo',
+        name: t('Subir un recibo'),
+        short_name: t('Subir'),
+        description: t('Tomar la foto de un recibo'),
         url: '/subir',
         icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
       },

@@ -1,5 +1,5 @@
 import { LogoLink } from '@/components/logo-link';
-import { SignOutButton } from '@/components/sign-out-button';
+import { MenuPrincipal } from '@/components/menu-principal';
 import type { MyProfile } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 import { ProfileScreen } from './profile-screen';
@@ -19,7 +19,7 @@ export default async function PerfilPage() {
       <header className="lu-app__bar">
         <LogoLink />
         <span className="ap-me">
-          <SignOutButton />
+          <MenuPrincipal nombre={(data as MyProfile | null)?.full_name ?? ''} />
         </span>
       </header>
       <ProfileScreen p={data as MyProfile} archivadas={archivadas} />

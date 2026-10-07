@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { LogoLink } from '@/components/logo-link';
 import { LottieSlot } from '@/components/lucas-ui';
+import { MenuPrincipal } from '@/components/menu-principal';
 
 export default function NoEncontrado() {
   return (
     <div className="lu-app">
       <header className="lu-app__bar">
         <LogoLink />
+        <span className="ap-me">
+          <MenuPrincipal sesion={false} />
+        </span>
       </header>
       <main className="nf">
         <LottieSlot name="no-encontrado" width={180} height={180} label="No encontrado" />

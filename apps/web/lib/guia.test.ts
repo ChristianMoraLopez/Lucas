@@ -31,10 +31,10 @@ describe('guía paso a paso', () => {
     expect(c.tarjeta.width).toBe(360);
   });
 
-  it('cada guía arranca al centro y termina en el botón «?»', () => {
+  it('cada guía arranca al centro y termina en el menú', () => {
     for (const pasos of Object.values(GUIAS)) {
       expect(pasos[0].objetivo).toBeUndefined();
-      expect(pasos.at(-1)?.objetivo).toBe('guia');
+      expect(pasos.at(-1)?.objetivo).toBe('menu');
       for (const p of pasos) expect(p.texto.length).toBeLessThan(220);
     }
   });

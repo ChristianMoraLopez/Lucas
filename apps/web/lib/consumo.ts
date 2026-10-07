@@ -91,3 +91,17 @@ export function dividirPorConsumo({
   for (const p of fijados) partes[p] = Math.max(0, Math.round(fijos[p]));
   return { ...base, partes: Object.fromEntries(personas.map((p) => [p, partes[p] ?? 0])), error: null };
 }
+
+/**
+ * «Hamburguesa × 3» en tres renglones de una cada uno, para marcar quién se
+ * comió cuál: el total repartido en pesos enteros (el residuo, en los primeros).
+ */
+export function separarUnidades(total: number, unidades: number): number[] {
+  const n = Math.max(1, Math.round(unidades));
+  const ids = Array.from({ length: n }, (_, k) => String(k));
+  const partes = repartir(Math.max(0, Math.round(total)), ids, {});
+  return ids.map((id) => partes[id]);
+}
+
+/** ¿Se puede separar en unidades? Cantidades enteras de 2 a 30 */
+export const separable = (cantidad: number) => Number.isInteger(cantidad) && cantidad >= 2 && cantidad <= 30;

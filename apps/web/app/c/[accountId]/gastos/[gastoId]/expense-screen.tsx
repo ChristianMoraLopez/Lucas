@@ -14,7 +14,7 @@ import { type AccountCategory, type AccountPerson, asTone, type ReviewExpense, t
 import { createClient } from '@/utils/supabase/client';
 
 /** Lo que el detalle muestra además de lo que se puede editar */
-type Detalle = ReviewExpense & {
+type Detalle = Omit<ReviewExpense, 'expense_items'> & {
   corrected_at: string | null;
   cufe: string | null;
   expense_items: { id: string; name: string; quantity: number | null; total_cop: number }[];

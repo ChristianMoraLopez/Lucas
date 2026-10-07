@@ -53,9 +53,10 @@ export const GUIAS: Record<NombreGuia, PasoGuia[]> = {
       lottie: 'gasto-registrado',
     },
     {
-      objetivo: 'guia',
-      titulo: 'Esta guía, cuando quieras',
-      texto: 'Toca el «?» para verla otra vez. Dentro de cada cuenta hay otra que te muestra sus pestañas.',
+      objetivo: 'menu',
+      titulo: 'El menú',
+      texto:
+        'Aquí están tu perfil, el idioma, el tema y esta guía, para verla otra vez cuando quieras. Dentro de cada cuenta hay otra que te muestra sus pestañas.',
     },
   ],
   cuenta: [
@@ -106,9 +107,9 @@ export const GUIAS: Record<NombreGuia, PasoGuia[]> = {
       texto: 'Toca aquí para volver al inicio o cambiar de cuenta.',
     },
     {
-      objetivo: 'guia',
+      objetivo: 'menu',
       titulo: '¿Dudas?',
-      texto: 'Con el «?» vuelves a ver esta guía cuando quieras.',
+      texto: 'En el menú vuelves a ver esta guía cuando quieras, y cambias el idioma o el tema.',
     },
   ],
 };

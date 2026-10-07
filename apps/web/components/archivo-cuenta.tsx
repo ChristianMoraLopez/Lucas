@@ -4,9 +4,11 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useT } from '@/components/idioma';
 import { Button, ICONS, LottieSlot } from '@/components/lucas-ui';
 import { borrarCuenta, nombreCoincide } from '@/lib/borrar-cuenta';
 import { humanError } from '@/lib/errors';
+import { rico } from '@/lib/i18n/rico';
 import { plural } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -23,6 +25,7 @@ async function cambiarArchivo(accountId: string, archivar: boolean) {
  * si es del titular, borrarla del todo. Al archivar, la caja se cierra.
  */
 export function FinDeCuenta({ accountId, accountName, archivada, titular }: { accountId: string; accountName: string; archivada: boolean; titular: boolean }) {
+  const t = useT();
   const router = useRouter();
   const [estado, setEstado] = useState<'quieto' | 'archivando' | 'archivada' | 'sacando'>('quieto');
   const [error, setError] = useState<string | null>(null);
@@ -47,13 +50,13 @@ export function FinDeCuenta({ accountId, accountName, archivada, titular }: { ac
         <div className="fa-listo" role="status">
           <LottieSlot name="archivar" width={84} height={84} label="" />
           <div>
-            <b>Archivada.</b> Ya no sale en tu inicio: la encuentras abajo, en «Archivadas», con todo guardado.
+            <b>{t('Archivada.')}</b> {t('Ya no sale en tu inicio: la encuentras abajo, en «Archivadas», con todo guardado.')}
             <div className="fa-acts">
               <Link href="/" className="lu-btn lu-btn--sm lu-btn--primary">
-                Ir al inicio
+                {t('Ir al inicio')}
               </Link>
               <Button size="sm" variant="ghost" onClick={() => archivar(false)}>
-                Deshacer
+                {t('Deshacer')}
               </Button>
             </div>
           </div>
@@ -63,19 +66,19 @@ export function FinDeCuenta({ accountId, accountName, archivada, titular }: { ac
           {yaArchivada ? (
             <Button size="sm" variant="secondary" className="fa-boton" onClick={() => archivar(false)} disabled={estado !== 'quieto'}>
               {ICONS.desarchivar}
-              {estado === 'sacando' ? 'Sacando…' : 'Sacar del archivo'}
+              {estado === 'sacando' ? t('Sacando…') : t('Sacar del archivo')}
             </Button>
           ) : (
             <Button size="sm" variant="secondary" className="fa-boton" onClick={() => archivar(true)} disabled={estado !== 'quieto'}>
               {ICONS.archivo}
-              {estado === 'archivando' ? 'Archivando…' : 'Archivar'}
+              {estado === 'archivando' ? t('Archivando…') : t('Archivar')}
             </Button>
           )}
           {titular && <BorrarCuenta accountId={accountId} accountName={accountName} />}
         </div>
       )}
       {!yaArchivada && estado === 'quieto' && (
-        <p className="lu-small lu-muted fa-nota">Archivarla la quita de tu inicio sin borrar nada. Los demás la siguen viendo.</p>
+        <p className="lu-small lu-muted fa-nota">{t('Archivarla la quita de tu inicio sin borrar nada. Los demás la siguen viendo.')}</p>
       )}
       {error && (
         <p className="lu-error" role="alert">
@@ -91,6 +94,7 @@ export function FinDeCuenta({ accountId, accountName, archivada, titular }: { ac
  * los PDF (con su avance) y después la cuenta. La papelera se abre al confirmar.
  */
 export function BorrarCuenta({ accountId, accountName, compacto = false }: { accountId: string; accountName: string; compacto?: boolean }) {
+  const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [escrito, setEscrito] = useState('');
@@ -132,14 +136,14 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
   };
 
   let texto: ReactNode;
-  if (fase === 'listo') texto = <b>Listo: «{accountName}» se borró.</b>;
+  if (fase === 'listo') texto = <b>{t('Listo: «{nombre}» se borró.', { nombre: accountName })}</b>;
   else if (fase === 'borrando')
     texto =
       avance && avance.total > 0 && avance.hechos < avance.total
-        ? `Borrando fotos y PDF… ${avance.hechos} de ${avance.total}`
+        ? t('Borrando fotos y PDF… {n} de {total}', { n: avance.hechos, total: avance.total })
         : avance && avance.hechos >= avance.total
-          ? 'Borrando la cuenta…'
-          : 'Buscando las fotos y los PDF…';
+          ? t('Borrando la cuenta…')
+          : t('Buscando las fotos y los PDF…');
 
   return (
     <AlertDialog.Root open={abierto} onOpenChange={cerrar}>
@@ -148,10 +152,10 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
           size="sm"
           variant="ghost"
           className={compacto ? 'fa-borrar fa-borrar--compacto' : 'fa-borrar'}
-          aria-label={compacto ? `Borrar «${accountName}» del todo` : undefined}
+          aria-label={compacto ? t('Borrar «{nombre}» del todo', { nombre: accountName }) : undefined}
         >
           {ICONS.basura}
-          {compacto ? null : 'Borrar del todo…'}
+          {compacto ? null : t('Borrar del todo…')}
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
@@ -160,18 +164,21 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
           <span className="fb-lottie" aria-hidden="true">
             <LottieSlot key={vuelta} name="borrar" width={92} height={92} label="" />
           </span>
-          <AlertDialog.Title className="lu-title">{fase === 'listo' ? 'Borrada' : `¿Borrar «${accountName}» del todo?`}</AlertDialog.Title>
+          <AlertDialog.Title className="lu-title">
+            {fase === 'listo' ? t('Borrada') : t('¿Borrar «{nombre}» del todo?', { nombre: accountName })}
+          </AlertDialog.Title>
           {fase === 'pregunta' ? (
             <>
               <AlertDialog.Description className="lu-dialog__text" asChild>
                 <div>
-                  Se borra para todos y no se puede deshacer: los gastos, las fotos y los PDF, la liquidación, las personas y el link público. Luks deja de leer
-                  su grupo de WhatsApp.
-                  <span className="fb-alt">Si solo quieres que no salga en tu inicio, mejor archívala.</span>
+                  {t(
+                    'Se borra para todos y no se puede deshacer: los gastos, las fotos y los PDF, la liquidación, las personas y el link público. Luks deja de leer su grupo de WhatsApp.',
+                  )}
+                  <span className="fb-alt">{t('Si solo quieres que no salga en tu inicio, mejor archívala.')}</span>
                 </div>
               </AlertDialog.Description>
               <label className="lu-label" htmlFor={`borrar-${accountId}`}>
-                Para confirmar, escribe <b>{accountName}</b>
+                {rico(t('Para confirmar, escribe {nombre}'), { nombre: <b>{accountName}</b> })}
               </label>
               <input
                 id={`borrar-${accountId}`}
@@ -192,11 +199,11 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
               <div className="lu-dialog__btns">
                 <AlertDialog.Cancel asChild>
                   <Button variant="secondary" size="sm">
-                    Cancelar
+                    {t('Cancelar')}
                   </Button>
                 </AlertDialog.Cancel>
                 <Button size="sm" variant="secondary" className="lu-btn--danger" disabled={!coincide} onClick={borrar}>
-                  Borrar para siempre
+                  {t('Borrar para siempre')}
                 </Button>
               </div>
             </>
@@ -208,7 +215,7 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
                   <span className="fb-barra__lleno" style={{ width: `${Math.round((avance.hechos / avance.total) * 100)}%` }} />
                 </span>
               )}
-              {fase === 'listo' && <span className="lu-small lu-muted">Volviendo al inicio…</span>}
+              {fase === 'listo' && <span className="lu-small lu-muted">{t('Volviendo al inicio…')}</span>}
             </AlertDialog.Description>
           )}
         </AlertDialog.Content>
@@ -237,6 +244,7 @@ export function FilaArchivable({
   orden?: number;
   children: ReactNode;
 }) {
+  const t = useT();
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -254,7 +262,7 @@ export function FilaArchivable({
     }
   };
 
-  const etiqueta = archivada ? `Sacar «${accountName}» del archivo` : `Archivar «${accountName}»`;
+  const etiqueta = archivada ? t('Sacar «{nombre}» del archivo', { nombre: accountName }) : t('Archivar «{nombre}»', { nombre: accountName });
   return (
     <div
       className={`ap-fila${saliendo ? (archivada ? ' is-volviendo' : ' is-archivando') : ''}`}
@@ -278,14 +286,15 @@ export function FilaArchivable({
 
 /** «Archivadas · 3»: se abre para verlas. La caja se cierra cada vez que llega una. */
 export function Archivadas({ cantidad, children }: { cantidad: number; children: ReactNode }) {
+  const t = useT();
   return (
     <details className="ap-archivo">
       <summary>
         <span className="ap-archivo__caja" aria-hidden="true">
           <LottieSlot key={cantidad} name="archivar" width={34} height={34} label="" alVerse />
         </span>
-        <span className="lu-label">Archivadas</span>
-        <span className="ap-archivo__n">{plural(cantidad, 'cuenta', 'cuentas')}</span>
+        <span className="lu-label">{t('Archivadas')}</span>
+        <span className="ap-archivo__n">{plural(cantidad, t('cuenta'), t('cuentas'))}</span>
       </summary>
       <div className="ap-archivo__lista">{children}</div>
     </details>

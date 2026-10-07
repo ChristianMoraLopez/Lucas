@@ -4,16 +4,19 @@
 
 export type Tone = 'morado' | 'naranja' | 'azul' | 'coral' | 'verde' | 'amarillo' | 'turquesa' | 'rosa';
 
-/** Pesos colombianos: 84300 → "$84.300" */
-export function formatCOP(n: number, { sign = false }: { sign?: boolean } = {}) {
+/** Pesos colombianos: 84300 → "$84.300" (en inglés, "$84,300") */
+export function formatCOP(n: number, { sign = false, idioma = 'es' }: { sign?: boolean; idioma?: 'es' | 'en' } = {}) {
   const v = Math.round(Number(n) || 0);
-  const s = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const s = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, idioma === 'en' ? ',' : '.');
   return (v < 0 ? '−' : sign && v > 0 ? '+' : '') + '$' + s;
 }
 
-/** "412 lucas" — la forma de decirlo en voz alta (miles de pesos) */
-export function lucas(n: number) {
+/** "412 lucas" — la forma de decirlo en voz alta (miles de pesos); en inglés, "$412K" */
+export function lucas(n: number, idioma: 'es' | 'en' = 'es') {
   const k = Math.abs(Number(n) || 0) / 1000;
+  if (idioma === 'en') {
+    return k >= 1000 ? `$${(k / 1000).toFixed(1).replace('.0', '')}M` : `$${Number.isInteger(k) ? k : k.toFixed(1)}K`;
+  }
   return k >= 1000
     ? (k / 1000).toFixed(1).replace('.0', '').replace('.', ',') + ' palos'
     : (Number.isInteger(k) ? k : k.toFixed(1).replace('.', ',')) + ' lucas';
@@ -56,6 +59,11 @@ export const CATEGORIES: Record<string, [string, Tone]> = {
   Regalos: ['R', 'rosa'],
   Otros: ['O', 'rosa'],
 };
+
+/** El nombre de una categoría para mostrar: las de siempre pasan por el idioma; las propias, como las escribieron */
+export function nombreCategoria(name: string, t: (texto: string) => string) {
+  return name in CATEGORIES ? t(name) : name;
+}
 
 /* ---------- códigos de invitación: PASEO-7K2Q ---------- */
 export const CODE_RE = /^[A-Z]{3,8}-[A-Z0-9]{4}$/;

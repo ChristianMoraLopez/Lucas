@@ -1,4 +1,5 @@
 import { LogoLink } from '@/components/logo-link';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { requireUser } from '@/utils/supabase/server';
 import { JoinFlow } from './join-flow';
 
@@ -14,6 +15,9 @@ export default async function JoinPage({ searchParams }: PageProps<'/unirse'>) {
     <div className="lu-app">
       <header className="lu-app__bar">
         <LogoLink />
+        <span className="ap-me">
+          <MenuPrincipal />
+        </span>
       </header>
       <JoinFlow initialCode={initialCode} myName={myName} />
     </div>

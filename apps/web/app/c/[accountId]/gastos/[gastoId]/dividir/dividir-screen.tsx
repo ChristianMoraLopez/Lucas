@@ -6,9 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { EvidenceViewer } from '@/components/evidence-viewer';
+import { useT } from '@/components/idioma';
 import { formatCOP } from '@/components/lucas-core';
 import { Avatar, Button, Chip, LottieSlot } from '@/components/lucas-ui';
-import { dividirPorConsumo } from '@/lib/consumo';
+import { Segmento } from '@/components/segmento';
+import { dividirPorConsumo, separable, separarUnidades } from '@/lib/consumo';
 import { formatWhen } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { notifyAccountChanged } from '@/lib/realtime';
@@ -51,6 +53,7 @@ const pesos = (v: string) => Number(v.replace(/\D/g, '')) || 0;
  * más (o menos) fija su monto: el resto se reparte entre los demás.
  */
 export function DividirScreen({ accountId, expenseId, myRole, atras }: { accountId: string; expenseId: string; myRole: Role; atras: string }) {
+  const t = useT();
   const [supabase] = useState(() => createClient());
   const data = useQuery({
     queryKey: ['dividir', expenseId],
@@ -75,7 +78,7 @@ export function DividirScreen({ accountId, expenseId, myRole, atras }: { account
 
   const volver = (
     <Link href={atras} className="lu-btn lu-btn--sm lu-btn--ghost">
-      ← Volver al gasto
+      {t('← Volver al gasto')}
     </Link>
   );
   if (data.isPending || data.isError || !data.data.gasto) {
@@ -83,7 +86,7 @@ export function DividirScreen({ accountId, expenseId, myRole, atras }: { account
       <div className="rv">
         {volver}
         <p className={data.isError ? 'lu-error' : 'lu-small lu-muted'} role={data.isError ? 'alert' : undefined}>
-          {data.isPending ? 'Cargando…' : data.isError ? humanError(data.error) : 'Ese gasto ya no existe: puede que lo hayan eliminado.'}
+          {data.isPending ? t('Cargando…') : data.isError ? humanError(data.error) : t('Ese gasto ya no existe: puede que lo hayan eliminado.')}
         </p>
       </div>
     );
@@ -117,6 +120,8 @@ function Editor({
   atras: string;
   volver: React.ReactNode;
 }) {
+  const t = useT();
+  const cop = (n: number) => formatCOP(n, { idioma: t.idioma });
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -149,17 +154,21 @@ function Editor({
   const [agregando, setAgregando] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Marcar ítem por ítem, o persona por persona («toca a Ana y lo que pidió»)
+  const [modo, setModo] = useState<'item' | 'persona'>('item');
+  const [elegida, setElegida] = useState<string | null>(null);
 
   // En el orden de la cuenta, para que no salten al marcar
   const orden = people.map((p) => p.id).filter((id) => personas.includes(id));
   const persona = (id: string) => people.find((p) => p.id === id);
-  const nombre = (id: string) => persona(id)?.display_name ?? 'Alguien';
+  const nombre = (id: string) => persona(id)?.display_name ?? t('Alguien');
   const d = dividirPorConsumo({
     total,
     personas: orden,
     items: items.map((i) => ({ total: i.total, people: i.people })),
     fijos: Object.fromEntries(Object.entries(fijos).filter(([p]) => orden.includes(p))),
   });
+  const quien = elegida && orden.includes(elegida) ? elegida : (orden[0] ?? null);
 
   const conPersona = (id: string, esta: boolean) => {
     setPersonas((ps) => (esta ? [...ps.filter((p) => p !== id), id] : ps.filter((p) => p !== id)));
@@ -173,6 +182,25 @@ function Editor({
     if (id === null) return cambiarItem(it.key, { people: [] }); // entre todos
     const tiene = it.people.includes(id);
     cambiarItem(it.key, { people: tiene ? it.people.filter((p) => p !== id) : [...it.people, id] });
+  };
+  // «Hamburguesa × 3» → tres renglones de una; si ya había tres personas marcadas, una para cada una
+  const separar = (it: Item) => {
+    const partes = separarUnidades(it.total, it.quantity);
+    const marcadas = it.people.filter((p) => orden.includes(p));
+    setItems((its) =>
+      its.flatMap((x) =>
+        x.key !== it.key
+          ? [x]
+          : partes.map((total, k) => ({
+              key: k === 0 ? x.key : nuevaKey(),
+              id: k === 0 ? x.id : null,
+              name: x.name,
+              quantity: 1,
+              total,
+              people: marcadas.length === partes.length ? [marcadas[k]] : [],
+            })),
+      ),
+    );
   };
 
   // Gente que no usa Luks (o que todavía no está en la cuenta): queda en la cuenta y entra en esta cuenta
@@ -193,10 +221,10 @@ function Editor({
 
   const guardar = async (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!canEdit || busy) return;
-    if (d.error) return setError(d.error);
+    if (d.error) return setError(t(d.error));
     const sinNombre = items.find((i) => i.total > 0 && !i.name.trim());
-    if (sinNombre) return setError('Ponle nombre a cada ítem que tiene precio');
-    if (!payer) return setError('Elige quién pagó la cuenta');
+    if (sinNombre) return setError(t('Ponle nombre a cada ítem que tiene precio'));
+    if (!payer) return setError(t('Elige quién pagó la cuenta'));
     setBusy(true);
     setError(null);
     const { error } = await supabase.rpc('split_by_items', {
@@ -226,31 +254,32 @@ function Editor({
   const remitente = persona(gasto.messages?.sender_person_id ?? gasto.payer_person_id ?? '');
   const sumaItems = d.items;
   const sumaPartes = orden.reduce((s, p) => s + (d.partes[p] ?? 0), 0);
+  const avatar = (id: string, size: 'xs' | 'sm' = 'xs') => <Avatar name={nombre(id)} tone={asTone(persona(id)?.tone, nombre(id))} size={size} />;
 
   return (
     <div className="rv">
       <div className="rv-top">{volver}</div>
       <header className="dv-head">
-        <span className="lu-label">Dividir por consumo</span>
+        <span className="lu-label">{t('Dividir por consumo')}</span>
         <h1 className="lu-display" style={{ margin: 0 }}>
           {gasto.merchant}
         </h1>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          Total de la factura <b className="lu-num">{formatCOP(total)}</b>. Marquen quién pidió qué: la propina se reparte según lo que consumió cada uno y
-          quien quiera poner más, pone más.
+          {t('Total de la factura')} <b className="lu-num">{cop(total)}</b>.{' '}
+          {t('Marquen quién pidió qué: la propina se reparte según lo que consumió cada uno y quien quiera poner más, pone más.')}
         </p>
       </header>
 
       <div className="rv-split">
-        <section className="rv-evi" aria-label="La factura">
+        <section className="rv-evi" aria-label={t('La factura')}>
           <EvidenceViewer
             kind={gasto.messages?.kind ?? null}
             path={gasto.evidence_path}
             text={gasto.messages?.text_body ?? null}
             fileName={gasto.messages?.file_name ?? null}
-            sender={remitente?.display_name ?? 'Alguien'}
+            sender={remitente?.display_name ?? t('Alguien')}
             senderTone={remitente ? asTone(remitente.tone, remitente.display_name) : undefined}
-            when={formatWhen(gasto.messages?.received_at ?? gasto.created_at)}
+            when={formatWhen(gasto.messages?.received_at ?? gasto.created_at, t.idioma)}
             source={gasto.source}
           />
         </section>
@@ -259,7 +288,7 @@ function Editor({
           {/* 1. Quiénes estaban y quién pagó */}
           <section className="dv-step" aria-labelledby="dv-1">
             <h2 id="dv-1" className="dv-step__t">
-              <span className="dv-n">1</span> ¿Quiénes estaban?
+              <span className="dv-n">1</span> {t('¿Quiénes estaban?')}
             </h2>
             <div className="lu-chips">
               {people.map((p) => (
@@ -274,7 +303,7 @@ function Editor({
             </div>
             <div className="dv-add">
               <label className="lu-label" htmlFor="dv-nuevos">
-                ¿Falta alguien? Aunque no use Luks
+                {t('¿Falta alguien? Aunque no use Luks')}
               </label>
               <div className="dv-add__row">
                 <input
@@ -288,21 +317,21 @@ function Editor({
                       agregar();
                     }
                   }}
-                  placeholder="Pipe, Ana y la prima de Juan"
+                  placeholder={t('Pipe, Ana y la prima de Juan')}
                   autoComplete="off"
                 />
                 <Button size="sm" variant="secondary" onClick={agregar} disabled={agregando || !nombres.trim()}>
-                  {agregando ? 'Agregando…' : 'Agregar'}
+                  {agregando ? t('Agregando…') : t('Agregar')}
                 </Button>
               </div>
             </div>
             <div className="lu-field dv-payer">
               <label className="lu-label" htmlFor="dv-pagador">
-                ¿Quién pagó la cuenta?
+                {t('¿Quién pagó la cuenta?')}
               </label>
               <select id="dv-pagador" value={payer} onChange={(e) => setPayer(e.target.value)}>
                 <option value="" disabled>
-                  Elige quién pagó
+                  {t('Elige quién pagó')}
                 </option>
                 {people.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -316,90 +345,168 @@ function Editor({
           {/* 2. Quién pidió qué */}
           <section className="dv-step" aria-labelledby="dv-2">
             <h2 id="dv-2" className="dv-step__t">
-              <span className="dv-n">2</span> ¿Quién pidió qué?
+              <span className="dv-n">2</span> {t('¿Quién pidió qué?')}
             </h2>
-            {items.length === 0 && (
+            {items.length === 0 ? (
               <div className="dv-vacio">
-                <LottieSlot name="escaneo" width={64} height={64} label="Leer la factura" />
+                <LottieSlot name="escaneo" width={64} height={64} label={t('Leer la factura')} />
                 <p className="lu-small lu-muted" style={{ margin: 0 }}>
-                  Luks no leyó los ítems de esta factura. Agréguenlos mirando la foto; lo que no pongan se divide por igual.
+                  {t('Luks no leyó los ítems de esta factura. Agréguenlos mirando la foto; lo que no pongan se divide por igual.')}
                 </p>
               </div>
+            ) : (
+              <Segmento
+                opciones={[
+                  { value: 'item', label: t('Ítem por ítem') },
+                  { value: 'persona', label: t('Persona por persona') },
+                ]}
+                value={modo}
+                onChange={setModo}
+                label={t('Cómo marcar quién pidió qué')}
+              />
             )}
-            <ul className="dv-items lu-stagger">
-              {items.map((it, i) => {
-                const n = it.people.filter((p) => orden.includes(p)).length || orden.length;
-                return (
-                  <li key={it.key} className="dv-item" style={{ '--i': i } as React.CSSProperties}>
-                    <div className="dv-item__top">
-                      <input
-                        className="dv-input dv-item__name"
-                        aria-label={`Ítem ${i + 1}`}
-                        value={it.name}
-                        onChange={(e) => cambiarItem(it.key, { name: e.target.value })}
-                        placeholder="Hamburguesa"
-                      />
-                      <input
-                        className="dv-input dv-item__price lu-num"
-                        aria-label={`Precio de ${it.name || `ítem ${i + 1}`}`}
-                        inputMode="numeric"
-                        value={formatCOP(it.total)}
-                        onChange={(e) => cambiarItem(it.key, { total: pesos(e.target.value) })}
-                      />
-                      <button
-                        type="button"
-                        className="dv-item__x"
-                        aria-label={`Quitar ${it.name || 'el ítem'}`}
-                        onClick={() => setItems((its) => its.filter((x) => x.key !== it.key))}
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="dv-item__who">
-                      <button type="button" className="dv-todos" aria-pressed={it.people.length === 0} onClick={() => quienPidio(it, null)}>
-                        Todos
-                      </button>
-                      {orden.map((id) => (
-                        <button
-                          key={id}
-                          type="button"
-                          className="dv-quien"
-                          aria-pressed={it.people.includes(id)}
-                          onClick={() => quienPidio(it, id)}
-                          title={nombre(id)}
-                        >
-                          <Avatar name={nombre(id)} tone={asTone(persona(id)?.tone, nombre(id))} size="xs" />
-                          {nombre(id)}
-                        </button>
-                      ))}
-                    </div>
-                    {it.total > 0 && orden.length > 0 && (
-                      <span className="dv-item__each lu-small lu-muted">
-                        {it.people.length === 0
-                          ? `Entre todos · ${formatCOP(it.total / n)} c/u`
-                          : n === 1
-                            ? `Solo ${nombre(it.people.find((p) => orden.includes(p)) ?? '')}`
-                            : `${formatCOP(it.total / n)} c/u`}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setItems((its) => [...its, { key: nuevaKey(), id: null, name: '', quantity: 1, total: 0, people: [] }])}
-            >
-              + Agregar ítem
-            </Button>
+
+            {modo === 'persona' && items.length > 0 ? (
+              <div className="dv-modo">
+                <div className="dv-item__who" role="radiogroup" aria-label={t('¿De quién marcas?')}>
+                  {orden.map((id) => (
+                    <button key={id} type="button" role="radio" aria-checked={id === quien} className="dv-quien dv-quien--elige" onClick={() => setElegida(id)}>
+                      {avatar(id)}
+                      {nombre(id)}
+                    </button>
+                  ))}
+                </div>
+                {quien && (
+                  <>
+                    <p className="lu-small" style={{ margin: 0 }}>
+                      {t('Toca lo que pidió {nombre}. Lo que nadie marque se divide entre todos.', { nombre: nombre(quien) })}
+                    </p>
+                    <ul className="dv-picks lu-stagger">
+                      {items.map((it, i) => {
+                        const marcado = it.people.includes(quien);
+                        const otros = it.people.filter((p) => p !== quien && orden.includes(p));
+                        return (
+                          <li key={it.key} style={{ '--i': i } as React.CSSProperties}>
+                            <button type="button" className="dv-pick" aria-pressed={marcado} onClick={() => quienPidio(it, quien)}>
+                              <span className="dv-pick__check" aria-hidden="true">
+                                {marcado ? '✓' : ''}
+                              </span>
+                              <span className="dv-pick__n">
+                                {it.name || t('Ítem {n}', { n: i + 1 })}
+                                {it.quantity > 1 && <span className="dv-pick__cant"> × {it.quantity}</span>}
+                              </span>
+                              <b className="dv-pick__v lu-num">{cop(it.total)}</b>
+                              <span className="dv-pick__quienes">
+                                {it.people.length === 0 ? (
+                                  <span className="lu-muted">{t('Entre todos')}</span>
+                                ) : (
+                                  [...(marcado ? [quien] : []), ...otros].map((p) => <span key={p}>{avatar(p)}</span>)
+                                )}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="dv-cuadre" role="status">
+                      {t('{nombre} consumió {monto} y le toca {parte} con la propina.', {
+                        nombre: nombre(quien),
+                        monto: cop(d.consumo[quien] ?? 0),
+                        parte: cop(d.partes[quien] ?? 0),
+                      })}
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <>
+                <ul className="dv-items lu-stagger">
+                  {items.map((it, i) => {
+                    const n = it.people.filter((p) => orden.includes(p)).length || orden.length;
+                    return (
+                      <li key={it.key} className="dv-item" style={{ '--i': i } as React.CSSProperties}>
+                        <div className="dv-item__top">
+                          <input
+                            className="dv-input dv-item__name"
+                            aria-label={t('Ítem {n}', { n: i + 1 })}
+                            value={it.name}
+                            onChange={(e) => cambiarItem(it.key, { name: e.target.value })}
+                            placeholder={t('Hamburguesa')}
+                          />
+                          <input
+                            className="dv-input dv-item__price lu-num"
+                            aria-label={t('Precio de {nombre}', { nombre: it.name || t('Ítem {n}', { n: i + 1 }) })}
+                            inputMode="numeric"
+                            value={cop(it.total)}
+                            onChange={(e) => cambiarItem(it.key, { total: pesos(e.target.value) })}
+                          />
+                          <button
+                            type="button"
+                            className="dv-item__x"
+                            aria-label={t('Quitar {nombre}', { nombre: it.name || t('el ítem') })}
+                            onClick={() => setItems((its) => its.filter((x) => x.key !== it.key))}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {separable(it.quantity) && (
+                          <div className="dv-item__cant">
+                            <span className="lu-small lu-muted">{t('{n} unidades · {monto} c/u', { n: it.quantity, monto: cop(it.total / it.quantity) })}</span>
+                            <button type="button" className="st-undo" onClick={() => separar(it)}>
+                              {t('Separar en {n}: una por persona', { n: it.quantity })}
+                            </button>
+                          </div>
+                        )}
+                        <div className="dv-item__who">
+                          <button type="button" className="dv-todos" aria-pressed={it.people.length === 0} onClick={() => quienPidio(it, null)}>
+                            {t('Todos')}
+                          </button>
+                          {orden.map((id) => (
+                            <button
+                              key={id}
+                              type="button"
+                              className="dv-quien"
+                              aria-pressed={it.people.includes(id)}
+                              onClick={() => quienPidio(it, id)}
+                              title={nombre(id)}
+                            >
+                              {avatar(id)}
+                              {nombre(id)}
+                            </button>
+                          ))}
+                        </div>
+                        {it.total > 0 && orden.length > 0 && (
+                          <span className="dv-item__each lu-small lu-muted">
+                            {it.people.length === 0
+                              ? t('Entre todos · {monto} c/u', { monto: cop(it.total / n) })
+                              : n === 1
+                                ? t('Solo {nombre}', { nombre: nombre(it.people.find((p) => orden.includes(p)) ?? '') })
+                                : t('{monto} c/u', { monto: cop(it.total / n) })}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setItems((its) => [...its, { key: nuevaKey(), id: null, name: '', quantity: 1, total: 0, people: [] }])}
+                >
+                  {t('+ Agregar ítem')}
+                </Button>
+              </>
+            )}
             {items.length > 0 && (
               <p className={`dv-cuadre${d.extra < 0 ? ' is-mal' : ''}`} role="status">
                 {d.extra === 0
-                  ? `Los ítems suman ${formatCOP(sumaItems)}: justo el total.`
+                  ? t('Los ítems suman {monto}: justo el total.', { monto: cop(sumaItems) })
                   : d.extra > 0
-                    ? `Los ítems suman ${formatCOP(sumaItems)}. Los ${formatCOP(d.extra)} que faltan (propina, servicio…) se reparten según lo que consumió cada uno.`
-                    : `Los ítems suman ${formatCOP(-d.extra)} más que el total. Revisen los precios; si fue un descuento, se reparte igual.`}
+                    ? t('Los ítems suman {monto}. Los {extra} que faltan (propina, servicio…) se reparten según lo que consumió cada uno.', {
+                        monto: cop(sumaItems),
+                        extra: cop(d.extra),
+                      })
+                    : t('Los ítems suman {monto} más que el total. Revisen los precios; si fue un descuento, se reparte igual.', { monto: cop(-d.extra) })}
               </p>
             )}
           </section>
@@ -407,10 +514,10 @@ function Editor({
           {/* 3. Cuánto pone cada uno */}
           <section className="dv-step" aria-labelledby="dv-3">
             <h2 id="dv-3" className="dv-step__t">
-              <span className="dv-n">3</span> ¿Cuánto pone cada uno?
+              <span className="dv-n">3</span> {t('¿Cuánto pone cada uno?')}
             </h2>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              Si alguien quiere poner más (o menos), cambien su monto: el resto se reparte entre los demás.
+              {t('Si alguien quiere poner más (o menos), cambien su monto: el resto se reparte entre los demás.')}
             </p>
             <ul className="dv-who lu-stagger">
               {orden.map((id, i) => {
@@ -418,30 +525,32 @@ function Editor({
                 const dif = Math.round((d.partes[id] ?? 0) - (d.justo[id] ?? 0));
                 return (
                   <li key={id} className={`dv-p${fijo ? ' is-fijo' : ''}`} style={{ '--i': i } as React.CSSProperties}>
-                    <Avatar name={nombre(id)} tone={asTone(persona(id)?.tone, nombre(id))} size="sm" />
+                    {avatar(id, 'sm')}
                     <span className="dv-p__who">
                       <b>{nombre(id)}</b>
                       <span className="lu-muted">
                         {fijo
                           ? Math.abs(dif) < 1
-                            ? 'pone lo suyo'
-                            : `pone ${formatCOP(Math.abs(dif))} ${dif > 0 ? 'más' : 'menos'} de lo que consumió`
+                            ? t('pone lo suyo')
+                            : dif > 0
+                              ? t('pone {monto} más de lo que consumió', { monto: cop(Math.abs(dif)) })
+                              : t('pone {monto} menos de lo que consumió', { monto: cop(Math.abs(dif)) })
                           : sumaItems > 0
-                            ? `consumió ${formatCOP(d.consumo[id] ?? 0)}`
-                            : 'partes iguales'}
+                            ? t('consumió {monto}', { monto: cop(d.consumo[id] ?? 0) })
+                            : t('partes iguales')}
                       </span>
                     </span>
                     <span className="dv-p__amt">
                       <input
                         className="dv-input dv-p__input lu-num"
                         inputMode="numeric"
-                        aria-label={`Lo que pone ${nombre(id)}`}
-                        value={formatCOP(fijo ? fijos[id] : (d.partes[id] ?? 0))}
+                        aria-label={t('Lo que pone {nombre}', { nombre: nombre(id) })}
+                        value={cop(fijo ? fijos[id] : (d.partes[id] ?? 0))}
                         onChange={(e) => setFijos((f) => ({ ...f, [id]: pesos(e.target.value) }))}
                       />
                       {fijo && (
                         <button type="button" className="st-undo" onClick={() => setFijos(({ [id]: _, ...resto }) => resto)}>
-                          lo que le toca
+                          {t('lo que le toca')}
                         </button>
                       )}
                     </span>
@@ -453,7 +562,7 @@ function Editor({
 
           {d.error && (
             <p className="lu-error" role="alert">
-              {d.error}
+              {t(d.error)}
             </p>
           )}
           {error && (
@@ -465,14 +574,14 @@ function Editor({
           {canEdit ? (
             <div className="rv-actions dv-actions">
               <span className="dv-total lu-small">
-                {plural(orden.length, 'persona', 'personas')} · <b className="lu-num">{formatCOP(sumaPartes)}</b> de {formatCOP(total)}
+                {plural(orden.length, t('persona'), t('personas'))} · <b className="lu-num">{cop(sumaPartes)}</b> {t('de')} {cop(total)}
               </span>
               <Button onClick={guardar} disabled={busy || Boolean(d.error)}>
-                {busy ? 'Guardando…' : 'Guardar división'}
+                {busy ? t('Guardando…') : t('Guardar división')}
               </Button>
             </div>
           ) : (
-            <p className="rv-member lu-small">Solo quienes administran la cuenta dividen los gastos. Si ves algo mal, avísales por el grupo.</p>
+            <p className="rv-member lu-small">{t('Solo quienes administran la cuenta dividen los gastos. Si ves algo mal, avísales por el grupo.')}</p>
           )}
         </fieldset>
       </div>

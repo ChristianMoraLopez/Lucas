@@ -5,15 +5,18 @@ import { InvitacionesRecibidas } from '@/components/invitaciones-recibidas';
 import { LogoLink } from '@/components/logo-link';
 import { lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { RecomendarLuks } from '@/components/recomendar-luks';
-import { SignOutButton } from '@/components/sign-out-button';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { eventMoment, formatRange, monthName, todayInBogota } from '@/lib/dates';
+import type { T } from '@/lib/i18n';
+import { rico } from '@/lib/i18n/rico';
+import { getT } from '@/lib/i18n/server';
 import { type AccountOverview, accountGlyph, accountTone, asTone, type InvitacionRecibida, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
 export default async function AccountPickerPage() {
   const { supabase, userId } = await requireUser();
+  const t = await getT();
 
   const [{ data: profile }, { data: overview, error }, { data: recibidas }, { data: membresias }, guias] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
@@ -45,23 +48,22 @@ export default async function AccountPickerPage() {
         <LogoLink />
         <span className="ap-me">
           <Guia nombre="inicio" usuario={userId} auto={!guiaVista} />
-          <ThemeToggle />
-          <SignOutButton />
-          <Link href="/perfil" className="ap-perfil" aria-label="Tu perfil">
-            <Avatar name={fullName || 'Tú'} size="sm" />
-          </Link>
+          <MenuPrincipal nombre={fullName} guia />
         </span>
       </header>
       <div className="ap">
         <div className="ap-main">
           <div className="ap-intro">
-            <h1 className="lu-display">{firstName ? `Hola, ${firstName}` : 'Hola'}</h1>
+            <h1 className="lu-display">{firstName ? t('Hola, {nombre}', { nombre: firstName }) : t('Hola')}</h1>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               {accounts.length === 0
-                ? 'Todavía no tienes cuentas. Crea una o entra con el código que te pasaron.'
+                ? t('Todavía no tienes cuentas. Crea una o entra con el código que te pasaron.')
                 : pending > 0
-                  ? `Tienes ${plural(accounts.length, 'cuenta', 'cuentas')} y ${plural(pending, 'gasto esperando', 'gastos esperando')} revisión.`
-                  : `Tienes ${plural(accounts.length, 'cuenta', 'cuentas')} y todo está revisado.`}
+                  ? t('Tienes {cuentas} y {gastos} esperando revisión.', {
+                      cuentas: plural(accounts.length, t('cuenta'), t('cuentas')),
+                      gastos: plural(pending, t('gasto'), t('gastos')),
+                    })
+                  : t('Tienes {cuentas} y todo está revisado.', { cuentas: plural(accounts.length, t('cuenta'), t('cuentas')) })}
             </p>
           </div>
 
@@ -69,18 +71,18 @@ export default async function AccountPickerPage() {
 
           {error && (
             <p className="lu-error" role="alert">
-              No pudimos traer tus cuentas. Recarga la página en un momento.
+              {t('No pudimos traer tus cuentas. Recarga la página en un momento.')}
             </p>
           )}
 
           {lead ? (
-            <LeadAccount a={lead} />
+            <LeadAccount a={lead} t={t} />
           ) : (
             !error && (
               <div className="ap-empty" data-guia={others.length === 0 ? 'cuentas' : undefined}>
                 <LottieSlot name="bienvenida" width={96} height={96} />
                 <p className="lu-small lu-muted" style={{ margin: 0 }}>
-                  Una cuenta es donde caen los gastos del grupo: la casa de todos los meses o ese paseo que están planeando.
+                  {t('Una cuenta es donde caen los gastos del grupo: la casa de todos los meses o ese paseo que están planeando.')}
                 </p>
               </div>
             )
@@ -88,14 +90,14 @@ export default async function AccountPickerPage() {
 
           {others.length > 0 && (
             <div className="ap-list lu-stagger" data-guia={lead ? undefined : 'cuentas'}>
-              <div className="lu-label">Otras cuentas</div>
+              <div className="lu-label">{t('Otras cuentas')}</div>
               {others.map((a, i) =>
                 a.status === 'closed' ? (
                   <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada={false} titular={a.role === 'owner'} orden={i}>
-                    <AccountRow a={a} />
+                    <AccountRow a={a} t={t} />
                   </FilaArchivable>
                 ) : (
-                  <AccountRow key={a.id} a={a} i={i} />
+                  <AccountRow key={a.id} a={a} i={i} t={t} />
                 ),
               )}
             </div>
@@ -105,7 +107,7 @@ export default async function AccountPickerPage() {
             <Archivadas cantidad={archivadas.length}>
               {archivadas.map((a) => (
                 <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada titular={a.role === 'owner'}>
-                  <AccountRow a={a} />
+                  <AccountRow a={a} t={t} />
                 </FilaArchivable>
               ))}
             </Archivadas>
@@ -114,20 +116,18 @@ export default async function AccountPickerPage() {
 
         <aside className="ap-side">
           <Link href="/cuentas/nueva" className="lu-btn lu-btn--primary" data-guia="crear">
-            Crear cuenta
+            {t('Crear cuenta')}
           </Link>
           <Link href="/unirse" className="lu-btn lu-btn--secondary" data-guia="unirse">
-            Unirme con un código
+            {t('Unirme con un código')}
           </Link>
           <div className="ap-tip">
-            <span className="lu-title">¿Cómo funciona?</span>
+            <span className="lu-title">{t('¿Cómo funciona?')}</span>
             <ol>
-              <li>
-                Crea una cuenta de <b>hogar</b> o de <b>evento</b>.
-              </li>
-              <li>Agrega el número de Luks a su grupo de WhatsApp.</li>
-              <li>Manden fotos, PDFs o mensajes. Luks los vuelve gastos.</li>
-              <li>¿Solo tú? Arma un grupo de WhatsApp contigo y Luks, y mándate tus facturas.</li>
+              <li>{rico(t('Crea una cuenta de {hogar} o de {evento}.'), { hogar: <b>{t('hogar')}</b>, evento: <b>{t('evento')}</b> })}</li>
+              <li>{t('Agrega el número de Luks a su grupo de WhatsApp.')}</li>
+              <li>{t('Manden fotos, PDFs o mensajes. Luks los vuelve gastos.')}</li>
+              <li>{t('¿Solo tú? Arma un grupo de WhatsApp contigo y Luks, y mándate tus facturas.')}</li>
             </ol>
           </div>
           <RecomendarLuks />
@@ -143,33 +143,34 @@ function pickLead(accounts: AccountOverview[]) {
   return [...active].sort((a, b) => b.pending_count - a.pending_count || Number(b.type === 'evento') - Number(a.type === 'evento'))[0];
 }
 
-function periodLabel(a: AccountOverview) {
-  if (a.type === 'hogar') return monthName(todayInBogota());
-  return formatRange(a.starts_on, a.ends_on) ?? 'Sin fechas';
+function periodLabel(a: AccountOverview, t: T) {
+  if (a.type === 'hogar') return monthName(todayInBogota(), t.idioma);
+  return formatRange(a.starts_on, a.ends_on, t.idioma) ?? t('Sin fechas');
 }
 
-function budgetNote(a: AccountOverview) {
+function budgetNote(a: AccountOverview, t: T) {
   if (!a.budget_cop) return null;
-  return `${Math.round((a.total_cop / a.budget_cop) * 100)} % del presupuesto`;
+  return t('{n} % del presupuesto', { n: Math.round((a.total_cop / a.budget_cop) * 100) });
 }
 
-function LeadAccount({ a }: { a: AccountOverview }) {
+function LeadAccount({ a, t }: { a: AccountOverview; t: T }) {
   const evento = a.type === 'evento';
   const share = a.people_count > 0 ? a.total_cop / a.people_count : 0;
-  const moment = evento ? eventMoment(a.starts_on, a.ends_on) : null;
-  const ended = moment?.startsWith('Terminó');
+  const hoy = todayInBogota();
+  const moment = evento ? eventMoment(a.starts_on, a.ends_on, hoy, t.idioma) : null;
+  const ended = !!a.ends_on && a.ends_on < hoy;
 
   return (
-    <Link href={`/c/${a.id}/resumen`} className="ap-lead" aria-label={`Abrir ${a.name}`} data-guia="cuentas">
+    <Link href={`/c/${a.id}/resumen`} className="ap-lead" aria-label={t('Abrir {nombre}', { nombre: a.name })} data-guia="cuentas">
       <BillCard
-        label={`${evento ? 'Evento' : 'Hogar'} · ${periodLabel(a)}`}
+        label={`${t(evento ? 'Evento' : 'Hogar')} · ${periodLabel(a, t)}`}
         amount={a.total_cop}
         tone={evento ? 'morado' : 'verde'}
-        denom={evento ? `${a.people_count} PERSONAS` : 'LUCAS'}
+        denom={evento ? t('{n} PERSONAS', { n: a.people_count }) : t('LUCAS')}
         aside={
           a.pending_count > 0 ? (
             <Sticker tone="revisar" rotate={6}>
-              {a.pending_count} por revisar
+              {t('{n} por revisar', { n: a.pending_count })}
             </Sticker>
           ) : undefined
         }
@@ -185,10 +186,11 @@ function LeadAccount({ a }: { a: AccountOverview }) {
           {evento ? (
             <>
               {moment}
-              {a.status === 'settling' ? ' · liquidándose' : ended ? ' · falta liquidar' : ''} · <b>{lucas(share)}</b> por cabeza
+              {a.status === 'settling' ? ` · ${t('liquidándose')}` : ended ? ` · ${t('falta liquidar')}` : ''} ·{' '}
+              {rico(t('{monto} por cabeza'), { monto: <b>{lucas(share, t.idioma)}</b> })}
             </>
           ) : (
-            (budgetNote(a) ?? `${plural(a.people_count, 'persona', 'personas')}`)
+            (budgetNote(a, t) ?? plural(a.people_count, t('persona'), t('personas')))
           )}
         </span>
       </BillCard>
@@ -196,9 +198,9 @@ function LeadAccount({ a }: { a: AccountOverview }) {
   );
 }
 
-function AccountRow({ a, i }: { a: AccountOverview; i?: number }) {
+function AccountRow({ a, i, t }: { a: AccountOverview; i?: number; t: T }) {
   const closed = a.status === 'closed';
-  const note = a.type === 'hogar' ? (budgetNote(a) ?? (a.pending_count ? null : 'Al día')) : null;
+  const note = a.type === 'hogar' ? (budgetNote(a, t) ?? (a.pending_count ? null : t('Al día'))) : null;
   return (
     <Link href={`/c/${a.id}/resumen`} className={`ap-row${closed ? ' is-closed' : ''}`} style={i == null ? undefined : ({ '--i': i } as React.CSSProperties)}>
       <span className="ap-glyph" style={{ background: `var(--tono-${accountTone(a.name)})` }} aria-hidden="true">
@@ -207,13 +209,13 @@ function AccountRow({ a, i }: { a: AccountOverview; i?: number }) {
       <span className="ap-row__txt">
         <span className="ap-row__n">{a.name}</span>
         <span className="ap-row__s">
-          {a.type === 'evento' ? 'Evento' : 'Hogar'} · {periodLabel(a)} · {note ?? plural(a.people_count, 'persona', 'personas')}
+          {t(a.type === 'evento' ? 'Evento' : 'Hogar')} · {periodLabel(a, t)} · {note ?? plural(a.people_count, t('persona'), t('personas'))}
         </span>
       </span>
       <span className="ap-row__r">
         <Amount value={a.total_cop} />
         {a.pending_count > 0 ? (
-          <span className="ap-pend">{a.pending_count} por revisar</span>
+          <span className="ap-pend">{t('{n} por revisar', { n: a.pending_count })}</span>
         ) : closed ? (
           <Sticker tone="cerrado" size="sm" rotate={-5} />
         ) : (

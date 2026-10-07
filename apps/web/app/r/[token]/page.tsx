@@ -5,6 +5,7 @@ import { cache } from 'react';
 import { LogoLink } from '@/components/logo-link';
 import { formatCOP, lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, CategoryTag, Sticker } from '@/components/lucas-ui';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
 import { PUBLICIDAD, personView, transfersFor } from '@/lib/share';
 import { asTone, plural, type SharedOverview } from '@/lib/types';
@@ -117,6 +118,7 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
         <Link href="/" className="lu-btn lu-btn--sm lu-btn--secondary sh-bar-cta">
           Hacer mis cuentas
         </Link>
+        <MenuPrincipal sesion={false} />
       </header>
 
       <main className="sh">

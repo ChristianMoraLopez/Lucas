@@ -1,4 +1,5 @@
 import { LogoLink } from '@/components/logo-link';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { requireUser } from '@/utils/supabase/server';
 import { NewAccountForm } from './new-account-form';
 
@@ -11,6 +12,9 @@ export default async function NewAccountPage() {
     <div className="lu-app">
       <header className="lu-app__bar">
         <LogoLink />
+        <span className="ap-me">
+          <MenuPrincipal />
+        </span>
       </header>
       <div className="nc">
         <div className="ap-intro">

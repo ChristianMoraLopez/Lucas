@@ -5377,3 +5377,333 @@ iframe {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* ---------- Menú de arriba (components/menu-principal.tsx) ---------- */
+.mn-boton {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1.5px solid var(--borde);
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--tinta);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.mn-boton:hover {
+  border-color: var(--tinta-2);
+}
+.mn-boton:active {
+  transform: scale(0.92);
+}
+.mn-boton:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.mn-boton.is-abierto {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: var(--fondo);
+}
+/* Las tres rayas: al abrir, la de arriba y la de abajo se cruzan en una X y la del medio se encoge */
+.mn-rayas {
+  position: relative;
+  width: 18px;
+  height: 14px;
+}
+.mn-raya {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity var(--dur-fast) ease,
+    width 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.mn-raya:nth-child(1) {
+  top: 0;
+}
+.mn-raya:nth-child(2) {
+  top: 6px;
+  width: 70%;
+}
+.mn-raya:nth-child(3) {
+  top: 12px;
+}
+.mn-boton.is-abierto .mn-raya:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+.mn-boton.is-abierto .mn-raya:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+.mn-boton.is-abierto .mn-raya:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+.mn-boton:not(.is-abierto):hover .mn-raya:nth-child(2) {
+  width: 100%;
+}
+.mn {
+  z-index: 950;
+  min-width: 240px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+  color: var(--tinta);
+  border: 1px solid var(--borde);
+  box-shadow:
+    var(--shadow-card),
+    0 16px 40px rgba(0, 0, 0, 0.18);
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  animation: mn-abre 220ms var(--ease-pop) both;
+}
+.mn[data-state="closed"] {
+  animation: mn-cierra 140ms ease both;
+}
+.mn-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tinta);
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  animation: mn-item 240ms var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 22ms);
+}
+.mn-item svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.mn-item[data-highlighted] {
+  background: var(--superficie-2);
+}
+.mn-item[data-disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+.mn-item--salir {
+  color: var(--coral-texto);
+}
+.mn-perfil {
+  display: grid;
+  min-width: 0;
+}
+.mn-perfil b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mn-perfil small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tinta-2);
+}
+.mn-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 4px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  animation: mn-item 240ms var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 22ms);
+}
+.mn-label svg {
+  width: 16px;
+  height: 16px;
+}
+.mn-codigo {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--superficie-2);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.mn-radio[data-state="checked"] .mn-codigo {
+  background: var(--morado);
+  color: #fff;
+}
+.mn-check {
+  margin-left: auto;
+  color: var(--morado);
+}
+.mn-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--borde);
+}
+@keyframes mn-abre {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+@keyframes mn-cierra {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes mn-item {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mn,
+  .mn[data-state="closed"],
+  .mn-item,
+  .mn-label {
+    animation: none;
+  }
+  .mn-raya {
+    transition: none;
+  }
+}
+
+/* ---------- Dividir por consumo: persona por persona y unidades ---------- */
+.dv-modo {
+  display: grid;
+  gap: var(--space-3);
+}
+.dv-quien--elige[aria-checked="true"] {
+  color: var(--superficie);
+  background: var(--tinta);
+  border: 1.5px solid var(--tinta);
+}
+.dv-quien--elige:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.dv-item__cant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.dv-picks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.dv-pick {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "check nombre valor"
+    "check quienes quienes";
+  align-items: center;
+  gap: 2px 10px;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  color: var(--tinta);
+  background: var(--superficie-2);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) ease;
+}
+.dv-pick:active {
+  transform: scale(0.98);
+}
+.dv-pick:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.dv-pick[aria-pressed="true"] {
+  background: var(--superficie);
+  border-color: var(--tinta);
+}
+.dv-pick__check {
+  grid-area: check;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1.5px solid var(--tinta-2);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+}
+.dv-pick[aria-pressed="true"] .dv-pick__check {
+  color: var(--superficie);
+  background: var(--verde);
+  border-color: var(--verde);
+  animation: dv-check var(--dur-fast) ease-out;
+}
+@keyframes dv-check {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.dv-pick__n {
+  grid-area: nombre;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.dv-pick__cant {
+  color: var(--tinta-2);
+  font-weight: 600;
+}
+.dv-pick__v {
+  grid-area: valor;
+}
+.dv-pick__quienes {
+  grid-area: quienes;
+  display: flex;
+  gap: 2px;
+  min-height: 20px;
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-pick[aria-pressed="true"] .dv-pick__check {
+    animation: none;
+  }
+}
+/* Luks leyó los ítems: la invitación a dividir por consumo se nota más */
+.rv-dividir--items {
+  color: var(--tinta);
+  background: var(--verde-suave);
+  border: 1.5px solid var(--verde);
+}

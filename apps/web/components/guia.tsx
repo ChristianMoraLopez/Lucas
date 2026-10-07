@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { lanzarChispas } from '@/components/chispas';
+import { useT } from '@/components/idioma';
 import { Button, LottieSlot } from '@/components/lucas-ui';
+import { EVENTO_GUIA } from '@/components/menu-principal';
 import { buscarObjetivo, type Caja, colocar, GUIAS, type NombreGuia, type PasoGuia } from '@/lib/guia';
 import { createClient } from '@/utils/supabase/client';
 
@@ -43,12 +45,18 @@ export function olvidarGuias(usuario: string) {
 }
 
 /**
- * El botón «?» de la barra y la guía paso a paso de esa pantalla. Sale sola la
- * primera vez (`auto`); después, con el botón. Se salta cuando quieran.
+ * La guía paso a paso de esa pantalla. Sale sola la primera vez (`auto`);
+ * después, desde el menú de arriba (☰ → Guía de esta pantalla). Se salta cuando quieran.
  */
 export function Guia({ nombre, usuario, auto = false }: { nombre: NombreGuia; usuario: string; auto?: boolean }) {
   const [abierta, setAbierta] = useState(false);
-  const boton = useRef<HTMLButtonElement>(null);
+
+  // El menú la abre con un evento (así no tiene que saber dónde está la guía)
+  useEffect(() => {
+    const abrir = () => setAbierta(true);
+    window.addEventListener(EVENTO_GUIA, abrir);
+    return () => window.removeEventListener(EVENTO_GUIA, abrir);
+  }, []);
 
   // La primera vez: cuando termina la animación del logo (si la hay) y la pantalla ya está
   useEffect(() => {
@@ -62,26 +70,10 @@ export function Guia({ nombre, usuario, auto = false }: { nombre: NombreGuia; us
   const cerrar = useCallback(() => {
     setAbierta(false);
     marcarVista(nombre, usuario);
-    boton.current?.focus({ preventScroll: true });
+    document.querySelector<HTMLElement>('[data-guia="menu"]')?.focus({ preventScroll: true });
   }, [nombre, usuario]);
 
-  return (
-    <>
-      <button
-        ref={boton}
-        type="button"
-        className="gu-boton"
-        data-guia="guia"
-        onClick={() => setAbierta(true)}
-        aria-label="Ver la guía de esta pantalla"
-        title="Ver la guía"
-        aria-haspopup="dialog"
-      >
-        ?
-      </button>
-      {abierta && <Recorrido pasos={GUIAS[nombre]} onCerrar={cerrar} />}
-    </>
-  );
+  return abierta ? <Recorrido pasos={GUIAS[nombre]} onCerrar={cerrar} /> : null;
 }
 
 function usePrefiereQuieto() {
@@ -101,6 +93,7 @@ function Recorrido({ pasos: todos, onCerrar }: { pasos: PasoGuia[]; onCerrar: ()
   const paso = pasos[i];
   const ultimo = i === pasos.length - 1;
 
+  const t = useT();
   // Encuentra el elemento del paso, lo trae a la vista y sigue su posición (scroll, giro del celular)
   useLayoutEffect(() => {
     let cuadro = 0;
@@ -171,12 +164,10 @@ function Recorrido({ pasos: todos, onCerrar }: { pasos: PasoGuia[]; onCerrar: ()
         }}
       >
         <div className="gu-tarjeta__arriba">
-          <span className="gu-cuenta">
-            {i + 1} de {pasos.length}
-          </span>
+          <span className="gu-cuenta">{t('{n} de {total}', { n: i + 1, total: pasos.length })}</span>
           {!ultimo && (
             <button type="button" className="gu-saltar" onClick={onCerrar}>
-              Saltar guía
+              {t('Saltar guía')}
             </button>
           )}
         </div>
@@ -186,10 +177,10 @@ function Recorrido({ pasos: todos, onCerrar }: { pasos: PasoGuia[]; onCerrar: ()
           </span>
         )}
         <h2 id="gu-titulo" className="lu-title gu-titulo">
-          {paso.titulo}
+          {t(paso.titulo)}
         </h2>
         <p id="gu-texto" className="gu-texto">
-          {paso.texto}
+          {t(paso.texto)}
         </p>
         <div className="gu-abajo">
           <span className="gu-puntos" aria-hidden="true">
@@ -200,11 +191,11 @@ function Recorrido({ pasos: todos, onCerrar }: { pasos: PasoGuia[]; onCerrar: ()
           <span className="gu-botones">
             {i > 0 && (
               <Button size="sm" variant="ghost" onClick={atras}>
-                Atrás
+                {t('Atrás')}
               </Button>
             )}
             <button ref={principal} type="button" className="lu-btn lu-btn--primary lu-btn--sm" onClick={siguiente}>
-              {i === 0 ? 'Empezar' : ultimo ? '¡Listo!' : 'Siguiente'}
+              {i === 0 ? t('Empezar') : ultimo ? t('¡Listo!') : t('Siguiente')}
             </button>
           </span>
         </div>

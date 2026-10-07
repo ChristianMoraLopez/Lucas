@@ -5,10 +5,11 @@
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useT } from './idioma';
 import { isLottieName, Lottie } from './lottie';
-import { CATEGORIES, CODE_RE, formatCOP, formatCode, type Tone, toneFor } from './lucas-core';
+import { CATEGORIES, CODE_RE, formatCOP, formatCode, nombreCategoria, type Tone, toneFor } from './lucas-core';
 
-export { CATEGORIES, CODE_RE, formatCOP, formatCode, lucas, setTones, TONES, type Tone, toneFor } from './lucas-core';
+export { CATEGORIES, CODE_RE, formatCOP, formatCode, lucas, nombreCategoria, setTones, TONES, type Tone, toneFor } from './lucas-core';
 
 const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
 const toneVars = (t: Tone) => ({ '--c': `var(--tono-${t})`, '--cf': 'var(--tinta-fija)' }) as React.CSSProperties;
@@ -61,7 +62,8 @@ export function Amount({
   sign?: boolean;
   className?: string;
 }) {
-  const text = formatCOP(value, { sign });
+  const { idioma } = useT();
+  const text = formatCOP(value, { sign, idioma });
   return (
     <span className={cx('lu-amount', 'lu-amount--' + size, tone && 'lu-amount--' + tone, highlight && 'lu-amount--hl', className)}>
       {roll ? (
@@ -142,14 +144,15 @@ export function Sticker({
   animate?: boolean;
   className?: string;
 }) {
+  const t = useT();
   return (
     <span
       role="img"
-      aria-label={String(children || STICKER_TEXT[tone]) + (sub ? ', ' + sub : '')}
+      aria-label={String(children || t(STICKER_TEXT[tone])) + (sub ? ', ' + sub : '')}
       className={cx('lu-sticker', 'lu-sticker--' + tone, size !== 'md' && 'lu-sticker--' + size, animate && 'lu-sticker--pop', className)}
       style={{ '--rot': rotate + 'deg' } as React.CSSProperties}
     >
-      {children || STICKER_TEXT[tone]}
+      {children || t(STICKER_TEXT[tone])}
       {sub ? <span className="lu-sticker__sub">{sub}</span> : null}
     </span>
   );
@@ -170,13 +173,16 @@ export function CategoryTag({
   letter?: string;
   tone?: Tone;
 }) {
+  const tr = useT();
   const [g, t] = CATEGORIES[name] || [letter || String(name)[0], tone || ('rosa' as Tone)];
+  // Las de siempre se leen en el idioma de la pantalla (y su letra es la del nombre traducido)
+  const nombre = nombreCategoria(name, tr);
   return (
     <span className={cx('lu-cat', size !== 'md' && 'lu-cat--' + size)}>
       <span className="lu-cat__glyph" style={toneVars(t)} aria-hidden={showName}>
-        {g}
+        {nombre !== name ? nombre[0].toUpperCase() : g}
       </span>
-      {showName && name}
+      {showName && nombre}
     </span>
   );
 }
@@ -306,16 +312,17 @@ export function Person({
   size?: 'xs' | 'sm' | 'md';
   aside?: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div className="lu-person">
       <Avatar name={name} tone={tone} size={size} registered={registered} />
       <span style={{ minWidth: 0, display: 'grid' }}>
         <span className="lu-person__name">{name}</span>
-        {(sub || !registered) && <span className="lu-person__sub">{sub || 'Sin cuenta · solo en WhatsApp'}</span>}
+        {(sub || !registered) && <span className="lu-person__sub">{sub || t('Sin cuenta · solo en WhatsApp')}</span>}
       </span>
       {role && (
         <span className={cx('lu-role', 'lu-role--' + role)} style={{ marginLeft: 'auto' }}>
-          {ROLE_LABELS[role]}
+          {t(ROLE_LABELS[role])}
         </span>
       )}
       {aside}
@@ -325,6 +332,7 @@ export function Person({
 
 /* ---------- Correction ---------- */
 export function Correction({ was, children, by, tone }: { was?: React.ReactNode; children: React.ReactNode; by?: string; tone?: Tone }) {
+  const t = useT();
   return (
     <span className="lu-fix">
       {was != null && <span className="lu-fix__was">{was}</span>}
@@ -332,7 +340,7 @@ export function Correction({ was, children, by, tone }: { was?: React.ReactNode;
       {by && (
         <span className="lu-fix__by">
           <Avatar name={by} tone={tone} size="xs" />
-          corrigió {by}
+          {t('corrigió {nombre}', { nombre: by })}
         </span>
       )}
     </span>
@@ -360,11 +368,12 @@ export function Button({ variant = 'primary', size = 'md', kbd, children, classN
 
 /* ---------- Confidence ---------- */
 export function Confidence({ value, corrected = false }: { value: number; corrected?: boolean }) {
-  if (corrected) return <span className="lu-conf lu-conf--humano">Corregido a mano</span>;
+  const t = useT();
+  if (corrected) return <span className="lu-conf lu-conf--humano">{t('Corregido a mano')}</span>;
   const lvl = value >= 0.9 ? 'alta' : value >= 0.75 ? 'media' : 'baja';
-  const txt = { alta: 'Seguro', media: 'Casi seguro', baja: 'Revísalo' }[lvl];
+  const txt = t({ alta: 'Seguro', media: 'Casi seguro', baja: 'Revísalo' }[lvl]);
   return (
-    <span className={cx('lu-conf', 'lu-conf--' + lvl)} title={'Confianza de lectura: ' + Math.round(value * 100) + ' %'}>
+    <span className={cx('lu-conf', 'lu-conf--' + lvl)} title={t('Confianza de lectura: {n} %', { n: Math.round(value * 100) })}>
       <span className="lu-conf__dots" aria-hidden="true">
         <i />
         <i />
@@ -401,6 +410,7 @@ export function Field({
   id?: string;
   children?: React.ReactNode;
 }) {
+  const t = useT();
   const [v, setV] = useState(value ?? '');
   useEffect(() => {
     setV(value ?? '');
@@ -440,10 +450,10 @@ export function Field({
             {correctedBy ? (
               <>
                 <Avatar name={correctedBy} size="xs" />
-                corrigió {correctedBy}
+                {t('corrigió {nombre}', { nombre: correctedBy })}
               </>
             ) : (
-              'Tu corrección'
+              t('Tu corrección')
             )}
           </span>
         </span>
@@ -478,6 +488,8 @@ export function Chip({
 
 /* ---------- BudgetBar ---------- */
 export function BudgetBar({ name, spent, budget, category }: { name: string; spent: number; budget: number; category?: boolean }) {
+  const t = useT();
+  const cop = (n: number) => formatCOP(n, { idioma: t.idioma });
   const pct = budget > 0 ? spent / budget : 0;
   const state = pct > 1 ? 'over' : pct >= 0.85 ? 'near' : null;
   return (
@@ -485,17 +497,19 @@ export function BudgetBar({ name, spent, budget, category }: { name: string; spe
       <div className="lu-budget__row">
         <span className="lu-budget__name">
           {category !== false && <CategoryTag name={name} showName={false} size="sm" />}
-          {name}
+          {nombreCategoria(name, t)}
         </span>
         <span className="lu-amount lu-amount--sm">
-          {formatCOP(spent)} <span className="lu-muted">/ {formatCOP(budget)}</span>
+          {cop(spent)} <span className="lu-muted">/ {cop(budget)}</span>
         </span>
       </div>
-      <div className="lu-budget__bar" role="meter" aria-valuemin={0} aria-valuemax={budget} aria-valuenow={spent} aria-label={name}>
+      <div className="lu-budget__bar" role="meter" aria-valuemin={0} aria-valuemax={budget} aria-valuenow={spent} aria-label={nombreCategoria(name, t)}>
         <div className="lu-budget__fill" style={{ width: Math.min(pct, 1) * 100 + '%' }} />
       </div>
       <div className="lu-budget__foot">
-        {pct > 1 ? 'Te pasaste ' + formatCOP(spent - budget) : 'Quedan ' + formatCOP(budget - spent) + ' · ' + Math.round(pct * 100) + ' %'}
+        {pct > 1
+          ? t('Te pasaste {monto}', { monto: cop(spent - budget) })
+          : t('Quedan {monto} · {n} %', { monto: cop(budget - spent), n: Math.round(pct * 100) })}
       </div>
     </div>
   );
@@ -551,7 +565,7 @@ export function LottieSlot({
 export function CodeInput({
   value = '',
   onChange,
-  label = 'Código de la cuenta',
+  label,
   hint,
   error,
   readOnly = false,
@@ -565,6 +579,7 @@ export function CodeInput({
   readOnly?: boolean;
   id?: string;
 }) {
+  const t = useT();
   const [v, setV] = useState(value);
   // El código puede llegar después (del link /e/CODIGO o de «Código nuevo»)
   useEffect(() => {
@@ -575,14 +590,14 @@ export function CodeInput({
   return (
     <div className={cx('lu-code', ok && 'lu-code--ok', err && 'lu-code--error')}>
       <label className="lu-code__label" htmlFor={id}>
-        {label}
+        {label ?? t('Código de la cuenta')}
       </label>
       <input
         id={id}
         className="lu-code__input"
         value={v}
         readOnly={readOnly}
-        placeholder="PASEO-7K2Q"
+        placeholder={t('PASEO-7K2Q')}
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}
@@ -593,7 +608,7 @@ export function CodeInput({
         }}
       />
       <span className="lu-code__hint" aria-live="polite">
-        {err ? error : ok ? hint || 'Código completo' : 'Una palabra, un guion y 4 letras o números'}
+        {err ? error : ok ? hint || t('Código completo') : t('Una palabra, un guion y 4 letras o números')}
       </span>
     </div>
   );
@@ -621,6 +636,7 @@ export function Evidence({
   messages?: { who: string; whoColor?: string; text: string; time: string; dim?: boolean; target?: boolean }[];
   box?: string;
 }) {
+  const t = useT();
   return (
     <figure className="lu-evi">
       <figcaption className="lu-evi__from">
@@ -628,7 +644,7 @@ export function Evidence({
         <span style={{ display: 'grid' }}>
           <b>{sender}</b>
           <span>
-            {kind === 'foto' ? 'mandó una foto' : kind === 'pdf' ? 'mandó un PDF' : 'escribió'} · {time}
+            {kind === 'foto' ? t('mandó una foto') : kind === 'pdf' ? t('mandó un PDF') : t('escribió')} · {time}
             {group ? ' · ' + group : ''}
           </span>
         </span>
@@ -674,7 +690,7 @@ export function Evidence({
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, position: 'relative', marginTop: 4 }}>
-              <span>Total a pagar</span>
+              <span>{t('Total a pagar')}</span>
               <span>{receipt?.total}</span>
               {box && (
                 <span className="lu-evi__box" style={{ inset: '-3px -4px' }}>
@@ -685,7 +701,7 @@ export function Evidence({
           </div>
           <div className="lu-evi__file">
             <span>{file}</span>
-            <span className="lu-muted">{pages} pág.</span>
+            <span className="lu-muted">{t('{n} pág.', { n: pages ?? 0 })}</span>
           </div>
         </div>
       )}
@@ -718,7 +734,8 @@ export function ConnectionStatus({
   children?: React.ReactNode;
   sub?: React.ReactNode;
 }) {
-  const txt = { esperando: 'Esperando el código en el grupo', conectado: 'Conectado', error: 'No pudimos conectar' }[state];
+  const t = useT();
+  const txt = t({ esperando: 'Esperando el código en el grupo', conectado: 'Conectado', error: 'No pudimos conectar' }[state]);
   return (
     <span className={cx('lu-conn', 'lu-conn--' + state)} role="status" aria-live="polite">
       <span className="lu-conn__dot" aria-hidden="true" />
@@ -858,6 +875,7 @@ export function AppShell({
   onAccount,
   brand,
   barExtra,
+  barEnd,
 }: {
   account?: string;
   accountTone?: Tone;
@@ -872,6 +890,8 @@ export function AppShell({
   brand?: React.ReactNode;
   /** Algo más en la barra de arriba, antes de la cuenta (p. ej. el estado de WhatsApp) */
   barExtra?: React.ReactNode;
+  /** Lo último de la barra, después de la cuenta (el menú ☰) */
+  barEnd?: React.ReactNode;
 }) {
   const tabEl = (t: (typeof tabs)[number]) => (
     // data-navega: lleva a otra pantalla; mientras carga se ve el giro (components/conexion.tsx)
@@ -890,6 +910,7 @@ export function AppShell({
       {t.dot ? <span className={`lu-tab__dot lu-tab__dot--${t.dot}`} aria-hidden="true" /> : null}
     </button>
   );
+  const tr = useT();
   const railEls = tabs.map(tabEl);
   const tabEls = tabs.filter((t) => !t.railOnly).map(tabEl);
   return (
@@ -898,7 +919,14 @@ export function AppShell({
         {brand ?? <Logo />}
         {barExtra}
         {account && (
-          <button type="button" className="lu-app__acct" data-navega="" data-guia="cuenta" onClick={onAccount} aria-label={`${account}: cambiar de cuenta`}>
+          <button
+            type="button"
+            className="lu-app__acct"
+            data-navega=""
+            data-guia="cuenta"
+            onClick={onAccount}
+            aria-label={tr('{cuenta}: cambiar de cuenta', { cuenta: account })}
+          >
             <span className="lu-cat__glyph" style={toneVars(accountTone)} aria-hidden="true">
               {accountGlyph}
             </span>
@@ -906,17 +934,18 @@ export function AppShell({
             <span aria-hidden="true">▾</span>
           </button>
         )}
+        {barEnd}
       </header>
       <div className="lu-app__body">
         {tabs.length > 0 && (
-          <nav className="lu-app__rail" aria-label="Secciones">
+          <nav className="lu-app__rail" aria-label={tr('Secciones')}>
             {railEls}
           </nav>
         )}
         <main className="lu-app__main">{children}</main>
       </div>
       {tabs.length > 0 && (
-        <nav className="lu-tabs" aria-label="Secciones">
+        <nav className="lu-tabs" aria-label={tr('Secciones')}>
           {tabEls}
         </nav>
       )}

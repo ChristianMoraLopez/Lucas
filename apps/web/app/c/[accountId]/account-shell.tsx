@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Guia } from '@/components/guia';
 import { LogoLink } from '@/components/logo-link';
 import { AppShell, ICONS } from '@/components/lucas-ui';
+import { MenuPrincipal } from '@/components/menu-principal';
 import { useAccountChanges } from '@/lib/realtime';
 import { type AccountType, accountGlyph, accountTone, type EstadoWhatsapp, estadoWhatsapp, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
@@ -131,6 +132,7 @@ export function AccountShell({
   pending,
   whatsapp,
   usuario,
+  nombre = '',
   guiaVista = true,
   children,
 }: {
@@ -138,6 +140,8 @@ export function AccountShell({
   pending: number;
   /** Quien está viendo (la guía recuerda por persona) */
   usuario: string;
+  /** Su nombre, para el menú de arriba */
+  nombre?: string;
   /** Ya vio la guía de las cuentas (si no, sale sola) */
   guiaVista?: boolean;
   /** whatsapp_overview del servidor (para no parpadear al abrir) */
@@ -169,6 +173,7 @@ export function AccountShell({
           <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
         </>
       }
+      barEnd={<MenuPrincipal nombre={nombre} guia />}
     >
       {children}
     </AppShell>

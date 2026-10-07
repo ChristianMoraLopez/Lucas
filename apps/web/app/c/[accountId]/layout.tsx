@@ -7,13 +7,15 @@ export default async function AccountLayout({ children, params }: LayoutProps<'/
   const { accountId } = await params;
   const { supabase, userId } = await requireUser(`/c/${accountId}`);
 
-  const [{ data: account }, { count: pending }, { data: whatsapp }, guias] = await Promise.all([
+  const [{ data: account }, { count: pending }, { data: whatsapp }, guias, { data: perfil }] = await Promise.all([
     supabase.from('accounts').select('id, name, type').eq('id', accountId).maybeSingle(),
     supabase.from('expenses').select('id', { count: 'exact', head: true }).eq('account_id', accountId).eq('status', 'pending_review'),
     // El estado de WhatsApp va arriba en todas las pantallas (si falla, se pide en el navegador)
     supabase.rpc('whatsapp_overview', { p_account_id: accountId }),
     // Si ya vio la guía de las cuentas (si no se sabe, no sale sola)
     supabase.from('profiles').select('guias_vistas').eq('id', userId).maybeSingle(),
+    // El nombre va en el menú de arriba
+    supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
   ]);
   // RLS: si no es miembro, la cuenta simplemente no aparece
   if (!account) notFound();
@@ -24,6 +26,7 @@ export default async function AccountLayout({ children, params }: LayoutProps<'/
       pending={pending ?? 0}
       whatsapp={(whatsapp as WhatsappOverview | null) ?? null}
       usuario={userId}
+      nombre={perfil?.full_name?.trim() || ''}
       guiaVista={guias.error || !guias.data ? true : ((guias.data.guias_vistas as string[] | null) ?? []).includes('cuenta')}
     >
       {children}
