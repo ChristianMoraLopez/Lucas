@@ -296,6 +296,16 @@ describe('duplicados', () => {
     });
   });
 
+  it('los ítems quedan en el orden del recibo', async () => {
+    await as(db, U.santi, async (tx) => {
+      const id = await mensaje(tx, 'recibo con ítems');
+      const nombres = ['Papa bacon', 'Pasteles', 'Pollo champiñón', 'Hit pet', 'Limonada'];
+      const r = await guardar(tx, id, { ...base, items: nombres.map((name) => ({ name, quantity: 1, total_cop: 9_000 })) });
+      const { rows } = await tx.query<{ name: string }>('select name from public.expense_items where expense_id = $1 order by created_at', [r.expense_id]);
+      expect(rows.map((x) => x.name)).toEqual(nombres);
+    });
+  });
+
   it('los números largos de un comprobante', async () => {
     const { c } = await one<{ c: string[] }>(db, `select public.codigos_del_texto('Valor $105.900,00 autorización 434409 ID 6ac2e9b6 tel 3001234567 año 2026') as c`);
     expect(c).toEqual(['3001234567', '434409']);

@@ -11,6 +11,8 @@
 -- total, la fecha y los códigos largos del comprobante (autorización, número
 -- de transacción) cuando los dos los tienen. Sin el total (antes de leer la
 -- foto) la huella ya no basta: la foto se lee y se compara al guardar.
+--
+-- Y los ítems del recibo quedan en el orden en que se leyeron.
 -- ============================================================================
 
 -- Los números largos de un comprobante (autorización, transacción, factura)
@@ -183,12 +185,14 @@ begin
   )
   returning id into v_expense;
 
-  insert into public.expense_items (expense_id, name, quantity, unit_price_cop, total_cop)
+  -- created_at en el orden del recibo: así se muestran al dividir por consumo
+  insert into public.expense_items (expense_id, name, quantity, unit_price_cop, total_cop, created_at)
   select v_expense,
          left(btrim(i ->> 'name'), 80),
          least(greatest(coalesce((i ->> 'quantity')::numeric, 1), 0.001), 9999999),
          greatest(coalesce((i ->> 'unit_price_cop')::bigint, 0), 0),
-         greatest(coalesce((i ->> 'total_cop')::bigint, 0), 0)
+         greatest(coalesce((i ->> 'total_cop')::bigint, 0), 0),
+         now() + x.n * interval '1 millisecond'
   from jsonb_array_elements(coalesce(p_data -> 'items', '[]'::jsonb)) with ordinality as x (i, n)
   where nullif(btrim(i ->> 'name'), '') is not null and x.n <= 60;
 

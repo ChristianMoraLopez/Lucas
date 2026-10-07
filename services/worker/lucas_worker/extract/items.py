@@ -31,18 +31,24 @@ from dataclasses import dataclass
 
 from .numbers import strip_accents
 
-# Plata: con separador de miles (y centavos opcionales), o con «$» adelante
+# Plata: con separador de miles (y centavos opcionales), con «$» adelante o
+# con centavos («18000.00»)
 _PLATA = re.compile(
-    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2})(?![\d:]|[.,]\d)"
+    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{3,7}[.,]\d{2})(?![\d:]|[.,]\d)"
 )
-# «2 x», «2 ×», «1 X» al empezar la línea de valores
-_POR = re.compile(r"^\s*(\d{1,3})\s*[x×X*]\s*")
+# «2 x», «2 ×», «1 X», «1@» al empezar la línea de valores
+_POR = re.compile(r"^\s*(\d{1,3})\s*[x×X*@]\s*")
 # Cantidad con tres decimales al empezar el nombre: «2.000/ PAN…», «1.000 SALSA…»
 _CANTIDAD_DECIMAL = re.compile(r"^\s*(\d{1,3})[.,]000\b")
 # Donde terminan los ítems
 _FIN = re.compile(
     r"\b(sub\s*-?\s*total|total|valor\s+bruto|cantidad\s+de\s+art|art[ií]culos\s+vendidos|detalle\s+de\s+valores|"
     r"formas?\s+de\s+pago|medio\s+de\s+pago|efectivo|cambio|recibido|propina|descuento|i\.?\s?v\.?\s?a\.?\s*:)",
+    re.IGNORECASE,
+)
+# Comprobantes de pago o de transferencia (Nu, Nequi, Bre-B, bancos): no traen productos
+_COMPROBANTE = re.compile(
+    r"comprobante\s+de\s+(transacci|pago)|transferencia\s+exitosa|pago\s+exitoso|env[ií]o\s+realizado|pagaste\s+en",
     re.IGNORECASE,
 )
 # Palabras de la fila de títulos de la tabla de ítems
@@ -127,11 +133,14 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
             nombre = [*nombre[-1:], linea]  # un nombre ocupa a lo sumo dos renglones
             continue
 
-        # Una línea con plata: cierra un ítem
+        # Una línea con plata: cierra un ítem. Su nombre es lo que va antes del
+        # primer monto («CAMISETA 23.800 47.600»; lo de después es el código del IVA)
         por = _POR.match(resto)
-        texto_linea = _letras(_PLATA.sub(" ", resto[por.end() :] if por else resto))
-        # «2 × 5.000 10.000» es solo del renglón de arriba
-        partes = [*nombre[-1:]] if por else [*nombre]
+        desde = por.end() if por else 0
+        texto_linea = _letras(resto[desde : montos[0][1]])
+        # «2 × 5.000 10.000» es solo del último renglón con letras de arriba (puede haber un código de barras en medio)
+        con_letras = [p for p in nombre if re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}", p)]
+        partes = con_letras[-1:] if por else [*nombre]
         cantidad_txt = cantidad_inicio or next((m for p in partes if (m := _CANTIDAD_DECIMAL.match(p))), None)
         if texto_linea and re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}", texto_linea):
             partes.append(texto_linea)
@@ -158,6 +167,8 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
 
 def items_del_recibo(texto: str | None, total: int) -> list[ItemLeido]:
     """Los ítems si cuadran con el total (o le falta poco: propina, servicio)."""
+    if _COMPROBANTE.search(texto or ""):
+        return []
     items, con_titulos = leer_items(texto)
     if not items or total <= 0:
         return []

@@ -68,6 +68,46 @@ Detalle deValores
 Valor Bruto: $44,088.0
 TOTALAPAGAR: $44,088.0"""
 
+HOMECENTER = """HOMECENTER
+COMPROBANTE DE VENTA ASOCIADO A LA
+FACTURA ELECTRONICA NO. 6305 0100340644
+01/10/26 18:10 0058 005 7834
+CODIGO DESCRIPCION VALOR
+691986
+1 X 56,900
+TRAPERO MICROFIBRA A 56,900 D
+TOTAL AHORROS $ 0
+VALOR RECIBIDO: $ 56,900"""
+
+DOLLARCITY = """Dollarcity
+NIT:9009432434
+COMPROBANTE DE VENTA
+No. F4F2 - 2047348
+1SCRUBBERCLEANZ GUANTES GRD LAT
+220806003832 0000
+1@4000.00
+2TRAPEADOR DE MICROFIBRA GIRATO
+667888132416 18000.00 B
+1 @ 18000.00
+3LAVAPLATOS LIQ LIMON DOYPACK A
+7702010382079 16000.00 B
+1@ 16000.00
+QUITAGRASA SPRAY C/GATILLO TAN
+7709157167491 4000.00 B
+14000.00
+TOTAL COP 42000.00
+MASTERCARD C0P 42000.00"""
+
+NU_EXTRANJERO = """nU
+Comprobante de
+transacción
+Valor $62.569,20
+Tipo de transacción Compra en internet
+Código de autorización 979382
+Costo por conversión $281,56
+Pagaste en
+Comercio Una Suscripción"""
+
 NU = """nU
 Comprobante de
 transacción
@@ -121,9 +161,24 @@ def test_cantidad_con_decimales_y_precio_en_el_renglon_de_abajo():
     ]
 
 
+def test_codigo_de_barras_en_medio_y_cantidad_con_arroba():
+    assert _tabla(DOLLARCITY, 42_000) == [
+        ("Scrubbercleanz Guantes Grd Lat", 1, 4_000, 4_000),
+        ("Trapeador De Microfibra Girato", 1, 18_000, 18_000),
+        ("Lavaplatos Liq Limon Doypack A", 1, 16_000, 16_000),
+        ("Quitagrasa Spray C/gatillo Tan", 1, 4_000, 4_000),
+    ]
+
+
+def test_lo_que_va_despues_del_monto_es_el_codigo_del_iva():
+    assert _tabla(HOMECENTER, 56_900) == [("Trapero Microfibra A", 1, 56_900, 56_900)]
+
+
 def test_un_comprobante_de_banco_no_tiene_items():
     assert _tabla(NU, 28_600) == []
     assert _tabla(NEQUI, 8_200) == []
+    # Dos montos (valor y costo por conversión) tampoco son ítems
+    assert _tabla(NU_EXTRANJERO, 62_569) == []
 
 
 def test_si_no_cuadran_con_el_total_no_se_usan():
