@@ -43,13 +43,13 @@ export const GUIAS: Record<NombreGuia, PasoGuia[]> = {
     {
       titulo: 'Luks vive en WhatsApp',
       texto:
-        'Agrega el número de Luks al grupo y manden fotos de recibos, PDFs o mensajes como «hielo 30 lucas». Luks los vuelve gastos, los organiza por categoría y los divide.',
+        'Agrega a Mister Luks al grupo o vincula tu WhatsApp, y manden fotos de recibos, PDFs o mensajes como «hielo 30 lucas». Luks los vuelve gastos, los organiza por categoría y los divide.',
       lottie: 'escaneo',
     },
     {
       titulo: 'También para ti solo',
       texto:
-        '¿Tus gastos personales? Arma un grupo de WhatsApp contigo mismo (solo tú y Luks), mándate ahí tus facturas y aquí las ves organizadas por categoría.',
+        '¿Tus gastos personales? Arma un grupo de WhatsApp contigo mismo (solo tú y Mister Luks), mándate ahí tus facturas y aquí las ves organizadas por categoría.',
       lottie: 'gasto-registrado',
     },
     {
@@ -73,7 +73,8 @@ export const GUIAS: Record<NombreGuia, PasoGuia[]> = {
     {
       objetivo: 'whatsapp',
       titulo: 'Conecta el grupo',
-      texto: 'Escribe «luks CÓDIGO» en el grupo de WhatsApp y desde ahí lo que manden cae aquí solo. El punto verde dice que Luks está leyendo.',
+      texto:
+        'Agrega a Mister Luks o vincula tu WhatsApp, y escribe «luks CÓDIGO» en el grupo: desde ahí lo que manden cae aquí solo. El punto verde dice que Luks está leyendo.',
     },
     {
       objetivo: 'tab-revisar',

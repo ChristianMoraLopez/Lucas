@@ -50,11 +50,11 @@ export const EN: Record<string, string> = {
   'Si alguien te pasó un código (como PASEO-7K2Q), entras por aquí y eliges tu nombre.':
     'If someone sent you a code (like TRIP-7K2Q), come in here and pick your name.',
   'Luks vive en WhatsApp': 'Luks lives on WhatsApp',
-  'Agrega el número de Luks al grupo y manden fotos de recibos, PDFs o mensajes como «hielo 30 lucas». Luks los vuelve gastos, los organiza por categoría y los divide.':
-    'Add Luks’s number to the group and send receipt photos, PDFs or messages like “ice 30k”. Luks turns them into expenses, sorts them by category and splits them.',
+  'Agrega a Mister Luks al grupo o vincula tu WhatsApp, y manden fotos de recibos, PDFs o mensajes como «hielo 30 lucas». Luks los vuelve gastos, los organiza por categoría y los divide.':
+    'Add Mister Luks to the group or link your WhatsApp, and send receipt photos, PDFs or messages like “ice $30”. Luks turns them into expenses, sorts them by category and splits them.',
   'También para ti solo': 'Just for you, too',
-  '¿Tus gastos personales? Arma un grupo de WhatsApp contigo mismo (solo tú y Luks), mándate ahí tus facturas y aquí las ves organizadas por categoría.':
-    'Your personal spending? Make a WhatsApp group with just yourself (only you and Luks), send your receipts there and see them sorted by category here.',
+  '¿Tus gastos personales? Arma un grupo de WhatsApp contigo mismo (solo tú y Mister Luks), mándate ahí tus facturas y aquí las ves organizadas por categoría.':
+    'Your personal spending? Make a WhatsApp group with just yourself (only you and Mister Luks), send your receipts there and see them sorted by category here.',
   'El menú': 'The menu',
   'Aquí están tu perfil, el idioma, el tema y esta guía, para verla otra vez cuando quieras. Dentro de cada cuenta hay otra que te muestra sus pestañas.':
     'Here are your profile, the language, the theme and this guide, so you can see it again anytime. Inside each account there’s another one that shows you its tabs.',
@@ -63,8 +63,8 @@ export const EN: Record<string, string> = {
   Resumen: 'Summary',
   'Cuánto llevan gastado, en qué se fue la plata y quién va poniendo más.': 'How much you’ve spent, where the money went and who’s paying the most.',
   'Conecta el grupo': 'Connect the group',
-  'Escribe «luks CÓDIGO» en el grupo de WhatsApp y desde ahí lo que manden cae aquí solo. El punto verde dice que Luks está leyendo.':
-    'Type “luks CODE” in the WhatsApp group and from then on everything you send lands here on its own. The green dot means Luks is reading.',
+  'Agrega a Mister Luks o vincula tu WhatsApp, y escribe «luks CÓDIGO» en el grupo: desde ahí lo que manden cae aquí solo. El punto verde dice que Luks está leyendo.':
+    'Add Mister Luks or link your WhatsApp, and type “luks CODE” in the group: from then on everything you send lands here on its own. The green dot means Luks is reading.',
   Revisar: 'Review',
   'Lo que Luks leyó de las fotos y los mensajes. Confirmas o corriges con un toque. También puedes subir un recibo desde aquí.':
     'What Luks read from the photos and messages. Confirm or fix it with one tap. You can also upload a receipt from here.',
@@ -534,7 +534,7 @@ export const EN: Record<string, string> = {
   'Conecta el grupo de WhatsApp': 'Connect the WhatsApp group',
   'Lo que manden al grupo, fotos de recibos, PDFs o «almuerzo 45 lucas, pagó Mafe», se anota solo. Y la gente del grupo queda en la cuenta.':
     'Whatever you send to the group, receipt photos, PDFs or “lunch 45k, Mafe paid”, gets logged on its own. And the people in the group join the account.',
-  'Luks entra al grupo, o lee desde tu WhatsApp': 'Luks joins the group, or reads from your WhatsApp',
+  'Agregan a Mister Luks al grupo, o vinculas tu WhatsApp': 'You add Mister Luks to the group, or link your WhatsApp',
   'Escriben «luks» y el código de la cuenta': 'Someone types “luks” and the account code',
   'Listo: todo llega a Revisar': 'Done: everything lands in Review',
   'Conectar ahora': 'Connect now',
@@ -912,22 +912,10 @@ export const EN: Record<string, string> = {
   '¡Copiado!': 'Copied!',
   'Cópialo a mano': 'Copy it by hand',
   'el WhatsApp vinculado que lo lee está desconectado': 'the linked WhatsApp that reads it is disconnected',
-  'el número de Luks está desconectado': 'Luks’s number is disconnected',
   'Todo lo que manden al grupo, sean fotos de recibos, PDFs o mensajes con montos («almuerzo 45 lucas, pagó Mafe»), llega a Luks para revisar.':
     'Everything you send to the group, whether receipt photos, PDFs or messages with amounts (“lunch 45k, Mafe paid”), reaches Luks for review.',
   'La cuenta ya no recibe gastos: está cerrada o liquidándose.': 'The account doesn’t take new expenses: it’s closed or being settled.',
-  'Agrega a Luks al grupo': 'Add Luks to the group',
-  'Luks ya lee tus grupos': 'Luks already reads your groups',
-  'Aparece como «Luks». Solo lee el grupo; escribe únicamente para confirmar.': 'It shows up as “Luks”. It only reads the group; it only writes to confirm.',
-  'Copiar número': 'Copy number',
   'Guardar contacto': 'Save contact',
-  'Luks lee desde tu WhatsApp los grupos donde estás: no hay que agregar a nadie.':
-    'Luks reads the groups you’re in from your WhatsApp: no need to add anyone.',
-  'Luks lee desde el WhatsApp de {nombres}: alguien de ellos tiene que estar en el grupo.':
-    'Luks reads from {nombres}’s WhatsApp: one of them has to be in the group.',
-  'Luks lee desde el WhatsApp de {nombres}: tiene que estar en el grupo.': 'Luks reads from {nombres}’s WhatsApp: they have to be in the group.',
-  'El número de Luks todavía no está listo. Vincula tu WhatsApp aquí abajo: Luks leerá desde ahí los grupos donde estás.':
-    'Luks’s number isn’t ready yet. Link your WhatsApp below: Luks will read the groups you’re in from there.',
   'Escribe este mensaje en el grupo': 'Type this message in the group',
   'Copiar mensaje': 'Copy message',
   'Es el mismo código de las invitaciones: quien lo vea en el grupo también puede entrar a «{cuenta}» con él.':
@@ -954,8 +942,6 @@ export const EN: Record<string, string> = {
     'Luks’s server may be off, or that WhatsApp was unlinked (if so, link it again below). Whatever you send in the meantime gets read when it’s back.',
   'Ya avisamos a quien opera Luks. Lo que manden al grupo se lee cuando vuelva.':
     'We’ve already notified whoever runs Luks. Whatever you send to the group gets read when it’s back.',
-  'Vincula tu WhatsApp aquí abajo y después escribe el mensaje del paso 2 en el grupo.':
-    'Link your WhatsApp below and then type the step 2 message in the group.',
   'Ir a revisar': 'Go to review',
   '¿Otro plan con otro grupo?': 'Another plan with another group?',
   'Cada grupo de WhatsApp va con una cuenta. Para un paseo o una fiesta, crea otra cuenta y escribe su código en el grupo de ese plan: cada una lleva sus gastos y sus personas aparte. Tu WhatsApp vinculado sirve para todas.':
@@ -998,9 +984,6 @@ export const EN: Record<string, string> = {
   'Desvincular mi WhatsApp': 'Unlink my WhatsApp',
   '¿Desvincular tu WhatsApp?': 'Unlink your WhatsApp?',
   Desvincular: 'Unlink',
-  'Luks deja de leer los grupos desde tu número. Si un grupo solo estaba conectado así, hay que agregar el número de Luks.':
-    'Luks stops reading groups from your number. If a group was only connected this way, you’ll need to add Luks’s number.',
-  'Vincula tu WhatsApp': 'Link your WhatsApp',
   'Copiar código': 'Copy code',
   'Abre WhatsApp → {vinculados} → {vincular}.': 'Open WhatsApp → {vinculados} → {vincular}.',
   'Dispositivos vinculados': 'Linked devices',
@@ -1015,9 +998,6 @@ export const EN: Record<string, string> = {
   'Código QR para vincular tu WhatsApp con Luks': 'QR code to link your WhatsApp with Luks',
   'Preparando el código…': 'Getting the code ready…',
   'Si no aparece en unos segundos, el servidor de Luks puede estar apagado.': 'If it doesn’t show up in a few seconds, Luks’s server may be off.',
-  '¿Sin el número de Luks?': 'Without Luks’s number?',
-  'Luks también puede leer los grupos desde tu propio WhatsApp, como un dispositivo vinculado más. Solo lee los grupos que conectes y nunca escribe desde tu número.':
-    'Luks can also read the groups from your own WhatsApp, as one more linked device. It only reads the groups you connect and never writes from your number.',
   'La última vez: {razon}': 'Last time: {razon}',
   'Tu número de WhatsApp': 'Your WhatsApp number',
   'Escribe el número completo. Si es de otro país, elígelo primero (o escríbelo con + y su indicativo).':
@@ -1561,6 +1541,53 @@ export const EN: Record<string, string> = {
   'Guárdalo y agrégalo al grupo de WhatsApp': 'Save him and add him to your WhatsApp group',
   'Guía completa: {url} · ¿Dudas? Escríbele {ayuda}': 'Full guide: {url} · Questions? Send him {ayuda}',
   '«ayuda»': '“help”',
+
+  // ---------- Conectar WhatsApp: Mister Luks o tu WhatsApp ----------
+  'Mister Luks está desconectado': 'Mister Luks is disconnected',
+  'Elige cómo entra Luks al grupo': 'Choose how Luks joins the group',
+  'Las dos sirven y se pueden usar juntas en el mismo grupo: nada se anota dos veces.':
+    'Both work, and you can use them together in the same group: nothing gets logged twice.',
+  'Agrega a Mister Luks o vincula tu WhatsApp (paso 1) y después escribe el mensaje del paso 2 en el grupo.':
+    'Add Mister Luks or link your WhatsApp (step 1), then type the message from step 2 in the group.',
+  'por Mister Luks': 'through Mister Luks',
+  'Agregar a Mister Luks': 'Add Mister Luks',
+  'El número de Luks: lo guardas como contacto y lo agregas al grupo, como a cualquiera.':
+    "Luks's number: save him as a contact and add him to the group, like anyone else.",
+  'Qué haces': 'What you do',
+  'Lo agregas al grupo, o le mandas el link del grupo por privado.': 'Add him to the group, or send him the group link in private.',
+  'Qué ve Luks': 'What Luks sees',
+  'Solo los grupos donde lo agregues.': 'Only the groups you add him to.',
+  '¿Responde en el grupo?': 'Does he reply in the group?',
+  'Sí: confirma cada gasto («Anotado: …»).': 'Yes: he confirms each expense (“Logged: …”).',
+  'Lee desde que lo agregan. Lo anterior, con el chat exportado (pronto).': 'He reads from when he’s added. Older messages, with the exported chat (soon).',
+  'Ideal si': 'Best when',
+  'El grupo acepta a alguien más.': 'The group can take one more person.',
+  'Si WhatsApp bloquea a Mister Luks, deja de leer todos sus grupos hasta que vuelva. Lo anotado no se pierde.':
+    'If WhatsApp blocks Mister Luks, he stops reading all his groups until he’s back. Nothing logged is lost.',
+  'lo que manden se lee cuando vuelva': 'what you send is read when he’s back',
+  'Desconectado ahora': 'Disconnected right now',
+  'Descargar el instructivo': 'Download the guide',
+  'Mister Luks está por llegar. Mientras tanto, vincula tu WhatsApp: Luks lee el grupo desde ahí.':
+    'Mister Luks is coming soon. In the meantime, link your WhatsApp: Luks reads the group from there.',
+  'Escaneas un QR o escribes un código de 8 letras, como en WhatsApp Web.': 'Scan a QR code or type an 8-letter code, like WhatsApp Web.',
+  'Tus grupos, pero solo guarda los que conectes a una cuenta.': 'Your groups, but he only keeps the ones you connect to an account.',
+  'No. Luks nunca escribe desde tu número: lo anotado lo ves en la app.': 'No. Luks never writes from your number: you see what’s logged in the app.',
+  'Lee desde que conectas el grupo. Lo anterior, con el chat exportado o pidiéndole una parte a WhatsApp (pronto).':
+    'He reads from when you connect the group. Older messages, with the exported chat or by asking WhatsApp for part of it (soon).',
+  'El grupo no deja agregar a nadie, o no quieren a alguien más en el grupo.': "The group won't let you add anyone, or you don't want one more member.",
+  'No es una conexión oficial de WhatsApp: podría restringir tu cuenta.': 'It’s not an official WhatsApp connection: WhatsApp could restrict your account.',
+  'Luks deja de leer los grupos desde tu número. Si un grupo solo estaba conectado así, hay que agregar a Mister Luks o vincular otro WhatsApp.':
+    'Luks stops reading groups from your number. If a group was only connected this way, add Mister Luks or link another WhatsApp.',
+  'Ya lo tienen vinculado {nombres}: si alguno está en el grupo, no hace falta nada más.':
+    '{nombres} already linked theirs: if one of them is in the group, nothing else is needed.',
+  'Ya lo tiene vinculado {nombres}: si está en el grupo, no hace falta nada más.':
+    '{nombres} already linked theirs: if they’re in the group, nothing else is needed.',
+  'Antes de vincular tu WhatsApp': 'Before you link your WhatsApp',
+  'Entiendo, vincular': 'Got it, link it',
+  'Luks entra como un dispositivo vinculado más, igual que WhatsApp Web, pero no es una conexión oficial de WhatsApp: WhatsApp podría restringir tu cuenta. Luks nunca escribe desde tu número y de tus grupos solo guarda los que conectes a una cuenta.':
+    'Luks joins as one more linked device, just like WhatsApp Web, but it’s not an official WhatsApp connection: WhatsApp could restrict your account. Luks never writes from your number, and of your groups it only keeps the ones you connect to an account.',
+  'Luks lee el grupo desde tu WhatsApp, como un WhatsApp Web más. No hay que agregar a nadie.':
+    'Luks reads the group from your WhatsApp, like one more WhatsApp Web. No need to add anyone.',
 
   // ⟨más⟩
 };

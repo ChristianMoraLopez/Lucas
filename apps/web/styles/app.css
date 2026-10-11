@@ -2630,14 +2630,132 @@ a.ed-cat:focus-visible {
   background: #fff;
   padding: 8px;
 }
+/* Paso 1: las dos formas de conectar el grupo, lado a lado y con el mismo peso */
+.wa-formas {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* Con el grupo ya conectado, lo primero es cómo va: las formas pasan abajo */
+.wa--conectado .wa-formas {
+  order: 1;
+}
+.wa-formas__head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+.wa-formas__head .wa-t {
+  margin-top: 10px;
+}
+.wa-n.is-done {
+  background: var(--verde);
+  color: var(--on-verde);
+}
+.wa-formas__grid {
+  display: grid;
+  gap: var(--space-3);
+}
+/* Las acciones van abajo: lado a lado, las dos tarjetas terminan parejas */
+.wa-forma {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.wa-forma__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.wa-forma__acciones {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  min-width: 0;
+}
+.wa-compara + .wa-forma__acciones {
+  margin-top: auto;
+}
+/* Lo que tiene cada forma: una etiqueta y su respuesta corta */
+.wa-compara {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.wa-compara > div {
+  display: grid;
+  gap: 2px;
+}
+.wa-compara dt {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--tinta-2);
+}
+.wa-compara dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.wa-mister {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+.wa-mister__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wa-mister__txt .wa-num {
+  margin: 0;
+}
+/* En el celular el chat se abre con el botón; el QR sirve desde un computador */
+.wa-mister__qr {
+  display: none;
+  width: 120px;
+  height: auto;
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 6px;
+}
+.wa-vincular {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
 @container app (min-width: 760px) {
   .wa {
     grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
     column-gap: var(--space-8);
     padding: var(--space-6) var(--space-10);
   }
-  .wa-head {
+  .wa-head,
+  .wa-formas {
     grid-column: 1 / -1;
+  }
+  .wa-formas__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+  .wa-mister__qr {
+    display: block;
   }
 }
 

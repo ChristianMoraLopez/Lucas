@@ -51,7 +51,8 @@ describe('cuando agregan a Luks a un grupo', () => {
       { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: true },
       { id: 'lid:33334444', phone: null, lid: '33334444', name: null, admin: false },
     ];
-    await ing.onGroupJoined(contador, wa, grupo({ members }));
+    wa.integrantes.set(GRUPO, members);
+    await ing.onGroupJoined(contador, wa, grupo());
     const g = store.groups.get(GRUPO);
     expect(store.members.get(g?.group_id as string)).toEqual(members);
 
@@ -67,6 +68,23 @@ describe('cuando agregan a Luks a un grupo', () => {
     const mio = new FakeConnector(personal);
     await ing.onGroupJoined(personal, mio, grupo());
     expect(mio.sent).toEqual([]);
+  });
+
+  it('de un grupo sin cuenta, una sesión personal guarda el nombre pero no quiénes están; al enlazarlo, sí', async () => {
+    const mio = new FakeConnector(personal);
+    mio.integrantes.set(GRUPO, [{ id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: false }]);
+    await ing.onGroupJoined(personal, mio, grupo());
+    const g = store.groups.get(GRUPO);
+    expect(g?.name).toBe('Paseo Santa Marta 2026');
+    expect(mio.pedidos).toEqual([]);
+    expect(store.members.size).toBe(0);
+
+    expect(await ing.onMessage(personal, mio, m({ text: 'luks PASEO-7K2Q', fromMe: true }))).toBe('enlazado');
+    expect(store.members.get(g?.group_id as string)).toHaveLength(1);
+
+    // Ya enlazado, cada cambio del grupo vuelve a mandar quiénes están
+    await ing.onGroupJoined(personal, mio, grupo());
+    expect(mio.pedidos).toEqual([GRUPO, GRUPO]);
   });
 });
 

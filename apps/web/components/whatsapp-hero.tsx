@@ -21,7 +21,7 @@ export function WhatsappHero({ accountId }: { accountId: string }) {
           {t('Lo que manden al grupo, fotos de recibos, PDFs o «almuerzo 45 lucas, pagó Mafe», se anota solo. Y la gente del grupo queda en la cuenta.')}
         </p>
         <ol className="wa-hero__steps lu-small">
-          <li>{t('Luks entra al grupo, o lee desde tu WhatsApp')}</li>
+          <li>{t('Agregan a Mister Luks al grupo, o vinculas tu WhatsApp')}</li>
           <li>{t('Escriben «luks» y el código de la cuenta')}</li>
           <li>{t('Listo: todo llega a Revisar')}</li>
         </ol>
