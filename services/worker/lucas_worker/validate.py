@@ -180,6 +180,9 @@ def _comercio(ex: Extraction, llm: ReceiptExtraction | None) -> tuple[str, float
         # Si el LLM copió media frase, el «en qué» de las reglas es mejor
         if del_llm and por_reglas and len(del_llm.split()) > 6 and len(por_reglas.split()) < len(del_llm.split()):
             del_llm = None
+        # Un mensaje con varias cosas que el LLM no sumó: tampoco leyó bien de qué era
+        if del_llm and ex.hints.sumados > 1 and llm and llm.total_cop != ex.hints.amount:
+            del_llm = None
         if (
             del_llm
             and por_reglas
@@ -217,6 +220,8 @@ def reconcile(
     notes: list[str] = []
     if ex.kind == "text":
         total, c_total, s_total = _total_mensaje(ex, llm)
+        if ex.hints.sumados > 1 and s_total.startswith("reglas"):
+            notes.append(f"Se sumaron {ex.hints.sumados} montos del mensaje")
     else:
         total, c_total, s_total = _total_documento(ex, llm, notes)
 
@@ -271,7 +276,11 @@ def _items(ex: Extraction, llm: ReceiptExtraction | None, total: int) -> tuple[l
             for i in items_del_recibo(ex.text, total)
         ]
         if ex.kind != "text"
-        else []
+        # Un mensaje con varias cosas («5 k bloqueador 4.5 k de cerveza»): cada una es un ítem
+        else [
+            ReceiptItem(name=i.name, quantity=1, unit_price_cop=i.total_cop, total_cop=i.total_cop)
+            for i in ex.hints.items
+        ]
     )
     del_llm = [i for i in (llm.items if llm else []) if i.name and i.name != "?" and i.total_cop]
     if leidos and sum(i.total_cop or 0 for i in leidos) == total:

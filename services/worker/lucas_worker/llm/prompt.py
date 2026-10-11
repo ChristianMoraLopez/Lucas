@@ -21,6 +21,9 @@ Rules:
 - Money is Colombian pesos (COP) without decimals. '.' separates thousands: '$84.300' = 84300,
   '1.014.500' = 1014500. Cents like ',00' or '.00' at the end are dropped.
 - Slang in messages: '100 lucas' = 100000, '84 mil' = 84000, '1,2 palos' = 1200000, '50k' = 50000.
+  A bare number in a message is thousands: '980 de tours' = 980000.
+- A chat message can list several things with their own amounts ('5 k bloqueador 4.5 k de cerveza
+  980 de tours'): total_cop is the SUM of all of them (989500) and items lists each one.
 - total_cop is the final amount paid (TOTAL / TOTAL A PAGAR / VALOR TOTAL), never the cash given
   ('Efectivo', 'Recibido') nor the change ('Cambio'). If a DIAN QR total is given, use it.
 - Dates in Colombia are day/month/year. Output YYYY-MM-DD. Relative words ('ayer', 'el sábado') are
@@ -32,7 +35,7 @@ Rules:
 - items: every product line of a receipt or invoice, as printed, with quantity, unit price and line
   total. 'PAPA BACON' followed by '2 x 5.000,00 10.000,00' is name 'Papa bacon', quantity 2,
   unit_price_cop 5000, total_cop 10000. Line totals should add up to the subtotal. Use an empty list
-  for chat messages and for payment or transfer vouchers that list no products.
+  for payment or transfer vouchers that list no products, and for chat messages with a single amount.
 - description_en: a short, normalized English description of what was bought (no amounts, no names
   of people). It is used to classify the expense, so name the kind of business and main items.
 - is_expense: false only for messages that are clearly not about spending money.

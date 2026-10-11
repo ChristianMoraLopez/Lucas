@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from .numbers import find_amounts, normalize_merchant, parse_cop_amount, strip_accents
+from .numbers import MontoEscrito, find_amounts, monto_del_mensaje, normalize_merchant, strip_accents
 
 MESES = {
     "ene": 1, "enero": 1, "feb": 2, "febrero": 2, "mar": 3, "marzo": 3, "abr": 4, "abril": 4,
@@ -58,10 +58,20 @@ class DateHit:
 
 
 @dataclass
+class ItemMensaje:
+    """Una de las cosas de un mensaje con varias: «4.5 k de cerveza» → Cerveza, 4.500."""
+
+    name: str
+    total_cop: int
+
+
+@dataclass
 class Hints:
     """Pistas de las reglas para el LLM y la validación."""
 
-    amount: int | None = None  # el monto del mensaje (reglas de lucas, palos, mil)
+    amount: int | None = None  # el monto del mensaje (reglas de lucas, palos, mil; si trae varios, la suma)
+    sumados: int = 0  # cuántos montos del mensaje se sumaron (0: uno solo)
+    items: list[ItemMensaje] = field(default_factory=list)  # las cosas de un mensaje con varias
     total_candidates: list[int] = field(default_factory=list)  # montos en líneas de TOTAL
     subtotal: int | None = None
     tax: int | None = None
@@ -166,6 +176,7 @@ _RELLENO = re.compile(r"(?<!\w)(?:otr[oa]s?\s+vez|otr[oa]s?|tambi[eé]n|nuevamen
 _PARA_ALGUIEN = re.compile(r"(?<!\w)para\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*(?:\s+y\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*)?")
 _INICIO = re.compile(
     r"^[\s,.;:-]*(?:(?:yo|nosotros|hoy|ayer|de|del|el|la|los|las|en|un|una|unos|unas|para|por|que|se|nos|me|le|les|y"
+    r"|todo|toda|todos|esto|eso|es|fue|era|son|fueron"
     r"|gast\w*|pagu[eé]|pagamos|pagaron|compr\w*|cost\w*|sali[oó]|valieron|vali[oó]|cobr\w*|invert\w*)[\s,.;:]+)+",
     re.IGNORECASE,
 )
@@ -199,14 +210,70 @@ def guess_category(text: str | None) -> str | None:
     return keyword_category(text)
 
 
+def _juntar(nombres: list[str]) -> str:
+    """«Bloqueador», «Cerveza», «Tours» → «Bloqueador, cerveza y tours» (máximo 40 letras)"""
+    resto = [n[0].lower() + n[1:] if len(n) > 1 and not n[1].isupper() else n for n in nombres[1:]]
+    todos = [nombres[0], *resto]
+    t = todos[0] if len(todos) == 1 else f"{', '.join(todos[:-1])} y {todos[-1]}"
+    if len(t) > 40:
+        t = t[:41].rsplit(" ", 1)[0].rstrip(" ,.;:-y")
+    return t
+
+
+def items_del_mensaje(text: str, montos: list[MontoEscrito]) -> tuple[list[ItemMensaje], str | None]:
+    """
+    Las cosas de un mensaje con varios montos y el nombre del gasto:
+    «5 k bloqueador · 4.5 k de cerveza · 980 de tours · Todo es viaje de amazonas»
+    → Bloqueador 5.000, Cerveza 4.500, Tours 980.000 y «Viaje de amazonas».
+    Si alguno no tiene nombre, no hay ítems; el nombre del gasto es la línea sin
+    montos o, si no hay, las cosas juntas («Pan y leche»).
+    """
+
+    def linea(i: int) -> tuple[int, int]:
+        b = text.find("\n", i)
+        return text.rfind("\n", 0, i) + 1, len(text) if b == -1 else b
+
+    # ¿El «en qué» va después del monto («5 k bloqueador») o antes («pan 5k, leche 10k»)?
+    a0, _ = linea(montos[0].inicio)
+    despues = not re.search(r"[^\W\d_]", text[a0 : montos[0].inicio])
+    nombres: list[str | None] = []
+    for k, m in enumerate(montos):
+        a, b = linea(m.inicio)
+        if despues:
+            hasta = montos[k + 1].inicio if k + 1 < len(montos) else len(text)
+            trozo = text[m.fin : min(hasta, b)]
+        else:
+            desde = montos[k - 1].fin if k else 0
+            trozo = text[max(desde, a) : m.inicio]
+        nombre = merchant_from_text(trozo)
+        nombres.append(None if nombre == "Gasto sin nombre" else nombre)
+    items = [ItemMensaje(n, m.valor) for n, m in zip(nombres, montos, strict=True) if n] if all(nombres) else []
+
+    # Las líneas sin montos son el nombre de todo («Todo es viaje de amazonas»)
+    con_montos = {linea(m.inicio) for m in montos}
+    sueltas, i = [], 0
+    for ln in text.split("\n"):
+        if (i, i + len(ln)) not in con_montos and ln.strip():
+            sueltas.append(ln)
+        i += len(ln) + 1
+    resumen = merchant_from_text(" ".join(sueltas)) if sueltas else None
+    if resumen == "Gasto sin nombre":
+        resumen = None
+    return items, resumen or (_juntar([i.name for i in items]) if items else None)
+
+
 def analyze_message(text: str | None, today: date) -> Hints:
     h = Hints()
     if not text:
         return h
-    h.amount = parse_cop_amount(text)
+    h.amount, sumados = monto_del_mensaje(text)
     rel = relative_date(text, today)
     h.dates = find_dates(text, today) + ([rel] if rel else [])
     h.merchant_guess = merchant_from_text(text)
+    if len(sumados) > 1:
+        h.sumados = len(sumados)
+        h.items, resumen = items_del_mensaje(text, sumados)
+        h.merchant_guess = resumen or h.merchant_guess
     h.category_guess = guess_category(text)
     return h
 

@@ -168,3 +168,48 @@ def test_total_pagado_no_es_el_total_y_el_comercio_no_es_una_linea_de_plata():
     h = analyze_document("SUBTOTAL 10.000\nTOTAL 11.900\nTOTAL PAGADO 20.000\nCAMBIO 8.100", HOY)
     assert h.total_candidates == [11_900]
     assert h.merchant_guess is None
+
+
+# Un mensaje con varias cosas se suma (el de Amazonas llegaba como $5.000)
+AMAZONAS = "5 k bloqueador \n4.5 k de cerveza \n\n980 de tours \n\nTodo es viaje de amazonas"
+
+
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [
+        (AMAZONAS, 989_500),
+        ("Mercado 120.000 y farmacia 35.500", 155_500),
+        ("pan 5k, leche 10k", 15_000),
+        ("hielo 8 lucas y ron 116 lucas, los pagó Santi", 124_000),
+        # No se suma: cantidades, a cuántos se divide, horas, por persona, el total dicho, vueltos
+        ("2 cervezas 10k", 10_000),
+        ("hotel 300 mil por 2 noches", 300_000),
+        ("almuerzo 25.000 para 4", 25_000),
+        ("taxi 45 lucas, la pagó Andrés, entre 3", 45_000),
+        ("a las 3:30 el taxi 20 lucas", 20_000),
+        ("hotel 300 mil cada uno", 300_000),
+        ("total 15k: 5k pan y 10k leche", 15_000),
+        ("5k pan y 10k leche, 15k en total", 15_000),
+        ("pagué 50 lucas y me dieron 5 de vuelto", 50_000),
+        # Antes se perdía: la coma de miles y la fecha escrita
+        ("El día de hoy, 1 de octubre gastamos otros 47,500 para un Vale de salud", 47_500),
+    ],
+)
+def test_varias_cosas_en_un_mensaje_se_suman(texto, esperado):
+    assert parse_cop_amount(texto) == esperado
+
+
+def test_el_mensaje_de_amazonas_trae_sus_cosas():
+    h = analyze_message(AMAZONAS, HOY)
+    assert (h.amount, h.sumados) == (989_500, 3)
+    assert [(i.name, i.total_cop) for i in h.items] == [("Bloqueador", 5_000), ("Cerveza", 4_500), ("Tours", 980_000)]
+    assert h.merchant_guess == "Viaje de amazonas"
+
+
+def test_sin_linea_aparte_el_nombre_son_las_cosas():
+    h = analyze_message("Mercado 120.000 y farmacia 35.500", HOY)
+    assert [(i.name, i.total_cop) for i in h.items] == [("Mercado", 120_000), ("Farmacia", 35_500)]
+    assert h.merchant_guess == "Mercado y farmacia"
+    # Montos sin nombre: se suman, pero sin ítems
+    h = analyze_message("5k 10k", HOY)
+    assert (h.amount, h.items) == (15_000, [])

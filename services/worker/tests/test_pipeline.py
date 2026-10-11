@@ -243,3 +243,24 @@ def test_mensaje_ya_procesado_no_se_repite(db, extractor):
     mid = db.add_message("text", text="hielo 12 lucas")
     db.messages[mid]["status"] = "done"
     assert procesador(db, extractor, None).process(Job(id="j", payload={"message_id": mid})) == "ya estaba procesado"
+
+
+def test_un_mensaje_con_varias_cosas_suma_todo_y_trae_los_items(db, extractor):
+    mid = db.add_message(
+        "text",
+        text="5 k bloqueador \n4.5 k de cerveza \n\n980 de tours \n\nTodo es viaje de amazonas",
+        sender="valeria",
+    )
+    # El LLM se queda con el primer monto: ganan las reglas y queda por revisar
+    llm = FakeLlm(
+        lambda _p: respuesta(merchant="Bloqueador", total_cop=5_000, description_en="Sunscreen and beer on a trip")
+    )
+    procesador(db, extractor, llm).process(Job(id="j", payload={"message_id": mid}))
+    g = gasto(db, mid)
+    assert (g["merchant"], g["total_cop"], g["status"]) == ("Viaje de amazonas", 989_500, "pending_review")
+    assert [(i["name"], i["total_cop"]) for i in g["items"]] == [
+        ("Bloqueador", 5_000),
+        ("Cerveza", 4_500),
+        ("Tours", 980_000),
+    ]
+    assert "Se sumaron 3 montos del mensaje" in g["ai_snapshot"]["notes"]
