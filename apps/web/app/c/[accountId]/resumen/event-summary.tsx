@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
+import { nombreCategoria } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { eventMoment, formatRange } from '@/lib/dates';
 import type { T } from '@/lib/i18n';
@@ -96,11 +97,20 @@ export function EventSummary({
                   <i key={c.id} style={{ flex: c.total, background: `var(--tono-${asTone(c.tone)})` }} />
                 ))}
               </div>
+              {/* Cada categoría abre sus gastos */}
               {gastado.map((c) => (
-                <div className="ed-cat" key={c.id}>
+                <Link
+                  className="ed-cat"
+                  key={c.id}
+                  href={`/c/${d.account.id}/gastos?cat=${c.id}`}
+                  aria-label={t('Ver los gastos de {categoria}', { categoria: nombreCategoria(c.name, t) })}
+                >
                   <CategoryTag name={c.name} size="sm" />
                   <Amount value={c.total} />
-                </div>
+                  <span className="hd-cat__ir" aria-hidden="true">
+                    ›
+                  </span>
+                </Link>
               ))}
             </>
           ) : (

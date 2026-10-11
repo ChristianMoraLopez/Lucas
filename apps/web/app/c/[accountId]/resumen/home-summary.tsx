@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
+import { nombreCategoria } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, BudgetBar, CategoryTag, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { formatRecent, mesCorto, monthName } from '@/lib/dates';
 import type { T } from '@/lib/i18n';
@@ -8,6 +9,13 @@ import { abreviado, dinero, type Moneda } from '@/lib/moneda';
 import { asTone, type Dashboard } from '@/lib/types';
 
 const param = (iso: string) => iso.slice(0, 7);
+
+/** «2026-09-01» ± n meses → «2026-08» */
+function otroMes(iso: string, n: number) {
+  const f = new Date(`${iso.slice(0, 7)}-01T12:00:00`);
+  f.setMonth(f.getMonth() + n);
+  return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`;
+}
 
 /** Resumen de una cuenta hogar (captura 3): el mes, en qué se fue, tendencia, presupuestos y últimos gastos. */
 export function HomeSummary({
@@ -32,14 +40,12 @@ export function HomeSummary({
   const nombres = d.people.map((p) => p.name);
   const trend = d.trend ?? [];
   const maxBar = Math.max(d.budget ?? 0, ...trend.map((x) => x.total), 1) * 1.08;
-  const mesAnterior = trend.length > 1 ? trend[trend.length - 2] : null;
+  // Las barras ya no terminan en el mes elegido (llegan hasta el actual): el anterior y el siguiente salen de la fecha
+  const prevParam = otroMes(d.month, -1);
+  const nextParam = otroMes(d.month, 1);
   const conPresupuesto = d.categories.filter((c) => c.budget);
   const pasados = conPresupuesto.filter((c) => c.total > (c.budget as number)).length;
   const gastado = d.categories.filter((c) => c.total > 0);
-  const prevParam = trend.length ? param(trend[trend.length - 2]?.month ?? trend[0].month) : null;
-  const nextMonth = new Date(`${d.month}T12:00:00`);
-  nextMonth.setMonth(nextMonth.getMonth() + 1);
-  const nextParam = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
 
   return (
     <div className="hd">
@@ -75,13 +81,9 @@ export function HomeSummary({
           linkLabel={t('Ver los gastos de {mes}', { mes: mesEnFrase(d.month) })}
           aside={
             <span className="hd-nav">
-              {prevParam ? (
-                <Link href={`${base}?mes=${prevParam}`} aria-label={t('Mes anterior')} scroll={false}>
-                  ‹
-                </Link>
-              ) : (
-                <span aria-hidden="true">‹</span>
-              )}
+              <Link href={`${base}?mes=${prevParam}`} aria-label={t('Mes anterior')} scroll={false}>
+                ‹
+              </Link>
               {esEsteMes ? (
                 <span className="is-off" aria-hidden="true">
                   ›
@@ -99,9 +101,9 @@ export function HomeSummary({
           ) : (
             <span>{t('Sin presupuesto este mes')}</span>
           )}
-          {mesAnterior && d.prev_total != null && (
+          {d.prev_total != null && (
             <span>
-              {d.total >= d.prev_total ? '▲' : '▼'} <b>{formatCOP(Math.abs(d.total - d.prev_total))}</b> {t('vs.')} {mesCorto(mesAnterior.month, t.idioma)}
+              {d.total >= d.prev_total ? '▲' : '▼'} <b>{formatCOP(Math.abs(d.total - d.prev_total))}</b> {t('vs.')} {mesCorto(`${prevParam}-01`, t.idioma)}
             </span>
           )}
           <span className="lu-bill__more" aria-hidden="true">
@@ -123,12 +125,22 @@ export function HomeSummary({
                   <i key={c.id} style={{ flex: c.total, background: `var(--tono-${asTone(c.tone)})` }} />
                 ))}
               </div>
+              {/* Cada categoría abre sus gastos de ese mes */}
               <ul className="hd-catlist">
                 {gastado.map((c) => (
                   <li key={c.id}>
-                    <CategoryTag name={c.name} />
-                    <Amount value={c.total} size="md" />
-                    <span className="hd-pct lu-num">{Math.round((c.total / d.total) * 100)} %</span>
+                    <Link
+                      href={`/c/${d.account.id}/gastos?cat=${c.id}&mes=${param(d.month)}`}
+                      className="hd-cat"
+                      aria-label={t('Ver los gastos de {categoria} en {mes}', { categoria: nombreCategoria(c.name, t), mes: mesEnFrase(d.month) })}
+                    >
+                      <CategoryTag name={c.name} />
+                      <Amount value={c.total} size="md" />
+                      <span className="hd-pct lu-num">{Math.round((c.total / d.total) * 100)} %</span>
+                      <span className="hd-cat__ir" aria-hidden="true">
+                        ›
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>

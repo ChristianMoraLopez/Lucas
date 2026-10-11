@@ -320,11 +320,12 @@ describe('revisión', () => {
 
 describe('account_dashboard', () => {
   type Tablero = {
+    month: string;
     total: number;
     budget: number;
     pending_count: number;
     categories: { name: string; total: number; budget: number | null }[];
-    trend: { total: number }[];
+    trend: { month: string; total: number }[];
     people: { name: string; paid: number; balance: number }[];
     recent: { merchant: string }[];
   };
@@ -362,6 +363,28 @@ describe('account_dashboard', () => {
       ['Santi', -280_000],
     ]);
     expect(d.categories.map((c) => c.name)).toEqual(['Hospedaje', 'Restaurante', 'Transporte', 'Licor', 'Mercado']);
+  });
+
+  it('al elegir un mes anterior, la tendencia sigue llegando hasta el mes actual (migración 270)', async () => {
+    const hoy = await tablero(U.valeria, CASA);
+    const septiembre = hoy.trend[4].month;
+    const d = await as(
+      db,
+      U.valeria,
+      async (tx) => (await one<{ d: Tablero }>(tx, 'select public.account_dashboard($1, $2) as d', [CASA, septiembre])).d,
+    );
+    expect(d.month).toBe(septiembre);
+    expect(d.total).toBe(hoy.trend[4].total);
+    // Las mismas seis barras: el mes actual no desaparece
+    expect(d.trend.map((x) => x.month)).toEqual(hoy.trend.map((x) => x.month));
+    // Un mes de hace un año: seis barras desde él
+    const viejo = await as(
+      db,
+      U.valeria,
+      async (tx) => (await one<{ d: Tablero }>(tx, "select public.account_dashboard($1, ($2::date - interval '12 months')::date) as d", [CASA, hoy.month])).d,
+    );
+    expect(viejo.trend[0].month).toBe(viejo.month);
+    expect(viejo.trend).toHaveLength(6);
   });
 
   it('una cuenta ajena no devuelve nada', async () => {

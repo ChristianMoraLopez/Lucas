@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { EvidenceViewer } from '@/components/evidence-viewer';
 import { ExpenseForm } from '@/components/expense-form';
 import { useT } from '@/components/idioma';
+import { nombreCategoria } from '@/components/lucas-core';
 import { Sticker } from '@/components/lucas-ui';
 import { useDinero } from '@/components/moneda';
 import { formatWhen } from '@/lib/dates';
@@ -81,6 +82,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
   const quienSubio =
     people.find((p) => p.id === expense.messages?.sender_person_id) ?? people.find((p) => p.claimed_by && p.claimed_by === expense.messages?.uploaded_by);
   const corrector = people.find((p) => p.claimed_by && p.claimed_by === expense.corrected_by);
+  const categoria = categories.find((c) => c.id === expense.category_id);
 
   return (
     <div className="rv">
@@ -105,6 +107,16 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
             source={expense.source}
           />
           <dl className="gd-facts">
+            {categoria && (
+              <div>
+                <dt>{t('Categoría')}</dt>
+                <dd>
+                  <Link href={`/c/${accountId}/gastos?cat=${categoria.id}`} className="gd-cat-link">
+                    {t('Ver todos los gastos de {categoria}', { categoria: nombreCategoria(categoria.name, t) })} ›
+                  </Link>
+                </dd>
+              </div>
+            )}
             <div>
               <dt>{t('Llegó por')}</dt>
               <dd>{ORIGEN[expense.source] ? t(ORIGEN[expense.source]) : expense.source}</dd>

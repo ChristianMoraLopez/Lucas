@@ -1442,5 +1442,15 @@ export const EN: Record<string, string> = {
   // ---------- Páginas sueltas ----------
   'No hay conexión': 'No connection',
 
+  // ---------- Detalle por categoría ----------
+  'Ver todos los gastos de {categoria}': 'See all {categoria} expenses',
+  'Sin pagador': 'No payer',
+  'Detalle de {categoria}': '{categoria} details',
+  'Todos los meses': 'All months',
+  'promedio {monto}': 'average {monto}',
+  'Ver todos los meses': 'See all months',
+  'Ver los gastos de {categoria}': 'See {categoria} expenses',
+  'Ver los gastos de {categoria} en {mes}': 'See {categoria} expenses in {mes}',
+
   // ⟨más⟩
 };
