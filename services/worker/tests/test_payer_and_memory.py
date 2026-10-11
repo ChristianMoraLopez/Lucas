@@ -54,6 +54,18 @@ def test_division_entre_los_que_nombra():
     assert r.person_ids == [] and "vale y pedro" in r.note
 
 
+def test_en_ingles_como_lo_dice_la_guia():
+    assert resolve_payer("airport taxi $45, Santi paid", GENTE, "v").person_id == "s"
+    assert resolve_payer("dinner 80, paid by Laura", GENTE, "s").person_id == "l"
+    assert resolve_payer("Vale covered the tickets", GENTE, "s").person_id == "v"
+    assert resolve_payer("I paid for the ice", GENTE, "c").person_id == "c"
+    assert resolve_payer("the hotel was paid", GENTE, "c").person_id == "c"
+    assert resolve_split("ice $12 between Vale, Santi and Caro", GENTE).person_ids == ["v", "s", "c"]
+    assert resolve_split("lunch between the 4", GENTE).person_ids == []
+    assert "between the 4" in resolve_split("lunch between the 4", GENTE).note
+    assert "between all" in resolve_split("pizza between all of us", GENTE).note
+
+
 MEMORIA = [
     MemoryEntry("m1", "PANADERIA LA ESPIGA", "panaderia la espiga", "cafe", 9),
     MemoryEntry("m2", "TIENDA DON BETO", "tienda don beto", "mercado", 7),

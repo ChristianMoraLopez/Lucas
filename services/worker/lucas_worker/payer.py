@@ -5,6 +5,8 @@
 - «pagué», o nada → quien mandó el mensaje (o subió la foto).
 - «entre Vale y Santi» → la división solo entre esas personas.
 - «entre los 4», «entre todos» → nota para la revisión; se divide entre todas.
+- En inglés igual (la guía de mrluks.com/guia lo enseña así): «Andrés paid»,
+  «paid by Laura», «between Vale and Caro», «between the 4», «between all of us».
 
 Los nombres se comparan con las personas de la cuenta: prefijo («Vale» →
 Valeria, «Juanca» → Juan Camilo) o parecido con RapidFuzz («Santy» → Santi).
@@ -22,17 +24,23 @@ from .extract.numbers import normalize_merchant
 NO_NOMBRES = {
     "con", "por", "para", "todo", "todos", "todas", "que", "las", "los", "quien", "yo", "el", "la", "lo", "de", "del",
     "cuenta", "mitad", "uno", "una", "cada", "ustedes", "nosotros", "ellos", "mi", "mis", "su", "sus", "nadie",
+    "the", "for", "and", "all", "who", "you", "she", "they", "his", "her", "our", "their", "half", "everyone",
 }  # fmt: skip
 
 _PATRONES_PAGADOR = [
     re.compile(r"\b(?:pago|invito|puso|pusieron)\s+(?:el|la|los|las|lo)?\s*([a-z]{3,})"),
     re.compile(r"\b([a-z]{3,})\s+(?:pago|invito|puso)\b"),
     re.compile(r"\bpagad[oa]s?\s+por\s+([a-z]{3,})"),
+    re.compile(r"\bpaid\s+by\s+([a-z]{3,})"),
+    re.compile(r"\b([a-z]{3,})\s+(?:paid|covered)\b"),
 ]
-_ENTRE_NUM = re.compile(r"\bentre\s+(?:los|las)\s+(\d+|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b")
-_ENTRE_TODOS = re.compile(r"\bentre\s+todos\b|\bentre\s+todas\b")
-# Ya normalizado (sin comas): «entre vale santi y caro», «entre juan camilo y laura»
-_ENTRE_NOMBRES = re.compile(r"\bentre\s+((?:[a-z]+\s+)+y\s+[a-z]+)")
+_ENTRE_NUM = re.compile(
+    r"\bentre\s+(?:los|las)\s+(\d+|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b"
+    r"|\bbetween\s+(?:the\s+)?(\d+|two|three|four|five|six|seven|eight|nine|ten)\b"
+)
+_ENTRE_TODOS = re.compile(r"\bentre\s+todos\b|\bentre\s+todas\b|\bbetween\s+(?:all\s+of\s+us|all|everyone)\b")
+# Ya normalizado (sin comas): «entre vale santi y caro», «entre juan camilo y laura», «between vale and caro»
+_ENTRE_NOMBRES = re.compile(r"\b(?:entre|between)\s+((?:[a-z]+\s+)+(?:y|and)\s+[a-z]+)")
 
 
 @dataclass
@@ -110,7 +118,7 @@ def resolve_split(text: str | None, people: list[Person]) -> SplitResult:
         nota = f"Leído del mensaje: «{m.group(0).strip()}»"
         elegidas: list[Person] = []
         for palabra in m.group(1).split():
-            if palabra == "y":
+            if palabra in ("y", "and"):
                 continue
             if encontrado := match_person(palabra, people):
                 if encontrado[0] not in elegidas:
