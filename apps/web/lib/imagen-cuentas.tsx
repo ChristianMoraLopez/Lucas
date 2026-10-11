@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { formatRange, monthName } from '@/lib/dates';
 import { crearT, type T } from '@/lib/i18n';
-import { C, cargar, FUENTES, inicial, limpio, TONOS } from '@/lib/imagen-base';
+import { C, cara, cargar, FUENTES, limpio, TONOS } from '@/lib/imagen-base';
 import { dinero, type Moneda } from '@/lib/moneda';
 import { MARCA, personView, transfersFor } from '@/lib/share';
 import { asTone, type SharedOverview } from '@/lib/types';
@@ -29,7 +29,7 @@ export async function imagenCuentas(
   const formatCOP = (n: number) => dinero(n, moneda, t.idioma);
   const people = new Map(d.people.map((p) => [p.id, p]));
   const nombre = (id: string) => limpio(people.get(id)?.name ?? t('Alguien'), 18);
-  const tono = (id: string) => TONOS[asTone(people.get(id)?.tone, people.get(id)?.name ?? '')];
+  const tonoDe = (id: string) => asTone(people.get(id)?.tone, people.get(id)?.name ?? '');
   const evento = d.account.type === 'evento';
   const total = d.people.reduce((s, p) => s + p.paid, 0);
   const partes = new Set(d.people.map((p) => p.share));
@@ -57,13 +57,12 @@ export async function imagenCuentas(
         width: size,
         height: size,
         borderRadius: size,
-        background: tono(id),
-        color: C.tinta,
-        fontFamily: 'Bricolage',
-        fontSize: size * 0.42,
+        background: TONOS[tonoDe(id)],
       }}
     >
-      {inicial(nombre(id))}
+      {/* La misma carita de la web: se siembra con el nombre completo, no con el recortado */}
+      {/* biome-ignore lint/performance/noImgElement: es una imagen generada (next/og), no una página */}
+      <img src={cara(people.get(id)?.name || t('Alguien'), tonoDe(id))} width={Math.round(size * 0.86)} height={Math.round(size * 0.86)} alt="" />
     </div>
   );
   const flecha = (

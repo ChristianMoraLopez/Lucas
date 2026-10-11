@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { blobatar } from 'blobatar';
 import type { Tone } from '@/components/lucas-core';
+import { opcionesCara } from '@/lib/avatar';
 
 /* Lo común de las imágenes que genera Luks (next/og): la de las cuentas
    (vista previa del link) y las historias de Instagram. */
@@ -51,7 +53,8 @@ export const limpio = (s: string, max = 40) => {
     .trim();
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t || 'Alguien';
 };
-export const inicial = (n: string) => n.match(/[\p{L}\p{N}]/u)?.[0]?.toUpperCase() ?? '?';
+/** La carita de la persona (la misma de la web) como `data:` en base64, que es lo que lee next/og */
+export const cara = (name: string, tone: Tone) => `data:image/svg+xml;base64,${Buffer.from(blobatar(name, opcionesCara(tone))).toString('base64')}`;
 
 /** Las fuentes de Luks para ImageResponse */
 export const FUENTES = (figtree600: Buffer, figtree800: Buffer, bricolage800: Buffer) => [

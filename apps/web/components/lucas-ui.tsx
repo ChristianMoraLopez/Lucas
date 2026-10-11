@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { caraUri } from '@/lib/avatar';
 import type { Moneda } from '@/lib/moneda';
 import { useT } from './idioma';
 import { isLottieName, Lottie } from './lottie';
@@ -286,16 +287,17 @@ export function Row({
 }
 
 /* ---------- Avatar / Person ---------- */
-/** «Juan Camilo» → «JC». Solo letras y números: los nombres de WhatsApp traen emojis («Juli 🌻» → «J») */
-const initials = (n: string) => ((n.match(/(?<![\p{L}\p{N}])[\p{L}\p{N}]/gu) ?? []).slice(0, 2).join('') || '?').toUpperCase();
+/** La carita de la persona (blobatar, lib/avatar.ts) sobre el círculo de su tono */
 export function Avatar({ name, tone, size = 'md', registered = true }: { name: string; tone?: Tone; size?: 'xs' | 'sm' | 'md'; registered?: boolean }) {
+  const t = tone || toneFor(name);
   return (
     <span
       className={cx('lu-avatar', size !== 'md' && 'lu-avatar--' + size, !registered && 'lu-avatar--ghost')}
-      style={registered ? toneVars(tone || toneFor(name)) : undefined}
+      style={registered ? toneVars(t) : undefined}
       aria-hidden="true"
     >
-      {initials(name)}
+      {/* biome-ignore lint/performance/noImgElement: SVG en data: URI, next/image no le aporta nada */}
+      <img className="lu-avatar__cara" src={caraUri(name, t, registered)} alt="" draggable={false} />
     </span>
   );
 }

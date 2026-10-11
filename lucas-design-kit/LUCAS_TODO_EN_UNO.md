@@ -47,7 +47,7 @@ Lucas convierte lo que la gente manda a un grupo de WhatsApp (fotos de recibos, 
 
 - **Tarjeta billete** (`BillCard`): la cifra protagonista de la pantalla, en verde para hogar y en morado para evento, con guilloche, denominación en cápsula y el monto resaltado. Pon una sola por pantalla.
 - **Stickers** (`Sticker`): los estados (Pagado, Revisar, Pendiente, Te pasaste, Saldado) son calcomanías rotadas de −8° a 6°, con borde del color de la superficie y sombra corta. Al aparecer, caen con rebote.
-- **Personas con color** (`Avatar`, `Person`, `Chip`): el círculo con las iniciales en su tono. Quien no tiene cuenta aparece en círculo vacío con contorno.
+- **Personas con color** (`Avatar`, `Person`, `Chip`): el círculo de su tono con su carita ([blobatar](https://www.npmjs.com/package/blobatar), sale del nombre y tiene el matiz del tono; en la app vive en `apps/web/lib/avatar.ts`). Quien no tiene cuenta aparece con la carita en gris dentro de un círculo vacío con contorno.
 - **Categorías** (`CategoryTag`): una letra en un cuadro redondeado de color (C Café, L Licor, M Mercado, T Transporte, H Hospedaje, R Restaurante, S Servicios). No se usan íconos de categoría.
 - **Pares de transferencia**: el avatar de quien paga, una flecha y el avatar de quien recibe.
 
@@ -250,7 +250,7 @@ Chip de persona para elegir «entre quiénes» se divide un gasto.
 
 ### Avatar
 
-Avatar de persona: sus iniciales en un círculo de su tono.
+Avatar de persona: su carita (blobatar, siempre la misma para el mismo nombre) en un círculo de su tono.
 
 - Props: `name`, `tone` (por defecto el que fijó `setTones`), `size` (`xs`, `sm`, `md`), `registered` (con `false` queda como círculo vacío con contorno).
 - Llama a `setTones({ Valeria: 'morado', … })` una vez por cuenta para que cada quien conserve su color.

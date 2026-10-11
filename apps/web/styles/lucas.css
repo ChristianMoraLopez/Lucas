@@ -154,10 +154,12 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); font-family: va
 .lu-chip__x { font-size: 12px; margin-left: 2px; }
 
 /* ---------- persona ---------- */
-.lu-avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 15px; background: var(--c); color: var(--cf); }
-.lu-avatar--sm { width: 28px; height: 28px; font-size: 12px; }
-.lu-avatar--xs { width: 24px; height: 24px; font-size: 11px; }
-.lu-avatar--ghost { background: transparent; color: var(--tinta-2); box-shadow: inset 0 0 0 2px var(--tinta-2); }
+.lu-avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: var(--c); }
+.lu-avatar--sm { width: 28px; height: 28px; }
+.lu-avatar--xs { width: 24px; height: 24px; }
+.lu-avatar--ghost { background: transparent; box-shadow: inset 0 0 0 2px var(--tinta-2); }
+.lu-avatar__cara { display: block; width: 86%; height: 86%; pointer-events: none; user-select: none; }
+.lu-avatar--ghost .lu-avatar__cara { width: 74%; height: 74%; filter: grayscale(1); }
 .lu-person { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .lu-person__name { font-weight: 700; font-size: 16px; line-height: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lu-person__sub { font-size: 13px; line-height: 18px; color: var(--tinta-2); font-weight: 500; }
