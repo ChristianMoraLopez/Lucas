@@ -191,3 +191,23 @@ describe('la bandeja de salida de Mister Luks', () => {
     expect(store.outbox[0]).toMatchObject({ dropped: true });
   });
 });
+
+describe('el link de verificación', () => {
+  it('se crea al mandarlo: el mensaje lleva el link y la bandeja sigue sin el código', async () => {
+    const store = new FakeStore();
+    const wa = new FakeConnector(contador);
+    const jid = '573016667788@s.whatsapp.net';
+    await store.privateChat('contador', jid);
+    await store.outboxEnqueue([{ chat_jid: jid, reason: 'verify', body: 'Abre este link: {link}', identity_id: 'i-1', dedupe_key: 'v1' }]);
+    const loop = new ReplyLoop(
+      store,
+      new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 20, maxPerHourTotal: 60 }),
+      () => ({ connector: wa }),
+      { batchMax: 5, maxWaitMs: 60_000, webUrl: 'https://mrluks.com' },
+      silentLog,
+    );
+    expect((await loop.tick()).outbox).toBe(1);
+    expect(wa.sent).toEqual([{ chatId: jid, text: 'Abre este link: https://mrluks.com/v/Cod1_aB-9' }]);
+    expect(store.outbox[0].body).toBe('Abre este link: {link}');
+  });
+});

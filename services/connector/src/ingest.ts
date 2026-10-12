@@ -6,6 +6,7 @@ import type { OutboxItem, Store } from './store.js';
 import {
   esMensajeDeLuks,
   esPedidoDeAyuda,
+  esSoyYo,
   guia,
   type Idioma,
   idiomaDeNumero,
@@ -22,6 +23,7 @@ export type Outcome =
   | 'de_luks'
   | 'charla'
   | 'ayuda'
+  | 'soy_yo'
   | 'enlazado'
   | 'codigo_invalido'
   | 'otra_cuenta'
@@ -133,6 +135,9 @@ export class Ingestor {
     const code = parseLinkCommand(m.text);
     if (code) return this.#link(session, connector, m, code);
 
+    // «luks soy yo» en el grupo: solo lo atiende Mister Luks
+    if (session.kind === 'contador' && !m.media && esSoyYo(m.text)) return this.#soyYo(session, m);
+
     // «ayuda» en el grupo: la guía, como mucho una vez por hora
     if (session.kind === 'contador' && !m.media && esPedidoDeAyuda(m.text)) {
       const idioma = idiomaDeNumero(m.sender.phone);
@@ -219,10 +224,12 @@ export class Ingestor {
   /**
    * Un chat privado con Mister Luks. La primera vez, la bienvenida con la guía
    * (imagen y PDF); un link de grupo, entra (con tope por hora); «ayuda», la
-   * guía otra vez. Lo demás no se guarda ni se contesta.
+   * guía otra vez; «luks soy yo», el link para verificar su número (antes que
+   * la bienvenida: es lo que vino a hacer). Lo demás no se guarda ni se contesta.
    */
   async #privado(session: SessionInfo, connector: MessagingConnector, m: IncomingMessage): Promise<Outcome> {
     await this.store.privateChat(session.id, m.chatId);
+    const soyYo = !m.media && esSoyYo(m.text) ? await this.#soyYo(session, m) : null;
     const idioma = idiomaDeNumero(m.sender.phone);
     const g = guia(this.mister.guiaUrl, idioma);
     const conGuia = { image_url: g.imagen, document_url: g.pdf, document_name: g.nombrePdf };
@@ -231,6 +238,7 @@ export class Ingestor {
       { chat_jid: m.chatId, reason: 'welcome', body: MISTER.bienvenida(idioma), ...conGuia, dedupe_key: `welcome:${m.chatId}` },
     ]);
     const primeraVez = nuevas.length > 0;
+    if (soyYo) return soyYo;
 
     const invitacion = parseInviteLink(m.text);
     if (invitacion) return this.#unirse(connector, m, invitacion, idioma);
@@ -242,6 +250,43 @@ export class Ingestor {
       return 'ayuda';
     }
     return primeraVez ? 'bienvenida' : 'privado';
+  }
+
+  /**
+   * «luks soy yo»: quiere asociar su número a su cuenta de Luks. Si ya está
+   * verificado, se lo dice; si no, por privado (lo pidió) le llega un link
+   * /v/CÓDIGO de un solo uso, y en el grupo, que lo revise. Como mucho una vez
+   * cada 10 minutos por persona.
+   */
+  async #soyYo(session: SessionInfo, m: IncomingMessage): Promise<Outcome> {
+    const privado = m.chatKind === 'privado' ? m.chatId : m.sender.phone ? `${m.sender.phone}@s.whatsapp.net` : m.sender.lid ? `${m.sender.lid}@lid` : null;
+    if (!privado) return 'ignorado:sin_numero';
+    const idioma = idiomaDeNumero(m.sender.phone);
+    const r = await this.store.soyYo(session.id, privado, m.sender.phone, m.sender.lid ?? null, m.sender.name);
+    const cuando = tramo(m.sentAt, 10);
+    const items: OutboxItem[] = [];
+    if (m.chatKind === 'grupo') {
+      items.push({
+        chat_jid: m.chatId,
+        reason: 'soy_yo',
+        body: r.verified ? MISTER.soyYo.reconocido(idioma, r.name) : MISTER.soyYo.noEncontrado(idioma, r.last4),
+        dedupe_key: `soy_yo:${m.chatId}:${privado}:${cuando}`,
+      });
+    }
+    if (!r.verified) {
+      items.push({
+        chat_jid: privado,
+        reason: 'verify',
+        body: MISTER.soyYo.link(idioma, r.last4),
+        identity_id: r.identity_id,
+        dedupe_key: `verify:${privado}:${cuando}`,
+      });
+    } else if (m.chatKind === 'privado') {
+      items.push({ chat_jid: privado, reason: 'soy_yo', body: MISTER.soyYo.yaVerificado(idioma, r.name), dedupe_key: `soy_yo:${privado}:${cuando}` });
+    }
+    await this.#encolar(items);
+    this.log.info({ verified: r.verified, sender: maskWaId(m.sender.id) }, '«luks soy yo»');
+    return 'soy_yo';
   }
 
   /** Mandaron por privado el link de un grupo: Mister Luks entra (y lo cuenta por privado) */

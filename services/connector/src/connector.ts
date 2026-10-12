@@ -36,6 +36,8 @@ export interface Sender {
   /** Número sin «+» (573001234567) o «lid:…» si WhatsApp no deja ver el número */
   id: string | null;
   phone: string | null;
+  /** El LID (id interno de WhatsApp), si se sabe: con él se reconoce el mismo número */
+  lid?: string | null;
   /** El nombre que la persona se puso en WhatsApp */
   name: string | null;
 }

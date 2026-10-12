@@ -24,6 +24,10 @@ const CON_DATOS: [RegExp, string][] = [
   [/^Hay (\d+) gastos sin quién pagó o sin dividir: corríjanlos antes de liquidar$/, '$1 expenses have no payer or no split: fix them before settling'],
   [/^Las partes suman (.+) y el gasto es de (.+): tienen que dar lo mismo$/, 'The shares add up to $1 and the expense is $2: they have to match'],
   [/^Para confirmar, escribe el nombre de la cuenta tal cual: «(.+)»$/, 'To confirm, type the account name exactly: “$1”'],
+  [
+    /^Para entrar como «(.+)», primero confirma que el WhatsApp ••• (\d+) es tuyo: escríbele «luks soy yo» a Mister Luks y abre el link que te manda\. O entra como persona nueva y pídele a quien administra la cuenta que te agregue desde Personas\.$/,
+    'To join as “$1”, first confirm that WhatsApp ••• $2 is yours: text Mister Luks “luks soy yo” and open the link he sends you. Or join as a new person and ask whoever runs the account to add you from People.',
+  ],
   [/^Primero revisen 1 gasto pendiente$/, 'First review 1 pending expense'],
   [/^Primero revisen (\d+) gastos pendientes$/, 'First review $1 pending expenses'],
   [/^Sobran transferencias: con (\d+) personas con saldo bastan (\d+)$/, 'Too many transfers: with $1 people owing or owed, $2 are enough'],

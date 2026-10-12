@@ -37,9 +37,10 @@ describe('mensajes de Baileys → IncomingMessage', () => {
       ME,
       bajar,
     );
-    expect(conAlt?.sender).toEqual({ id: '573016667788', phone: '573016667788', name: 'Mafe' });
+    // El LID también queda: con él se reconoce el mismo número (migración 310)
+    expect(conAlt?.sender).toEqual({ id: '573016667788', phone: '573016667788', lid: '123456789012345', name: 'Mafe' });
     const soloLid = normalizeMessage(msg({ key: { remoteJid: GRUPO, id: 'X2', participant: '123456789012345@lid' } }), 's1', ME, bajar);
-    expect(soloLid?.sender).toEqual({ id: 'lid:123456789012345', phone: null, name: 'Mafe' });
+    expect(soloLid?.sender).toEqual({ id: 'lid:123456789012345', phone: null, lid: '123456789012345', name: 'Mafe' });
   });
 
   it('foto con pie de foto', async () => {

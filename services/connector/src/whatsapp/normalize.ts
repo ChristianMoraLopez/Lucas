@@ -41,7 +41,7 @@ export function senderOf(raw: WAMessage, me: Me): Sender {
   );
   const phone = usuario(jids.find((j) => isPnUser(j)));
   const lid = usuario(jids.find((j) => isLidUser(j)));
-  return { id: phone ?? (lid ? `lid:${lid}` : null), phone, name: raw.pushName?.trim() || null };
+  return { id: phone ?? (lid ? `lid:${lid}` : null), phone, lid, name: raw.pushName?.trim() || null };
 }
 
 /** Nombres que se conocen de cada número o LID (eventos contacts.* de Baileys) */

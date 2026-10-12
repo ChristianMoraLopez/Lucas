@@ -68,7 +68,7 @@ const replies = new ReplyLoop(
   store,
   limiter,
   manager.senderFor,
-  { batchMax: config.replies.batchMax, maxWaitMs: 30 * 60_000, confirmations: config.replies.enabled },
+  { batchMax: config.replies.batchMax, maxWaitMs: 30 * 60_000, confirmations: config.replies.enabled, webUrl: config.misterLuks.webUrl },
   log,
 );
 const health = startHealthServer(config.healthPort, { manager, store, queueStaleAfterS: config.queueStaleAfterS, log });

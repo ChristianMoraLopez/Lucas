@@ -9,6 +9,7 @@ import { Avatar, Button, CODE_RE, CodeInput, Divider, Field, formatCode, LottieS
 import { formatRange } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import type { T } from '@/lib/i18n';
+import { chatHref, MISTER_LUKS } from '@/lib/mister-luks';
 import { accountGlyph, asTone, type InvitationPreview, plural } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -31,6 +32,8 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
     queryKey: ['invitation-preview', code],
     enabled: complete,
     retry: false,
+    // Si fue a verificar su número con Mister Luks, al volver ya puede entrar como esa persona
+    refetchOnWindowFocus: 'always',
     queryFn: async () => {
       const { data, error } = await supabase.rpc('preview_invitation', { p_code: code });
       if (error) throw error;
@@ -42,6 +45,7 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
   const codeError = complete && preview.isError ? humanError(preview.error) : null;
   const people = found?.unclaimed_people ?? [];
   const chosen = people.find((p) => p.id === selected);
+  const verificar = chosen?.needs_verification ? chosen : undefined;
 
   const join = async () => {
     if (!found) return;
@@ -174,6 +178,23 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
             </>
           )}
 
+          {verificar && (
+            <div className="jn-verif" role="status">
+              <p className="lu-small" style={{ margin: 0 }}>
+                {t(
+                  'Para entrar como {nombre}, primero confirma que el WhatsApp ••• {ultimos} es tuyo: escríbele «luks soy yo» a Mister Luks y abre el link que te manda. Después vuelve aquí.',
+                  {
+                    nombre: verificar.display_name,
+                    ultimos: verificar.wa_last4 ?? '',
+                  },
+                )}
+              </p>
+              <a className="lu-btn lu-btn--secondary lu-btn--sm" href={chatHref(MISTER_LUKS.telefono, 'luks soy yo')} target="_blank" rel="noopener noreferrer">
+                {t('Escribirle a Mister Luks')}
+              </a>
+            </div>
+          )}
+
           {!chosen && (
             <div className="jn-name">
               <Field label={t('Tu nombre')} id="nombre-nuevo" value={displayName} onChange={setDisplayName} />
@@ -187,7 +208,7 @@ export function JoinFlow({ initialCode, myName }: { initialCode: string; myName:
           )}
 
           <div className="jn-go">
-            <Button onClick={join} disabled={joining}>
+            <Button onClick={join} disabled={joining || Boolean(verificar)}>
               {joining ? t('Entrando…') : chosen ? t('Entrar como {nombre}', { nombre: chosen.display_name }) : t('Entrar')}
             </Button>
             <span className="lu-small lu-muted">

@@ -77,7 +77,25 @@ export interface InvitationPreview {
   role: Exclude<Role, 'owner'>;
   already_member: boolean;
   people_count: number;
-  unclaimed_people: { id: string; display_name: string; tone: string; wa_last4: string | null; paid_count: number }[];
+  unclaimed_people: {
+    id: string;
+    display_name: string;
+    tone: string;
+    wa_last4: string | null;
+    paid_count: number;
+    /** Tiene WhatsApp: para entrar como esa persona hay que verificar ese número (o que un admin lo agregue) */
+    needs_verification?: boolean;
+  }[];
+}
+
+/** public.preview_whatsapp_verification(p_token): el link /v/CÓDIGO; del número, solo los últimos 4 */
+export interface VerificacionWhatsapp {
+  status: 'ok' | 'used' | 'expired' | 'invalid';
+  last4?: string;
+  /** Ya está verificado para quien abre el link */
+  mine?: boolean;
+  /** Está verificado para otro usuario (al confirmarlo pasa a quien abre el link) */
+  other?: boolean;
 }
 
 /** public.account_dashboard(p_account_id, p_month) */
@@ -193,6 +211,8 @@ export interface MyProfile {
   }[];
   /** Sus números de WhatsApp (E.164 sin «+») */
   whatsapp: string[];
+  /** Los que confirmó como suyos (con el link de Mister Luks o vinculando su WhatsApp); los demás son heredados */
+  whatsapp_verificados?: string[];
 }
 
 export type MessageKind = 'photo' | 'pdf' | 'text';
