@@ -11,6 +11,7 @@ import type {
   OutboxPending,
   QueueHealth,
   SessionRow,
+  SoyYoResult,
   Store,
 } from '../src/store.js';
 import type { PendingReply } from '../src/text.js';
@@ -119,6 +120,23 @@ export class FakeStore implements Store {
     return this.outbox
       .filter((o) => !o.sent && !o.dropped)
       .map(({ dedupe_key: _k, sent: _s, dropped: _d, error: _e, waId: _w, ...o }) => ({ ...o, created_at: '2026-10-12T00:00:00Z' }));
+  }
+  /** Números verificados: número (o «lid:…») → primer nombre de su usuario */
+  verificados = new Map<string, string>();
+  async soyYo(sesion: string, privateJid: string, phone: string | null, lid: string | null): Promise<SoyYoResult> {
+    await this.privateChat(sesion, privateJid);
+    const numero = phone ?? `lid:${lid}`;
+    const nombre = this.verificados.get(numero);
+    return { identity_id: `i-${numero}`, verified: nombre !== undefined, name: nombre ?? null, last4: (phone ?? lid ?? '').slice(-4) };
+  }
+  /** Los códigos que se crearon al mandar links de verificación */
+  codigos: string[] = [];
+  async verifyMint(outboxId: string) {
+    const o = this.outbox.find((x) => x.id === outboxId);
+    if (o?.reason !== 'verify') throw new Error('Ese mensaje no lleva un link de verificación');
+    const codigo = `Cod${this.codigos.length + 1}_aB-9`;
+    this.codigos.push(codigo);
+    return codigo;
   }
   async outboxResult(id: string, waId: string | null, error: string | null = null, drop = false) {
     const o = this.outbox.find((x) => x.id === id);

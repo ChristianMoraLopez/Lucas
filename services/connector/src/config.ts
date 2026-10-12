@@ -34,6 +34,8 @@ export interface Config {
   misterLuks: {
     /** Dónde están la imagen y el PDF de la guía que manda por WhatsApp */
     guiaUrl: string;
+    /** La web, para los links de verificación (/v/CÓDIGO) */
+    webUrl: string;
     /** Grupos a los que entra por hora con links que le mandan por privado */
     joinsPerHour: number;
     joinsPerHourPerSender: number;
@@ -101,6 +103,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     misterLuks: {
       guiaUrl: (env.GUIA_URL?.trim() || 'https://mrluks.com/guia').replace(/\/+$/, ''),
+      webUrl: (env.WEB_URL?.trim() || 'https://mrluks.com').replace(/\/+$/, ''),
       joinsPerHour: int(env, 'JOINS_MAX_PER_HOUR', 4),
       joinsPerHourPerSender: int(env, 'JOINS_MAX_PER_HOUR_SENDER', 2),
     },

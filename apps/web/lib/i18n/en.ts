@@ -1593,5 +1593,45 @@ export const EN: Record<string, string> = {
   'Para todos y sin vuelta atrás: los gastos, las fotos y los PDF, las personas y el grupo de WhatsApp conectado.':
     'For everyone, with no way back: the expenses, photos and PDFs, the people and the connected WhatsApp group.',
 
+  // ---------- Números verificados: «luks soy yo» y el link /v/ ----------
+  Verificado: 'Verified',
+  Verificar: 'Verify',
+  'Para que Mister Luks te reconozca en los grupos, verifica tu número: escríbele «luks soy yo» y abre el link que te manda.':
+    'So Mister Luks recognizes you in groups, verify your number: text him “luks soy yo” and open the link he sends you.',
+  'Para entrar como {nombre}, primero confirma que el WhatsApp ••• {ultimos} es tuyo: escríbele «luks soy yo» a Mister Luks y abre el link que te manda. Después vuelve aquí.':
+    'To join as {nombre}, first confirm that WhatsApp ••• {ultimos} is yours: text Mister Luks “luks soy yo” and open the link he sends you. Then come back here.',
+  'Escribirle a Mister Luks': 'Text Mister Luks',
+  'Ver mi perfil': 'See my profile',
+  '¡Listo! Este WhatsApp es tuyo': 'Done! This WhatsApp is yours',
+  'Mister Luks ya te reconoce en los grupos, y lo que mandes desde ese número queda a tu nombre en {cuentas}.':
+    'Mister Luks now recognizes you in groups, and what you send from that number goes under your name in {cuentas}.',
+  'Mister Luks ya te reconoce en los grupos. Cuando entres a una cuenta, lo que mandes desde ese número queda a tu nombre.':
+    'Mister Luks now recognizes you in groups. When you join an account, what you send from that number goes under your name.',
+  'Este link no sirve': 'This link doesn’t work',
+  'Puede que se haya cortado al copiarlo. Escríbele «luks soy yo» a Mister Luks y te manda uno nuevo.':
+    'It may have been cut off when copied. Text Mister Luks “luks soy yo” and he’ll send you a new one.',
+  'Este WhatsApp ya es tuyo': 'This WhatsApp is already yours',
+  'Ya está verificado en tu cuenta de Luks. No hace falta nada más.': 'It’s already verified on your Luks account. Nothing else to do.',
+  'Este link ya se usó': 'This link was already used',
+  'Este link ya venció': 'This link has expired',
+  'Cada link sirve una sola vez. Si necesitas otro, escríbele «luks soy yo» a Mister Luks.':
+    'Each link works only once. If you need another, text Mister Luks “luks soy yo”.',
+  'Dura 30 minutos. Escríbele otra vez «luks soy yo» a Mister Luks y te manda uno nuevo.':
+    'It lasts 30 minutes. Text Mister Luks “luks soy yo” again and he’ll send you a new one.',
+  '¿Este WhatsApp es tuyo?': 'Is this WhatsApp yours?',
+  'Al confirmarlo, Mister Luks te reconoce en los grupos y lo que mandes desde ese número queda a tu nombre en tus cuentas.':
+    'Once you confirm, Mister Luks recognizes you in groups and what you send from that number goes under your name in your accounts.',
+  'Este número está verificado en otro usuario de Luks. Si el teléfono es tuyo, al confirmarlo pasa al tuyo.':
+    'This number is verified on another Luks user. If the phone is yours, confirming moves it to yours.',
+  'Confirmando…': 'Confirming…',
+  'Sí, es mío': 'Yes, it’s mine',
+  'Entraste como {correo}.': 'You’re signed in as {correo}.',
+  '¿No eres tú? Entra con tu usuario': 'Not you? Sign in with your account',
+  'Ese link no sirve. Escríbele otra vez «luks soy yo» a Mister Luks': 'That link doesn’t work. Text Mister Luks “luks soy yo” again',
+  'Ese link ya se usó. Si necesitas otro, escríbele «luks soy yo» a Mister Luks':
+    'That link was already used. If you need another, text Mister Luks “luks soy yo”',
+  'Ese link ya venció (dura 30 minutos). Escríbele otra vez «luks soy yo» a Mister Luks':
+    'That link has expired (it lasts 30 minutes). Text Mister Luks “luks soy yo” again',
+
   // ⟨más⟩
 };

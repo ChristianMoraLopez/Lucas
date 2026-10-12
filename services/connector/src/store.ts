@@ -4,7 +4,8 @@ import type { PendingReply } from './text.js';
 
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
    Son RPC de 00000000000080_whatsapp_connector.sql y las que le siguieron
-   (la 290: presencia, chats privados y la bandeja de salida), solo service role. */
+   (la 290: presencia, chats privados y la bandeja de salida; la 310: «luks soy
+   yo» y el link de verificación), solo service role. */
 
 export interface SessionRow {
   id: string;
@@ -39,13 +40,23 @@ export type HelloResult = { say_hello: false } | { say_hello: true; account_name
 /** Un mensaje para la bandeja de salida de Mister Luks (whatsapp_outbox) */
 export interface OutboxItem {
   chat_jid: string;
-  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link';
+  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link' | 'verify' | 'soy_yo';
   body?: string | null;
   image_url?: string | null;
   document_url?: string | null;
   document_name?: string | null;
   /** Lo mismo no se manda dos veces */
   dedupe_key: string;
+  /** De qué número es el link de verificación (reason 'verify'; migración 310) */
+  identity_id?: string | null;
+}
+
+/** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
+export interface SoyYoResult {
+  identity_id: string;
+  verified: boolean;
+  name: string | null;
+  last4: string;
 }
 
 export interface OutboxPending extends Omit<OutboxItem, 'dedupe_key'> {
@@ -123,6 +134,10 @@ export interface Store {
   outboxEnqueue(items: OutboxItem[]): Promise<string[]>;
   outboxPending(limit: number): Promise<OutboxPending[]>;
   outboxResult(id: string, waMessageId: string | null, error?: string | null, drop?: boolean): Promise<void>;
+  /** «luks soy yo»: deja abierto su chat privado (lo pidió) y dice si su número ya está verificado */
+  soyYo(sessionId: string, privateJid: string, phone: string | null, lid: string | null, pushName: string | null): Promise<SoyYoResult>;
+  /** Al mandar un mensaje de verificación: crea el código del link /v/ (solo se guarda su hash) */
+  verifyMint(outboxId: string): Promise<string>;
   linkGroup(sessionId: string, jid: string, name: string | null, code: string, senderWaId: string | null): Promise<LinkResult>;
   shouldIngest(jid: string, waMessageId: string, sentAt: Date): Promise<IngestCheck>;
   ingest(input: IngestInput): Promise<IngestCheck>;
@@ -246,6 +261,20 @@ export class SupabaseStore implements Store {
 
   async outboxResult(id: string, waMessageId: string | null, error: string | null = null, drop = false) {
     await this.#rpc('connector_outbox_result', { p_id: id, p_wa_message_id: waMessageId, p_error: error, p_drop: drop });
+  }
+
+  soyYo(sessionId: string, privateJid: string, phone: string | null, lid: string | null, pushName: string | null) {
+    return this.#rpc<SoyYoResult>('connector_soy_yo', {
+      p_connection_id: sessionId,
+      p_private_jid: privateJid,
+      p_phone: phone,
+      p_lid: lid,
+      p_push_name: pushName,
+    });
+  }
+
+  verifyMint(outboxId: string) {
+    return this.#rpc<string>('connector_verify_mint', { p_outbox_id: outboxId });
   }
 
   linkGroup(sessionId: string, jid: string, name: string | null, code: string, senderWaId: string | null) {

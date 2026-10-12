@@ -1,12 +1,12 @@
 # Luks · connector de WhatsApp
 
-Lee los grupos de WhatsApp enlazados a una cuenta de Luks y deja en la cola lo que parece un gasto: fotos de recibos, PDFs y mensajes con montos. El [worker](../worker/README.md) los vuelve gastos. Con el número contador, **Mister Luks**, también atiende los chats privados: da la bienvenida con la guía, entra a los grupos cuyo link le mandan y responde «ayuda». Node 22, TypeScript y [Baileys](https://github.com/WhiskeySockets/Baileys) 7.
+Lee los grupos de WhatsApp enlazados a una cuenta de Luks y deja en la cola lo que parece un gasto: fotos de recibos, PDFs y mensajes con montos. El [worker](../worker/README.md) los vuelve gastos. Con el número contador, **Mister Luks**, también atiende los chats privados: da la bienvenida con la guía, entra a los grupos cuyo link le mandan, responde «ayuda» y con «luks soy yo» manda el link para verificar el número. Node 22, TypeScript y [Baileys](https://github.com/WhiskeySockets/Baileys) 7.
 
 ```mermaid
 flowchart TD
     WA[WhatsApp] -->|Baileys| N[normalize: mensaje sin Baileys]
     N --> PV{¿chat privado con Mister Luks?}
-    PV -->|sí| B[bienvenida · link de grupo · «ayuda»] --> O[(whatsapp_outbox)]
+    PV -->|sí| B[bienvenida · link de grupo · «ayuda» · «luks soy yo»] --> O[(whatsapp_outbox)]
     PV -->|no| L{¿«luks CÓDIGO»?}
     L -->|sí| E[(connector_link_group)] --> O
     L -->|no| F{¿foto, PDF o monto?}
@@ -32,6 +32,7 @@ flowchart TD
 | Integrantes | Manda la lista de quién está en cada grupo (número o «lid:…», el nombre que cada uno se puso en WhatsApp y si es admin) al conectarse y cada vez que alguien entra o sale, **solo** de los grupos enlazados a una cuenta o que lee el contador (migración 280). Cada integrante de un grupo enlazado queda como persona de esa cuenta (migración 160) | `ingest.ts`, `whatsapp/baileys.ts`, `whatsapp/normalize.ts` |
 | Grupos | Cuando agregan a Mister Luks a un grupo, lo anota y saluda una vez, con la guía y nombrando a quienes del grupo ya usan Luks (migración 290). El grupo se enlaza a una cuenta cuando alguien escribe **`luks CÓDIGO`** con un código de invitación vigente (también sirve `lucas CÓDIGO`, el nombre de antes). Mister Luks y un WhatsApp vinculado pueden estar en el mismo grupo: cada sesión tiene su presencia (`whatsapp_group_sessions`) y el grupo lo lee principalmente Mister Luks | `ingest.ts` |
 | Chats privados | Solo los del contador: la sesión personal de alguien nunca lee sus chats privados. La primera vez, la bienvenida con la imagen y el PDF de [mrluks.com/guia](https://mrluks.com/guia); un link `chat.whatsapp.com/…`, entra al grupo (con tope por hora: `JOINS_MAX_PER_HOUR`); «ayuda» o «instrucciones», la guía otra vez. Del chat solo queda que esa persona escribió primero: ni su nombre ni sus mensajes | `ingest.ts`, `whatsapp/normalize.ts` |
+| «luks soy yo» | En un grupo con Mister Luks o por privado: si el número ya está verificado, lo saluda por su nombre; si no, en el grupo dice los últimos 4 números y por privado (lo pidió) manda un link `mrluks.com/v/CÓDIGO` para asociarlo a su cuenta de Luks. El código se crea al mandar el mensaje (`connector_verify_mint`): en la base solo queda su hash, sirve una vez y vence en 30 minutos (migración 310). Como mucho una vez cada 10 minutos por persona. La web va en `WEB_URL` | `ingest.ts`, `replies.ts` |
 | Ingesta | Solo de grupos enlazados, solo lo escrito después del enlace, sin repetir (`unique (group_id, wa_message_id)`). Fotos a JPEG de 1600 px; PDFs tal cual (máximo 6 MB, el límite del bucket) | `ingest.ts`, `media.ts` |
 | Remitentes | Cada número que escribe queda anotado por cuenta. Los que no son de nadie le aparecen a un admin en la web: «¿Quién es este número?». En grupos con LID (WhatsApp oculta el número) se intenta traducir a número; si no se puede, queda «lid:…» | `whatsapp/normalize.ts` |
 | Lo que escribe | Las confirmaciones de los recibos (opcionales por grupo; lo que llegó seguido va en un solo mensaje) y la **bandeja de salida** (`whatsapp_outbox`: bienvenida, saludo, guía y respuestas). Lo mismo no se manda dos veces (`dedupe_key`), por privado solo a quien escribió primero, y todo con el mismo límite: mínimo 20 s entre mensajes del mismo chat, 20 por hora por chat y 60 en total. Solo escribe el contador, nunca una sesión personal | `replies.ts`, `text.ts` |

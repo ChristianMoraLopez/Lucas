@@ -1,7 +1,7 @@
 import type { MessagingConnector } from './connector.js';
 import type { Logger } from './log.js';
 import type { OutboxPending, Store } from './store.js';
-import { formatReplies, type PendingReply } from './text.js';
+import { formatReplies, LINK_VERIFICACION, type PendingReply } from './text.js';
 
 /*
  * Límite de frecuencia para todo lo que Luks escribe en los grupos: un
@@ -52,6 +52,8 @@ export interface ReplyOptions {
   maxWaitMs: number;
   /** Las confirmaciones de los recibos (GROUP_REPLIES); la bandeja de salida va siempre */
   confirmations?: boolean;
+  /** La web, para los links de verificación (https://mrluks.com/v/CÓDIGO) */
+  webUrl?: string;
 }
 
 /**
@@ -127,8 +129,14 @@ export class ReplyLoop {
       if (!this.limiter.allow(jid)) continue;
       try {
         let waId: string | null = null;
-        if (o.image_url) waId = await who.connector.send(jid, { imageUrl: o.image_url, caption: o.body ?? undefined });
-        else if (o.body) waId = await who.connector.send(jid, { text: o.body });
+        let body = o.body;
+        // El link de verificación se crea al mandarlo: el código nunca queda guardado
+        if (o.reason === 'verify' && body?.includes(LINK_VERIFICACION)) {
+          const codigo = await this.store.verifyMint(o.id);
+          body = body.replace(LINK_VERIFICACION, `${this.options.webUrl ?? 'https://mrluks.com'}/v/${codigo}`);
+        }
+        if (o.image_url) waId = await who.connector.send(jid, { imageUrl: o.image_url, caption: body ?? undefined });
+        else if (body) waId = await who.connector.send(jid, { text: body });
         if (o.document_url && o.document_name) {
           const doc = await who.connector.send(jid, { documentUrl: o.document_url, fileName: o.document_name, mimeType: 'application/pdf' });
           waId ??= doc;

@@ -304,3 +304,48 @@ describe('ingesta', () => {
     expect(await ing.onMessage(personal, new FakeConnector(personal), m({ fromMe: true, messageId: 'W-MIO' }))).toBe('guardado');
   });
 });
+
+describe('«luks soy yo»', () => {
+  beforeEach(async () => {
+    await ing.onGroupJoined(contador, wa, grupo());
+    store.outbox = [];
+  });
+
+  it('en el grupo, sin verificar: lo dice con los últimos 4 números y le manda el link por privado', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks soy yo' }))).toBe('soy_yo');
+    expect(store.privados.has(PRIVADO)).toBe(true); // lo pidió: su chat privado queda abierto
+    expect(bandeja().map((o) => [o.chat_jid, o.reason, o.body])).toEqual([
+      [GRUPO, 'soy_yo', MISTER.soyYo.noEncontrado('es', '7788')],
+      [PRIVADO, 'verify', MISTER.soyYo.link('es', '7788')],
+    ]);
+    expect(bandeja(PRIVADO)[0]).toMatchObject({ identity_id: 'i-573016667788' });
+    expect(bandeja(PRIVADO)[0].body).toContain('{link}'); // el código se crea al mandarlo
+    // Si insiste enseguida, no se repite
+    await ing.onMessage(contador, wa, m({ text: 'Luks soy yo!' }));
+    expect(bandeja()).toHaveLength(2);
+  });
+
+  it('en el grupo, ya verificado: lo reconoce por su nombre y no le escribe por privado', async () => {
+    store.verificados.set('573016667788', 'Mafe');
+    await ing.onMessage(contador, wa, m({ text: '@573337627471 soy yo' }));
+    expect(bandeja().map((o) => [o.chat_jid, o.body])).toEqual([[GRUPO, MISTER.soyYo.reconocido('es', 'Mafe')]]);
+  });
+
+  it('por privado: primero el link y después la bienvenida; si ya está verificado, se lo dice', async () => {
+    expect(await ing.onMessage(contador, wa, privado({ text: 'luks soy yo' }))).toBe('soy_yo');
+    expect(bandeja().map((o) => o.reason)).toEqual(['verify', 'welcome']);
+    store.verificados.set('573016667788', 'Mafe');
+    await ing.onMessage(contador, wa, privado({ text: 'soy yo', sentAt: new Date('2026-10-01T16:00:00Z') }));
+    expect(
+      bandeja()
+        .map((o) => o.body)
+        .slice(2),
+    ).toEqual([MISTER.soyYo.yaVerificado('es', 'Mafe')]);
+  });
+
+  it('una sesión personal no lo atiende', async () => {
+    const mio = new FakeConnector(personal);
+    expect(await ing.onMessage(personal, mio, m({ text: 'luks soy yo' }))).toBe('charla');
+    expect(bandeja()).toEqual([]);
+  });
+});

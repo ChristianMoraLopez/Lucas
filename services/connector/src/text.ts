@@ -60,6 +60,11 @@ export function esPedidoDeAyuda(text: string | null | undefined): boolean {
   );
 }
 
+/** «luks soy yo» (o «mister luks soy yo», «luks it's me»): quiere asociar su número a su cuenta de Luks */
+export function esSoyYo(text: string | null | undefined): boolean {
+  return /^\s*(?:@\S+\s+)*(?:(?:mr\.?\s*|mister\s+)?luks[\s,:]+)?(?:soy\s+yo|it[’']?s\s+me|this\s+is\s+me)\s*[.!¡]*\s*$/i.test(text ?? '');
+}
+
 /** El idioma de alguien por su número: +1 (Estados Unidos, Canadá) en inglés; el resto, español */
 export const idiomaDeNumero = (phone: string | null | undefined): Idioma => (phone?.startsWith('1') ? 'en' : 'es');
 
@@ -162,6 +167,9 @@ export const MSG = {
     '🙈 This group is already connected to another Luks account. To change it, disconnect it from the app first.',
 } as const;
 
+/** En el mensaje de verificación, el lugar del link /v/CÓDIGO: el código se crea al mandarlo (nunca se guarda) */
+export const LINK_VERIFICACION = '{link}';
+
 /** La guía de mrluks.com/guia: la imagen vertical y el PDF, en el idioma de quien la recibe */
 export const guia = (base: string, idioma: Idioma) => ({
   imagen: `${base}/luks-guia-${idioma}.png`,
@@ -217,6 +225,26 @@ export const MISTER = {
     return en
       ? `Hi everyone! 👋 I’m *Mister Luks* and I’m here to keep this group’s books 🧾✨\n\nTo start, *just one person* creates the account at mrluks.com and types “luks” here followed by the code the app gives them. Nobody else has to do anything 🙌\n\n${cierre}`
       : `¡Hola, parche! 👋 Soy *Mister Luks* y vengo a llevar las cuentas del grupo 🧾✨\n\nPara empezar, *una sola persona* crea la cuenta en mrluks.com y escribe aquí «luks» y el código que le da la app. Los demás no tienen que hacer nada 🙌\n\n${cierre}`;
+  },
+  /** «luks soy yo»: en el grupo, si ya lo reconoce o si le mandó el link por privado */
+  soyYo: {
+    reconocido: (idioma: Idioma, nombre: string | null) =>
+      idioma === 'en'
+        ? `✅ I know you${nombre ? `, ${nombre}` : ''}: your WhatsApp is already verified in Luks.`
+        : `✅ Te reconozco${nombre ? `, ${nombre}` : ''}: tu WhatsApp ya está verificado en Luks.`,
+    noEncontrado: (idioma: Idioma, ultimos: string) =>
+      idioma === 'en'
+        ? `🔎 I can’t find a Luks account with your number (••• ${ultimos}). It may not be linked yet. I sent you a private message with how to fix it 📩`
+        : `🔎 No encuentro una cuenta de Luks con tu número (••• ${ultimos}). Puede que no esté asociado. Te mandé por privado cómo arreglarlo 📩`,
+    /** Por privado, con el link de un solo uso (LINK_VERIFICACION se cambia por el link al mandarlo) */
+    link: (idioma: Idioma, ultimos: string) =>
+      idioma === 'en'
+        ? `🔐 To link this WhatsApp (••• ${ultimos}) to your Luks account, open this link while signed in:\n${LINK_VERIFICACION}\n\nIt works once and expires in 30 minutes. Don’t have Luks yet? The same link takes you to sign up 😉`
+        : `🔐 Para asociar este WhatsApp (••• ${ultimos}) a tu cuenta de Luks, abre este link con tu sesión iniciada:\n${LINK_VERIFICACION}\n\nSirve una sola vez y vence en 30 minutos. ¿Todavía no tienes Luks? El mismo link te lleva a registrarte 😉`,
+    yaVerificado: (idioma: Idioma, nombre: string | null) =>
+      idioma === 'en'
+        ? `✅ This WhatsApp is already verified in your Luks account${nombre ? `, ${nombre}` : ''}. Nothing else to do 🙌`
+        : `✅ Este WhatsApp ya está verificado en tu cuenta de Luks${nombre ? `, ${nombre}` : ''}. No hace falta nada más 🙌`,
   },
   /** Respuestas por privado a un link de grupo */
   unirse: {

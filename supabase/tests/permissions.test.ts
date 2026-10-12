@@ -1,4 +1,4 @@
-import type { PGlite } from '@electric-sql/pglite';
+import type { PGlite, Transaction } from '@electric-sql/pglite';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { as, CASA, count, createDb, GASTO_ASADERO, GASTO_CASA, GASTO_HOSTAL, impersonate, one, P, PASEO, U } from './harness';
 
@@ -359,6 +359,13 @@ describe('invitaciones', () => {
   });
 });
 
+/** Ese número queda verificado para ese usuario, como si hubiera abierto el link /v/ (migración 310) */
+async function verificarNumero(tx: Transaction, usuario: string, numero: string) {
+  await tx.exec('reset role');
+  await tx.query(`update public.whatsapp_identities set user_id = $1, verified_at = now(), verify_method = 'link_privado' where phone = $2`, [usuario, numero]);
+  await impersonate(tx, usuario);
+}
+
 describe('unirse con código', () => {
   it('la vista previa muestra la cuenta y quiénes faltan por reclamar', async () => {
     const vista = await as(
@@ -387,6 +394,11 @@ describe('unirse con código', () => {
 
   it('entrar como Caro: queda reclamada, con membresía member, y suma un uso', async () => {
     await as(db, U.nuevo, async (tx) => {
+      // Caro tiene WhatsApp: primero hay que confirmar que ese número es de quien entra (migración 310)
+      await tx.exec('savepoint a');
+      await expect(tx.query(`select public.join_with_code('PASEO-7K2Q', $1)`, [P.caro])).rejects.toThrow('confirma que el WhatsApp ••• 4471 es tuyo');
+      await tx.exec('rollback to savepoint a');
+      await verificarNumero(tx, U.nuevo, '573002224471');
       expect(await one(tx, `select public.join_with_code('PASEO-7K2Q', $1) as id`, [P.caro])).toEqual({ id: PASEO });
       expect(await one(tx, 'select role, person_id from public.account_members where account_id = $1 and user_id = auth.uid()', [PASEO])).toEqual({
         role: 'member',
@@ -453,6 +465,10 @@ describe('reclamar persona después de entrar', () => {
   it('quien entró como persona nueva (sin gastos) pasa a ser Felipe', async () => {
     await as(db, U.nuevo, async (tx) => {
       await tx.query(`select public.join_with_code('PASEO-7K2Q', null, 'Pipe')`);
+      await tx.exec('savepoint a');
+      await expect(tx.query('select public.claim_person($1)', [P.felipe])).rejects.toThrow('••• 0918');
+      await tx.exec('rollback to savepoint a');
+      await verificarNumero(tx, U.nuevo, '573157770918');
       await tx.query('select public.claim_person($1)', [P.felipe]);
       expect(await one(tx, 'select person_id from public.account_members where account_id = $1 and user_id = auth.uid()', [PASEO])).toEqual({
         person_id: P.felipe,

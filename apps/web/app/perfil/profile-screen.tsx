@@ -12,6 +12,7 @@ import { Avatar, Button, LottieSlot } from '@/components/lucas-ui';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatDay, formatWhen, monthName, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import { chatHref, MISTER_LUKS } from '@/lib/mister-luks';
 import { canonico, formatear, variantes } from '@/lib/telefono';
 import { accountGlyph, accountTone, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
@@ -63,6 +64,7 @@ const ICONO = {
       <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
     </>
   ),
+  listo: <path d="M6 12.5l4 4 8-9" />,
 } satisfies Record<string, ReactNode>;
 
 function Icono({ d, className }: { d: keyof typeof ICONO; className?: string }) {
@@ -163,7 +165,7 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
         nota={t('Con tu número, los gastos que mandas a los grupos quedan a tu nombre en todas tus cuentas.')}
         i={4}
       >
-        <Whatsapp numeros={p.whatsapp} onChanged={refresh} />
+        <Whatsapp numeros={p.whatsapp} verificados={p.whatsapp_verificados ?? []} onChanged={refresh} />
       </Seccion>
 
       <Seccion
@@ -382,10 +384,12 @@ function NombreEnCuenta({ cuenta, onSaved }: { cuenta: MyProfile['accounts'][num
   );
 }
 
-function Whatsapp({ numeros: guardados, onChanged }: { numeros: string[]; onChanged: () => void }) {
+function Whatsapp({ numeros: guardados, verificados: confirmados, onChanged }: { numeros: string[]; verificados: string[]; onChanged: () => void }) {
   const t = useT();
   // Las variantes del mismo número (México con 521, Brasil sin el noveno dígito) se ven como uno
-  const numeros = [...new Set(guardados.map(canonico))];
+  const verificados = new Set(confirmados.map(canonico));
+  const numeros = [...new Set([...guardados, ...confirmados].map(canonico))];
+  const sinVerificar = numeros.some((n) => !verificados.has(n));
   const [supabase] = useState(() => createClient());
   const [numero, setNumero] = useState<string | null>(null);
   const [escribio, setEscribio] = useState(false);
@@ -438,21 +442,36 @@ function Whatsapp({ numeros: guardados, onChanged }: { numeros: string[]; onChan
       {numeros.length > 0 && (
         <ul className="pf-nums">
           {numeros.map((n) => (
-            <li key={n} className="pf-num">
+            <li key={n} className={`pf-num${verificados.has(n) ? ' is-ok' : ''}`}>
               <Icono d="whatsapp" className="pf-num__ico" />
-              <span>{formatear(n) ?? n}</span>
+              <span className="pf-num__n">{etiqueta(n)}</span>
+              {verificados.has(n) ? (
+                <span className="pf-num__ok" title={t('Verificado')}>
+                  <Icono d="listo" className="pf-num__ico" />
+                  <span className="lu-sr">{t('Verificado')}</span>
+                </span>
+              ) : (
+                <a className="pf-num__ver" href={chatHref(MISTER_LUKS.telefono, 'luks soy yo')} target="_blank" rel="noopener noreferrer">
+                  {t('Verificar')}
+                </a>
+              )}
               <button
                 type="button"
                 className="pf-num__x"
                 onClick={() => quitar(n)}
                 disabled={estado.busy === n}
-                aria-label={t('Quitar {numero}', { numero: formatear(n) ?? n })}
+                aria-label={t('Quitar {numero}', { numero: etiqueta(n) })}
               >
                 ×
               </button>
             </li>
           ))}
         </ul>
+      )}
+      {sinVerificar && (
+        <p className="lu-small lu-muted pf-msg">
+          {t('Para que Mister Luks te reconozca en los grupos, verifica tu número: escríbele «luks soy yo» y abre el link que te manda.')}
+        </p>
       )}
       <form className="pf-row pf-row--tel" onSubmit={agregar}>
         <label htmlFor={id} className="lu-sr">
@@ -484,6 +503,9 @@ function Whatsapp({ numeros: guardados, onChanged }: { numeros: string[]; onChan
     </>
   );
 }
+
+/** El número como se lee; si WhatsApp no lo mostró (lid:…), solo los últimos 4 */
+const etiqueta = (wa: string) => formatear(wa) ?? `••• ${wa.slice(-4)}`;
 
 const PALABRA = 'ELIMINAR';
 

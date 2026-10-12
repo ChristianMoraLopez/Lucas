@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   esMensajeDeLuks,
   esPedidoDeAyuda,
+  esSoyYo,
   formatCOP,
   formatReplies,
   idiomaDeNumero,
@@ -200,4 +201,11 @@ describe('los saludos de Mister Luks', () => {
       expect(esMensajeDeLuks(t)).toBe(true);
     }
   });
+});
+
+describe('«luks soy yo»', () => {
+  it.each(['luks soy yo', 'Luks, soy yo!', 'mister luks soy yo', '@573337627471 soy yo', 'soy yo', "luks it's me", 'Luks this is me'])('«%s» sí', (t) =>
+    expect(esSoyYo(t)).toBe(true),
+  );
+  it.each(['soy yo el que pagó el taxi', 'luks soy yo 45 lucas', 'yo soy', null])('«%s» no', (t) => expect(esSoyYo(t)).toBe(false));
 });
