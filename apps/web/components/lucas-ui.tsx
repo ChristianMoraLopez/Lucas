@@ -2,6 +2,7 @@
 /* Luks — componentes React (Next.js). Requiere styles/tokens.css y styles/lucas.css cargados globalmente.
    Port tipado de lucas-design-kit/components/lucas-ui.jsx (tipos de lucas-ui.d.ts).
    Las funciones puras (formatCOP, lucas, tonos, códigos) viven en lucas-core.ts y se re-exportan aquí. */
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -901,7 +902,8 @@ export function AppShell({
   /** Lo último de la barra, después de la cuenta (el menú ☰) */
   barEnd?: React.ReactNode;
 }) {
-  const tabEl = (t: (typeof tabs)[number]) => (
+  // La activa lleva una píldora que se desliza de una pestaña a otra (Motion, layoutId): una en el riel y otra abajo
+  const tabEl = (t: (typeof tabs)[number], lugar: 'riel' | 'abajo') => (
     // data-navega: lleva a otra pantalla; mientras carga se ve el giro (components/conexion.tsx)
     <button
       type="button"
@@ -912,6 +914,7 @@ export function AppShell({
       data-guia={`tab-${t.id}`}
       onClick={() => onTab?.(t.id)}
     >
+      {t.id === active && <motion.span className="lu-tab__pill" layoutId={`lu-tab-${lugar}`} aria-hidden="true" />}
       {ICONS[t.icon || t.id]}
       <span>{t.label}</span>
       {t.count ? <span className="lu-tab__count">{t.count}</span> : null}
@@ -919,8 +922,8 @@ export function AppShell({
     </button>
   );
   const tr = useT();
-  const railEls = tabs.map(tabEl);
-  const tabEls = tabs.filter((t) => !t.railOnly).map(tabEl);
+  const railEls = tabs.map((t) => tabEl(t, 'riel'));
+  const tabEls = tabs.filter((t) => !t.railOnly).map((t) => tabEl(t, 'abajo'));
   return (
     <div className="lu-app">
       <header className="lu-app__bar">

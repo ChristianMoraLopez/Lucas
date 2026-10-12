@@ -15,7 +15,8 @@ import { useEffect, useState } from 'react';
    «uploading» de Avinash Reddy, «no internet» de Twinkle Sharma, «not found»
    de Tùng Hoàng Hữu, «Money Bag» de Mahendra Bhunwal, «Empty» de Mahmoud
    Madkour, «Money Transfer» de Musa Adanur y «error» de Thais Roese.
-   «archivar» y «borrar» son de Luks: los dibuja scripts/lottie-propios.py. */
+   «archivar», «borrar», «mister-luks» y «vincular-whatsapp» son de Luks: los
+   dibuja scripts/lottie-propios.py con los colores del kit y del logo. */
 export const LOTTIES = {
   vacio: { loop: true },
   escaneo: { loop: true },
@@ -35,6 +36,8 @@ export const LOTTIES = {
   // Propios (scripts/lottie-propios.py), con la paleta del kit
   archivar: { loop: false },
   borrar: { loop: false },
+  'mister-luks': { loop: false },
+  'vincular-whatsapp': { loop: false },
 } as const;
 export type LottieName = keyof typeof LOTTIES;
 

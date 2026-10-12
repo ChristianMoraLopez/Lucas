@@ -2675,6 +2675,26 @@ a.ed-cat:focus-visible {
   justify-content: space-between;
   gap: var(--space-2);
 }
+.wa-forma__head h3 {
+  flex: 1 1 auto;
+}
+/* La Lottie de cada forma (mister-luks, vincular-whatsapp), una vez al verse */
+.wa-forma__dibujo {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  margin: -12px -2px -12px -10px;
+}
+/* Vincular es ancho (celular y computador): más grande, y lo que sobra arriba y abajo es transparente */
+.wa-forma__dibujo--ancho {
+  width: 88px;
+  height: 88px;
+  margin: -24px -6px -24px -16px;
+}
+/* Las dos tarjetas entran una detrás de otra (lu-stagger) */
+.wa-formas__grid > :nth-child(2) {
+  --i: 1;
+}
 .wa-forma__acciones {
   display: grid;
   gap: var(--space-3);
@@ -4691,6 +4711,53 @@ a.ed-cat:focus-visible {
   white-space: normal;
 }
 
+/* ---------- al cambiar de pestaña, la pantalla entra suave (app/c/[accountId]/template.tsx) ---------- */
+.lu-pantalla {
+  min-width: 0;
+  animation: lu-pantalla-entra var(--dur-base) var(--ease-out) both;
+}
+@keyframes lu-pantalla-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- aparece al llegar con el scroll (la guía): solo donde el navegador lo sabe hacer ---------- */
+/* Sin JavaScript ni espera: si el navegador no tiene animation-timeline, se ve sin animar */
+@supports (animation-timeline: view()) {
+  .lu-al-verse {
+    animation: lu-al-verse linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 30%;
+  }
+}
+@keyframes lu-al-verse {
+  from {
+    opacity: 0.15;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lu-pantalla,
+  .lu-al-verse {
+    animation: none;
+  }
+}
+@media print {
+  .lu-al-verse {
+    animation: none;
+  }
+}
+
 /* ---------- Personas: borrar la cuenta (quien la administra) ---------- */
 .mb-borrar {
   display: grid;
@@ -4734,6 +4801,12 @@ a.ed-cat:focus-visible {
   gap: var(--space-2);
   justify-items: start;
   min-width: 0;
+}
+/* Mister Luks saluda (Lottie, una vez al verse); en el PDF no va */
+.ml-contacto__dibujo {
+  width: 72px;
+  height: 72px;
+  margin: -8px 0 -4px -8px;
 }
 .ml-tel {
   font-size: clamp(28px, 9cqi, 40px);
@@ -4987,6 +5060,7 @@ a.ed-cat:focus-visible {
     position: static;
     padding: 0 0 var(--space-3);
   }
+  .ml-contacto__dibujo,
   .ml-bar > :not(.lu-logo-link),
   .ml-acciones,
   .ml-pie .lu-btn,
@@ -6273,4 +6347,45 @@ a.ed-cat:focus-visible {
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* ---------- la pestaña activa: una píldora que se desliza (components/lucas-ui.tsx, Motion) ---------- */
+/* El ícono y el nombre van sobre la píldora; el contador y el punto, encima de todo */
+.lu-tab > svg,
+.lu-tab > span:not([class]) {
+  position: relative;
+  z-index: 1;
+}
+.lu-tab[aria-current="page"] svg {
+  background: none;
+}
+.lu-tab > .lu-tab__count,
+.lu-tab > .lu-tab__dot {
+  z-index: 2;
+}
+.lu-tab__pill {
+  position: absolute;
+  z-index: 0;
+  top: 6px;
+  left: 50%;
+  width: 48px;
+  height: 24px;
+  margin-left: -24px;
+  border-radius: var(--radius-pill);
+  background: var(--verde-suave);
+}
+@container app (min-width: 760px) {
+  .lu-app__rail .lu-tab[aria-current="page"] {
+    background: none;
+  }
+  .lu-app__rail .lu-tab__pill {
+    inset: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    border-radius: var(--radius-md);
+  }
+  .lu-app__rail .lu-tab > .lu-tab__count {
+    position: relative;
+  }
 }

@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
 import { Button, CodeInput, Divider, Field, ICONS, Person } from '@/components/lucas-ui';
+import { ItemAnimado, ListaAnimada } from '@/components/movimiento';
 import { formatDay, isRecent, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import type { Idioma, T } from '@/lib/i18n';
@@ -267,109 +268,117 @@ export function MembersScreen({
         )}
 
         <ul>
-          {members.map((p) => (
-            <li key={p.user_id} className={editando && editando === p.person_id ? 'mb-editando' : undefined}>
-              <Person
-                name={p.display_name}
-                tone={asTone(p.tone, p.display_name)}
-                sub={memberSub(p, t, dia)}
-                aside={p.is_me && p.person_id && editando !== p.person_id && <Lapiz label={t('Cambiar mi nombre')} onClick={() => setEditando(p.person_id)} />}
-              />
-              <RoleControl
-                person={p}
-                myRole={myRole}
-                busy={setRole.isPending}
-                onRole={(role) => setRole.mutate({ userId: p.user_id as string, role })}
-                onRemove={closed ? undefined : () => setQuitar(p)}
-              />
-              {p.is_me && p.person_id && editando === p.person_id && (
-                <CambiarNombre
-                  personId={p.person_id}
-                  actual={p.display_name}
-                  sinNombre={false}
-                  propio
-                  onListo={renombrado}
-                  onCerrar={() => setEditando(null)}
+          <ListaAnimada>
+            {members.map((p) => (
+              <ItemAnimado key={p.user_id} className={editando && editando === p.person_id ? 'mb-editando' : undefined}>
+                <Person
+                  name={p.display_name}
+                  tone={asTone(p.tone, p.display_name)}
+                  sub={memberSub(p, t, dia)}
+                  aside={
+                    p.is_me && p.person_id && editando !== p.person_id && <Lapiz label={t('Cambiar mi nombre')} onClick={() => setEditando(p.person_id)} />
+                  }
                 />
-              )}
-            </li>
-          ))}
+                <RoleControl
+                  person={p}
+                  myRole={myRole}
+                  busy={setRole.isPending}
+                  onRole={(role) => setRole.mutate({ userId: p.user_id as string, role })}
+                  onRemove={closed ? undefined : () => setQuitar(p)}
+                />
+                {p.is_me && p.person_id && editando === p.person_id && (
+                  <CambiarNombre
+                    personId={p.person_id}
+                    actual={p.display_name}
+                    sinNombre={false}
+                    propio
+                    onListo={renombrado}
+                    onCerrar={() => setEditando(null)}
+                  />
+                )}
+              </ItemAnimado>
+            ))}
+          </ListaAnimada>
         </ul>
 
         {unclaimed.length > 0 && (
           <>
             <Divider label={t('Todavía sin cuenta')} />
             <ul>
-              {unclaimed.map((p) => {
-                const invitacion = p.person_id ? pendientes.data?.[p.person_id] : undefined;
-                const sinNombre = p.name_source === 'auto';
-                const abierto = editando !== null && editando === p.person_id;
-                return (
-                  <li key={p.person_id} className={abierto ? 'mb-editando' : undefined}>
-                    <Person
-                      name={p.display_name}
-                      tone={asTone(p.tone, p.display_name)}
-                      registered={false}
-                      sub={
-                        invitacion
-                          ? t('Ya usa Luks · le llegó la invitación, falta que acepte')
-                          : p.wa_last4
-                            ? `${sinNombre ? t('Sin nombre en WhatsApp') : p.name_source === 'whatsapp' ? t('Nombre de WhatsApp') : t('Solo en WhatsApp')} · ••• ${p.wa_last4}`
-                            : t('Sin cuenta todavía')
-                      }
-                      aside={
-                        isAdmin &&
-                        p.person_id &&
-                        !abierto &&
-                        !sinNombre && <Lapiz label={t('Cambiar el nombre de {nombre}', { nombre: p.display_name })} onClick={() => setEditando(p.person_id)} />
-                      }
-                    />
-                    {isAdmin && !abierto && (
-                      <span className="mb-manage">
-                        {p.person_id && sinNombre && (
-                          <Button variant="secondary" size="sm" className="mb-poner" onClick={() => setEditando(p.person_id)}>
-                            {ICONS.lapiz}
-                            {t('Ponerle nombre')}
-                          </Button>
-                        )}
-                        {isAdmin && !closed && (
-                          <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
-                            {t('Quitar…')}
-                          </Button>
-                        )}
-                        {isAdmin && invitacion && (
-                          <Button variant="ghost" size="sm" onClick={() => cancelar.mutate(invitacion)} disabled={cancelar.isPending}>
-                            {t('Cancelar invitación')}
-                          </Button>
-                        )}
-                        {isAdmin && !invitacion && current && link && (
-                          <a
-                            className="lu-btn lu-btn--outline lu-btn--sm"
-                            href={whatsappUrl(
-                              inviteMessage({ accountName, code: current.code, link, name: p.display_name, t }),
-                              p.person_id ? phones.data?.[p.person_id] : undefined,
-                            )}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {t('Invitar')}
-                          </a>
-                        )}
-                      </span>
-                    )}
-                    {abierto && p.person_id && (
-                      <CambiarNombre
-                        personId={p.person_id}
-                        actual={p.display_name}
-                        sinNombre={sinNombre}
-                        propio={false}
-                        onListo={renombrado}
-                        onCerrar={() => setEditando(null)}
+              <ListaAnimada>
+                {unclaimed.map((p) => {
+                  const invitacion = p.person_id ? pendientes.data?.[p.person_id] : undefined;
+                  const sinNombre = p.name_source === 'auto';
+                  const abierto = editando !== null && editando === p.person_id;
+                  return (
+                    <ItemAnimado key={p.person_id} className={abierto ? 'mb-editando' : undefined}>
+                      <Person
+                        name={p.display_name}
+                        tone={asTone(p.tone, p.display_name)}
+                        registered={false}
+                        sub={
+                          invitacion
+                            ? t('Ya usa Luks · le llegó la invitación, falta que acepte')
+                            : p.wa_last4
+                              ? `${sinNombre ? t('Sin nombre en WhatsApp') : p.name_source === 'whatsapp' ? t('Nombre de WhatsApp') : t('Solo en WhatsApp')} · ••• ${p.wa_last4}`
+                              : t('Sin cuenta todavía')
+                        }
+                        aside={
+                          isAdmin &&
+                          p.person_id &&
+                          !abierto &&
+                          !sinNombre && (
+                            <Lapiz label={t('Cambiar el nombre de {nombre}', { nombre: p.display_name })} onClick={() => setEditando(p.person_id)} />
+                          )
+                        }
                       />
-                    )}
-                  </li>
-                );
-              })}
+                      {isAdmin && !abierto && (
+                        <span className="mb-manage">
+                          {p.person_id && sinNombre && (
+                            <Button variant="secondary" size="sm" className="mb-poner" onClick={() => setEditando(p.person_id)}>
+                              {ICONS.lapiz}
+                              {t('Ponerle nombre')}
+                            </Button>
+                          )}
+                          {isAdmin && !closed && (
+                            <Button variant="ghost" size="sm" onClick={() => setQuitar(p)}>
+                              {t('Quitar…')}
+                            </Button>
+                          )}
+                          {isAdmin && invitacion && (
+                            <Button variant="ghost" size="sm" onClick={() => cancelar.mutate(invitacion)} disabled={cancelar.isPending}>
+                              {t('Cancelar invitación')}
+                            </Button>
+                          )}
+                          {isAdmin && !invitacion && current && link && (
+                            <a
+                              className="lu-btn lu-btn--outline lu-btn--sm"
+                              href={whatsappUrl(
+                                inviteMessage({ accountName, code: current.code, link, name: p.display_name, t }),
+                                p.person_id ? phones.data?.[p.person_id] : undefined,
+                              )}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {t('Invitar')}
+                            </a>
+                          )}
+                        </span>
+                      )}
+                      {abierto && p.person_id && (
+                        <CambiarNombre
+                          personId={p.person_id}
+                          actual={p.display_name}
+                          sinNombre={sinNombre}
+                          propio={false}
+                          onListo={renombrado}
+                          onCerrar={() => setEditando(null)}
+                        />
+                      )}
+                    </ItemAnimado>
+                  );
+                })}
+              </ListaAnimada>
             </ul>
             <p className="lu-small lu-muted" style={{ margin: 'var(--space-3) 0 0' }}>
               {isAdmin
