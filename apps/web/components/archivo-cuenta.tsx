@@ -6,14 +6,14 @@ import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useT } from '@/components/idioma';
 import { Button, ICONS, LottieSlot } from '@/components/lucas-ui';
-import { borrarCuenta, nombreCoincide } from '@/lib/borrar-cuenta';
+import { borrarCuenta } from '@/lib/borrar-cuenta';
 import { humanError } from '@/lib/errors';
-import { rico } from '@/lib/i18n/rico';
 import { plural } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 /* Una cuenta cerrada se archiva (sale del inicio de quien la archiva, con
-   todo guardado) o se borra del todo (solo el titular, para todos). */
+   todo guardado). Borrarla del todo, para todos, lo puede hacer quien la
+   administra (titular o admin), esté como esté (migración 300). */
 
 async function cambiarArchivo(accountId: string, archivar: boolean) {
   const { error } = await createClient().rpc('set_account_archived', { p_account_id: accountId, p_archived: archivar });
@@ -22,9 +22,19 @@ async function cambiarArchivo(accountId: string, archivar: boolean) {
 
 /**
  * Al final de una cuenta cerrada (Liquidar): archivarla, sacarla del archivo y,
- * si es del titular, borrarla del todo. Al archivar, la caja se cierra.
+ * si la administra, borrarla del todo. Al archivar, la caja se cierra.
  */
-export function FinDeCuenta({ accountId, accountName, archivada, titular }: { accountId: string; accountName: string; archivada: boolean; titular: boolean }) {
+export function FinDeCuenta({
+  accountId,
+  accountName,
+  archivada,
+  puedeBorrar,
+}: {
+  accountId: string;
+  accountName: string;
+  archivada: boolean;
+  puedeBorrar: boolean;
+}) {
   const t = useT();
   const router = useRouter();
   const [estado, setEstado] = useState<'quieto' | 'archivando' | 'archivada' | 'sacando'>('quieto');
@@ -74,7 +84,7 @@ export function FinDeCuenta({ accountId, accountName, archivada, titular }: { ac
               {estado === 'archivando' ? t('Archivando…') : t('Archivar')}
             </Button>
           )}
-          {titular && <BorrarCuenta accountId={accountId} accountName={accountName} />}
+          {puedeBorrar && <BorrarCuenta accountId={accountId} accountName={accountName} />}
         </div>
       )}
       {!yaArchivada && estado === 'quieto' && (
@@ -90,29 +100,29 @@ export function FinDeCuenta({ accountId, accountName, archivada, titular }: { ac
 }
 
 /**
- * «Borrar del todo…»: pide escribir el nombre de la cuenta; borra las fotos y
- * los PDF (con su avance) y después la cuenta. La papelera se abre al confirmar.
+ * «Borrar del todo…»: una confirmación clara (sin escribir el nombre); borra las
+ * fotos y los PDF (con su avance) y después la cuenta. La papelera se abre al
+ * confirmar.
  */
 export function BorrarCuenta({ accountId, accountName, compacto = false }: { accountId: string; accountName: string; compacto?: boolean }) {
   const t = useT();
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
-  const [escrito, setEscrito] = useState('');
   const [fase, setFase] = useState<'pregunta' | 'borrando' | 'listo'>('pregunta');
   const [avance, setAvance] = useState<{ hechos: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [vuelta, setVuelta] = useState(0);
-  const coincide = nombreCoincide(escrito, accountName);
   const reloj = useRef<number | null>(null);
   useEffect(() => () => window.clearTimeout(reloj.current ?? undefined), []);
 
   const borrar = async () => {
-    if (!coincide || fase !== 'pregunta') return;
+    if (fase !== 'pregunta') return;
     setError(null);
     setFase('borrando');
     setVuelta((v) => v + 1); // la papelera vuelve a abrirse
     try {
-      await borrarCuenta(createClient(), accountId, escrito, (hechos, total) => setAvance({ hechos, total }));
+      // La base pide el nombre como seguro: lo manda la app (la confirmación es el diálogo)
+      await borrarCuenta(createClient(), accountId, accountName, (hechos, total) => setAvance({ hechos, total }));
       setFase('listo');
       setVuelta((v) => v + 1);
       reloj.current = window.setTimeout(() => {
@@ -129,7 +139,6 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
     if (fase !== 'pregunta') return; // mientras borra no se cierra
     setAbierto(open);
     if (!open) {
-      setEscrito('');
       setError(null);
       setAvance(null);
     }
@@ -177,20 +186,6 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
                   <span className="fb-alt">{t('Si solo quieres que no salga en tu inicio, mejor archívala.')}</span>
                 </div>
               </AlertDialog.Description>
-              <label className="lu-label" htmlFor={`borrar-${accountId}`}>
-                {rico(t('Para confirmar, escribe {nombre}'), { nombre: <b>{accountName}</b> })}
-              </label>
-              <input
-                id={`borrar-${accountId}`}
-                className="fb-input"
-                value={escrito}
-                onChange={(e) => setEscrito(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && borrar()}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                placeholder={accountName}
-              />
               {error && (
                 <p className="lu-field-error" role="alert">
                   {error}
@@ -202,7 +197,7 @@ export function BorrarCuenta({ accountId, accountName, compacto = false }: { acc
                     {t('Cancelar')}
                   </Button>
                 </AlertDialog.Cancel>
-                <Button size="sm" variant="secondary" className="lu-btn--danger" disabled={!coincide} onClick={borrar}>
+                <Button size="sm" variant="secondary" className="lu-btn--danger" onClick={borrar}>
                   {t('Borrar para siempre')}
                 </Button>
               </div>
@@ -232,14 +227,15 @@ export function FilaArchivable({
   accountId,
   accountName,
   archivada,
-  titular,
+  puedeBorrar,
   orden,
   children,
 }: {
   accountId: string;
   accountName: string;
   archivada: boolean;
-  titular: boolean;
+  /** La administra (titular o admin): puede borrarla del todo */
+  puedeBorrar: boolean;
   /** Su lugar en la lista (entran escalonadas) */
   orden?: number;
   children: ReactNode;
@@ -273,7 +269,7 @@ export function FilaArchivable({
         <button type="button" className="ap-fila__btn" onClick={mover} disabled={saliendo} aria-label={etiqueta} title={etiqueta}>
           {archivada ? ICONS.desarchivar : ICONS.archivo}
         </button>
-        {archivada && titular && <BorrarCuenta accountId={accountId} accountName={accountName} compacto />}
+        {archivada && puedeBorrar && <BorrarCuenta accountId={accountId} accountName={accountName} compacto />}
       </span>
       {error && (
         <p className="lu-field-error ap-fila__error" role="alert">

@@ -7,10 +7,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const BUCKET = 'evidencias';
 const POR_VEZ = 100;
 
-/** El nombre escrito coincide con el de la cuenta (sin importar mayúsculas ni espacios de más) */
-export const nombreCoincide = (escrito: string, nombre: string) =>
-  escrito.trim().replace(/\s+/g, ' ').toLowerCase() === nombre.trim().replace(/\s+/g, ' ').toLowerCase();
-
 /** Parte una lista en tandas */
 export function enTandas<T>(lista: T[], tamano = POR_VEZ): T[][] {
   const out: T[][] = [];
