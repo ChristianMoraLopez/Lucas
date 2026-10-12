@@ -38,12 +38,30 @@ export function looksLikeExpense(text: string | null | undefined): boolean {
  */
 const FIRMA_LUKS =
   /esto se hizo en mrluks\.com|made with mrluks\.com|cuentas hechas con luks|hecho con luks|(?:mrluks\.com|\.vercel\.app)\/r\/[A-Za-z0-9_-]{20,64}/i;
-const RESPUESTA_LUKS = /^\s*(?:anotad[oa]s?|recibido|ya estaba anotado|logged|received|already logged)[\s:].*·\s*(?:\$|bs\s?)\d/is;
+const RESPUESTA_LUKS = /^\s*\W{0,4}\s*(?:anotad[oa]s?|recibido|ya estaba anotado|logged|received|already logged)[\s:].*·\s*(?:\$|bs\s?)\d/is;
+// Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo
+const SALUDO_LUKS = /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)/i;
 
 export function esMensajeDeLuks(text: string | null | undefined): boolean {
   if (!text) return false;
-  return FIRMA_LUKS.test(text) || RESPUESTA_LUKS.test(text);
+  return FIRMA_LUKS.test(text) || RESPUESTA_LUKS.test(text) || SALUDO_LUKS.test(text);
 }
+
+/** El link de invitación de un grupo (chat.whatsapp.com/…) → su código */
+export function parseInviteLink(text: string | null | undefined): string | null {
+  const m = text?.match(/(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]{18,26})(?![A-Za-z0-9])/i);
+  return m ? m[1] : null;
+}
+
+/** «ayuda», «instrucciones», «help» (solos, o con «luks» o una mención antes) */
+export function esPedidoDeAyuda(text: string | null | undefined): boolean {
+  return /^\s*(?:@\S+\s+)*(?:(?:mr\.?\s*|mister\s+)?luks[\s,:]+)?(?:ayuda|instrucciones|la gu[ií]a|gu[ií]a|help|instructions|guide)\s*[?!.¡¿]*\s*$/i.test(
+    text ?? '',
+  );
+}
+
+/** El idioma de alguien por su número: +1 (Estados Unidos, Canadá) en inglés; el resto, español */
+export const idiomaDeNumero = (phone: string | null | undefined): Idioma => (phone?.startsWith('1') ? 'en' : 'es');
 
 /** La moneda de la cuenta (como apps/web/lib/moneda.ts) y el idioma en que Luks responde */
 export type Moneda = 'COP' | 'CLP' | 'BOB' | 'USD';
@@ -114,35 +132,110 @@ export function formatReplies(items: PendingReply[]): string {
   const en = items[0] ? idiomaDe(items[0]) === 'en' : false;
   if (items.length === 1) {
     const r = items[0];
-    if (r.status === 'duplicate') return `${linea(r)}.`;
-    if (r.expense?.status === 'confirmed') return `${en ? 'Logged' : 'Anotado'}: ${linea(r)}.`;
-    return en ? `Received: ${linea(r)}. Needs review in Luks.` : `Recibido: ${linea(r)}. Queda por revisar en Luks.`;
+    if (r.status === 'duplicate') return `🔁 ${linea(r)}.`;
+    if (r.expense?.status === 'confirmed') return `✅ ${en ? 'Logged' : 'Anotado'}: ${linea(r)}.`;
+    return en ? `🧾 Received: ${linea(r)}. Needs review in Luks 👀` : `🧾 Recibido: ${linea(r)}. Queda por revisar en Luks 👀`;
   }
   const porRevisar = items.filter((r) => r.status === 'done' && r.expense?.status !== 'confirmed').length;
   const lineas = items.map((r) => `• ${linea(r)}`);
   if (en) {
-    const cola = porRevisar ? `\n${porRevisar === 1 ? 'One needs' : `${porRevisar} need`} review in Luks.` : '';
-    return `Logged ${items.length}:\n${lineas.join('\n')}${cola}`;
+    const cola = porRevisar ? `\n👀 ${porRevisar === 1 ? 'One needs' : `${porRevisar} need`} review in Luks.` : '';
+    return `✅ Logged ${items.length}:\n${lineas.join('\n')}${cola}`;
   }
-  const cola = porRevisar ? `\n${porRevisar === 1 ? 'Uno queda' : `${porRevisar} quedan`} por revisar en Luks.` : '';
-  return `Anotados ${items.length}:\n${lineas.join('\n')}${cola}`;
+  const cola = porRevisar ? `\n👀 ${porRevisar === 1 ? 'Uno queda' : `${porRevisar} quedan`} por revisar en Luks.` : '';
+  return `✅ Anotados ${items.length}:\n${lineas.join('\n')}${cola}`;
 }
 
 // Antes de enlazar el grupo no se sabe el idioma de la cuenta: español y, debajo, inglés
 export const MSG = {
-  hello:
-    'Hola, soy Luks. Para anotar los gastos de este grupo, quien administra la cuenta escribe aquí «luks» y el código de la cuenta (está en la app, en Conectar WhatsApp). Solo leo fotos de recibos, PDFs y mensajes con montos.\n\n' +
-    'Hi, I’m Luks. To log this group’s expenses, the account admin types “luks” and the account code here (it’s in the app, under Connect WhatsApp). I only read receipt photos, PDFs and messages with amounts.',
   linked: (account: string, members?: number, idioma: Idioma = 'es') =>
     idioma === 'en'
-      ? `Done: this group is now connected to “${account}”${members ? ` and its ${members} members are in the account` : ''}. Send receipt photos, PDFs or messages with the amount (for example “airport taxi 45”) and I’ll log them.`
-      : `Listo: este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta` : ''}. Manden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto.`,
+      ? `🎉 Done! This group is now connected to “${account}”${members ? ` and its ${members} members are already in the account 🙌` : ''}.\n\nSend receipt photos, PDFs or messages with the amount (for example “airport taxi $45”) and I’ll log them ✅`
+      : `🎉 ¡Listo! Este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta 🙌` : ''}.\n\nManden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto ✅`,
   alreadyLinked: (account: string, idioma: Idioma = 'es') =>
-    idioma === 'en' ? `This group is already connected to “${account}”.` : `Este grupo ya está conectado a «${account}».`,
+    idioma === 'en' ? `😉 This group is already connected to “${account}”.` : `😉 Este grupo ya está conectado a «${account}».`,
   badCode:
-    'Ese código no sirve: puede que esté mal escrito o que ya venció. Búsquenlo en la app, en Conectar WhatsApp.\n\n' +
-    'That code doesn’t work: it may be mistyped or expired. Find it in the app, under Connect WhatsApp.',
+    '🤔 Ese código no me sirve: puede que esté mal escrito o que ya venció. Búsquenlo en la app, en Conectar WhatsApp.\n\n' +
+    '🤔 That code doesn’t work: it may be mistyped or expired. Find it in the app, under Connect WhatsApp.',
   otherAccount:
-    'Este grupo ya está conectado a otra cuenta de Luks. Para cambiarlo, desconéctenlo primero desde la app.\n\n' +
-    'This group is already connected to another Luks account. To change it, disconnect it from the app first.',
+    '🙈 Este grupo ya está conectado a otra cuenta de Luks. Para cambiarlo, desconéctenlo primero desde la app.\n\n' +
+    '🙈 This group is already connected to another Luks account. To change it, disconnect it from the app first.',
+} as const;
+
+/** La guía de mrluks.com/guia: la imagen vertical y el PDF, en el idioma de quien la recibe */
+export const guia = (base: string, idioma: Idioma) => ({
+  imagen: `${base}/luks-guia-${idioma}.png`,
+  pdf: `${base}/luks-guia-${idioma}.pdf`,
+  nombrePdf: idioma === 'en' ? 'Mister Luks guide.pdf' : 'Guía de Mister Luks.pdf',
+});
+
+/** «Vale», «Vale y Santi», «Vale, Santi y Mafe» (en inglés, con «and») */
+export function listaNombres(nombres: string[], idioma: Idioma): string {
+  const y = idioma === 'en' ? 'and' : 'y';
+  return nombres.length <= 1 ? (nombres[0] ?? '') : `${nombres.slice(0, -1).join(', ')} ${y} ${nombres.at(-1)}`;
+}
+
+/** Lo que Mister Luks escribe por su cuenta (va por la bandeja de salida, whatsapp_outbox) */
+export const MISTER = {
+  bienvenida: (idioma: Idioma) =>
+    idioma === 'en'
+      ? 'Hi! 👋 I’m *Mister Luks*, the one who keeps the books at Luks 🧾✨\n\nHere’s how I work:\n1️⃣ Add me to your WhatsApp group (or send me the group link right here and I’ll join on my own).\n2️⃣ Send receipt photos, PDFs or messages like “taxi $45”.\n3️⃣ I log them, split them and tell everyone who pays whom 🤝\n\nHere’s the guide 👇 If you need it again, just type “help”.'
+      : '¡Hola! 👋 Soy *Mister Luks*, el que lleva las cuentas en Luks 🧾✨\n\nAsí funciono:\n1️⃣ Agrégame a tu grupo de WhatsApp (o mándame aquí el link del grupo y entro solito).\n2️⃣ Manden fotos de recibos, PDFs o mensajes como «taxi 45 lucas».\n3️⃣ Yo los anoto, los divido y les digo quién le paga a quién 🤝\n\nTe dejo la guía 👇 Si la necesitas otra vez, escríbeme «ayuda».',
+  guia: (idioma: Idioma) =>
+    idioma === 'en'
+      ? '📘 Here’s the Mister Luks guide. The full one is at mrluks.com/guia 😉'
+      : '📘 Aquí tienes la guía de Mister Luks. La completa está en mrluks.com/guia 😉',
+  /**
+   * El saludo del grupo, una sola vez. Con cuenta: desde hoy confirma aquí.
+   * Sin cuenta: quién del grupo ya usa Luks (por su primer nombre) o, si nadie,
+   * que una persona cree la cuenta.
+   */
+  saludoGrupo: (idioma: Idioma, cuenta: string | null, usuarios: string[] = []) => {
+    const en = idioma === 'en';
+    const nombres = listaNombres(usuarios, idioma);
+    const cierre = en
+      ? 'Send receipt photos, PDFs or messages like “taxi $45” and I’ll take care of the rest 😉 The guide is in the image 👇'
+      : 'Manden fotos de recibos, PDFs o mensajes como «taxi 45 lucas» y yo me encargo del resto 😉 La guía va en la imagen 👇';
+    if (cuenta) {
+      const ya = usuarios.length
+        ? en
+          ? `\n\n${nombres} ${usuarios.length === 1 ? 'is' : 'are'} already in the account 🙌`
+          : `\n\nEn la cuenta ya ${usuarios.length === 1 ? 'está' : 'están'} ${nombres} 🙌`
+        : '';
+      return en
+        ? `Hi everyone! 👋 I’m *Mister Luks* and from today I keep the books for “${cuenta}” 🧾✨${ya}\n\n${cierre}`
+        : `¡Hola, parche! 👋 Soy *Mister Luks* y desde hoy llevo las cuentas de «${cuenta}» 🧾✨${ya}\n\n${cierre}`;
+    }
+    if (usuarios.length) {
+      const quien = en
+        ? `I see ${nombres} already ${usuarios.length === 1 ? 'uses' : 'use'} Luks 🙌 ${usuarios.length === 1 ? `${nombres}, create` : 'One of you, create'} the group’s account at mrluks.com and type “luks” here followed by the code the app gives you.`
+        : `Veo que ${nombres} ya ${usuarios.length === 1 ? 'usa' : 'usan'} Luks 🙌 ${usuarios.length === 1 ? `${nombres}, crea` : 'Alguno de ustedes, cree'} la cuenta del grupo en mrluks.com y ${usuarios.length === 1 ? 'escribe' : 'escriba'} aquí «luks» y el código que le da la app.`;
+      return en
+        ? `Hi everyone! 👋 I’m *Mister Luks* and I’m here to keep this group’s books 🧾✨\n\n${quien}\n\n${cierre}`
+        : `¡Hola, parche! 👋 Soy *Mister Luks* y vengo a llevar las cuentas del grupo 🧾✨\n\n${quien}\n\n${cierre}`;
+    }
+    return en
+      ? `Hi everyone! 👋 I’m *Mister Luks* and I’m here to keep this group’s books 🧾✨\n\nTo start, *just one person* creates the account at mrluks.com and types “luks” here followed by the code the app gives them. Nobody else has to do anything 🙌\n\n${cierre}`
+      : `¡Hola, parche! 👋 Soy *Mister Luks* y vengo a llevar las cuentas del grupo 🧾✨\n\nPara empezar, *una sola persona* crea la cuenta en mrluks.com y escribe aquí «luks» y el código que le da la app. Los demás no tienen que hacer nada 🙌\n\n${cierre}`;
+  },
+  /** Respuestas por privado a un link de grupo */
+  unirse: {
+    joined: (idioma: Idioma, grupo: string) =>
+      idioma === 'en'
+        ? `🙌 Done! I joined “${grupo}”. I’ll explain how to start over there 😉`
+        : `🙌 ¡Listo! Ya entré a «${grupo}». Allá les cuento cómo empezar 😉`,
+    pending: (idioma: Idioma, grupo: string) =>
+      idioma === 'en'
+        ? `⏳ I asked to join “${grupo}”: a group admin has to approve me.`
+        : `⏳ Pedí entrar a «${grupo}»: un admin del grupo tiene que aceptarme.`,
+    already: (idioma: Idioma, grupo: string) => (idioma === 'en' ? `😉 I’m already in “${grupo}”.` : `😉 Ya estoy en «${grupo}».`),
+    invalid: (idioma: Idioma) =>
+      idioma === 'en'
+        ? '🤔 That link didn’t work for me: it may be expired or copied wrong. Ask a group admin for a new one (Group info → Invite via link).'
+        : '🤔 Ese link no me funcionó: puede que esté vencido o mal copiado. Pídele a un admin del grupo uno nuevo (Info del grupo → Invitar con enlace).',
+    tope: (idioma: Idioma) =>
+      idioma === 'en'
+        ? '😅 I can’t join more groups right now. Send me the link again in a while, or add me to the group directly.'
+        : '😅 Ahora mismo no puedo entrar a más grupos. Mándame el link otra vez en un rato, o agrégame directo al grupo.',
+  },
 } as const;

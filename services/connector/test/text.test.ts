@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { esMensajeDeLuks, formatCOP, formatReplies, looksLikeExpense, type PendingReply, parseLinkCommand } from '../src/text.js';
+import {
+  esMensajeDeLuks,
+  esPedidoDeAyuda,
+  formatCOP,
+  formatReplies,
+  idiomaDeNumero,
+  listaNombres,
+  looksLikeExpense,
+  MISTER,
+  MSG,
+  type PendingReply,
+  parseInviteLink,
+  parseLinkCommand,
+} from '../src/text.js';
 
 describe('«lucas CÓDIGO»', () => {
   it('reconoce el código como lo escriban', () => {
@@ -76,13 +89,13 @@ describe('confirmaciones', () => {
   });
 
   it('un gasto confirmado, uno por revisar y uno repetido', () => {
-    expect(formatReplies([r({})])).toBe('Anotado: Asadero El Llanero · $272.500 · pagó Mafe · entre 8.');
+    expect(formatReplies([r({})])).toBe('✅ Anotado: Asadero El Llanero · $272.500 · pagó Mafe · entre 8.');
     expect(formatReplies([r({ expense: { merchant: 'Taxi', total_cop: 45_000, status: 'pending_review', payer: null, split_count: 1 } })])).toBe(
-      'Recibido: Taxi · $45.000. Queda por revisar en Luks.',
+      '🧾 Recibido: Taxi · $45.000. Queda por revisar en Luks 👀',
     );
     expect(
       formatReplies([r({ status: 'duplicate', expense: null, duplicate_of: { merchant: 'Hostal', total_cop: 900_000, expense_date: '2026-09-24' } })]),
-    ).toBe('Ya estaba anotado: Hostal · $900.000 (24 sep).');
+    ).toBe('🔁 Ya estaba anotado: Hostal · $900.000 (24 sep).');
   });
 
   it('varios seguidos van en un solo mensaje', () => {
@@ -91,7 +104,7 @@ describe('confirmaciones', () => {
       r({ message_id: 'm2', expense: { merchant: 'Taxi', total_cop: 45_000, status: 'pending_review', payer: 'Santi', split_count: 4 } }),
     ]);
     expect(t).toBe(
-      'Anotados 2:\n• Asadero El Llanero · $272.500 · pagó Mafe · entre 8\n• Taxi · $45.000 · pagó Santi · entre 4\nUno queda por revisar en Luks.',
+      '✅ Anotados 2:\n• Asadero El Llanero · $272.500 · pagó Mafe · entre 8\n• Taxi · $45.000 · pagó Santi · entre 4\n👀 Uno queda por revisar en Luks.',
     );
   });
 });
@@ -108,21 +121,23 @@ describe('en inglés y en otras monedas', () => {
   it('las confirmaciones en el idioma de la cuenta', () => {
     const en = { currency: 'USD', language: 'en' } as const;
     expect(formatReplies([r({ ...en, expense: { merchant: 'Diner', total_cop: 8_450, status: 'confirmed', payer: 'Sam', split_count: 3 } })])).toBe(
-      'Logged: Diner · $84.50 · paid by Sam · split 3 ways.',
+      '✅ Logged: Diner · $84.50 · paid by Sam · split 3 ways.',
     );
     expect(formatReplies([r({ ...en, expense: { merchant: 'Uber', total_cop: 1_850, status: 'pending_review', payer: null, split_count: 1 } })])).toBe(
-      'Received: Uber · $18.50. Needs review in Luks.',
+      '🧾 Received: Uber · $18.50. Needs review in Luks 👀',
     );
     expect(
       formatReplies([r({ ...en, status: 'duplicate', expense: null, duplicate_of: { merchant: 'Motel', total_cop: 12_000, expense_date: '2026-09-24' } })]),
-    ).toBe('Already logged: Motel · $120.00 (Sep 24).');
+    ).toBe('🔁 Already logged: Motel · $120.00 (Sep 24).');
     expect(
       formatReplies([
         r({ ...en, expense: { merchant: 'Diner', total_cop: 8_450, status: 'confirmed', payer: null, split_count: 1 } }),
         r({ ...en, message_id: 'm2', expense: { merchant: 'Gas', total_cop: 4_000, status: 'pending_review', payer: null, split_count: 1 } }),
       ]),
-    ).toBe('Logged 2:\n• Diner · $84.50\n• Gas · $40.00\nOne needs review in Luks.');
-    // Y Luks no se anota a sí mismo
+    ).toBe('✅ Logged 2:\n• Diner · $84.50\n• Gas · $40.00\n👀 One needs review in Luks.');
+    // Y Luks no se anota a sí mismo (con el emoji y sin él, como las de antes)
+    expect(esMensajeDeLuks('✅ Logged: Diner · $84.50 · paid by Sam · split 3 ways.')).toBe(true);
+    expect(esMensajeDeLuks('🧾 Received: Uber · $18.50. Needs review in Luks 👀')).toBe(true);
     expect(esMensajeDeLuks('Logged: Diner · $84.50 · paid by Sam · split 3 ways.')).toBe(true);
   });
 });
@@ -133,5 +148,56 @@ describe('el nombre nuevo', () => {
     expect(parseLinkCommand('Luks: casa-ab12')).toBe('CASA-AB12');
     expect(parseLinkCommand('lucas PASEO-7K2Q')).toBe('PASEO-7K2Q');
     expect(parseLinkCommand('luks 45 el taxi')).toBeNull();
+  });
+});
+
+describe('lo que le escriben a Mister Luks', () => {
+  it('el link de un grupo, como lo peguen', () => {
+    expect(parseInviteLink('https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrStUv')).toBe('AbCdEfGhIjKlMnOpQrStUv');
+    expect(parseInviteLink('Únete a mi grupo: chat.whatsapp.com/invite/AbCdEfGhIjKlMnOpQrStUv gracias')).toBe('AbCdEfGhIjKlMnOpQrStUv');
+    expect(parseInviteLink('https://chat.whatsapp.com/corto')).toBeNull();
+    expect(parseInviteLink('taxi 45 lucas')).toBeNull();
+  });
+
+  it.each(['ayuda', 'Ayuda!', 'instrucciones', 'luks ayuda', 'Mister Luks: ayuda', '@573337627471 ayuda', 'help', 'Help?', 'guía'])('«%s» pide la guía', (t) =>
+    expect(esPedidoDeAyuda(t)).toBe(true),
+  );
+
+  it.each(['necesito ayuda con el taxi', 'ayuda a Vale con 20 lucas', 'gracias por la ayuda', null])('«%s» no', (t) => expect(esPedidoDeAyuda(t)).toBe(false));
+
+  it('el idioma por el número: +1 en inglés, lo demás en español', () => {
+    expect(idiomaDeNumero('13055550100')).toBe('en');
+    expect(idiomaDeNumero('573016667788')).toBe('es');
+    expect(idiomaDeNumero(null)).toBe('es');
+  });
+});
+
+describe('los saludos de Mister Luks', () => {
+  it('nombra a quienes ya usan Luks, en singular y en plural', () => {
+    expect(listaNombres(['Vale', 'Santi', 'Mafe'], 'es')).toBe('Vale, Santi y Mafe');
+    expect(listaNombres(['Vale', 'Sam'], 'en')).toBe('Vale and Sam');
+    const uno = MISTER.saludoGrupo('es', null, ['Christian']);
+    expect(uno).toContain('Veo que Christian ya usa Luks 🙌 Christian, crea la cuenta del grupo en mrluks.com y escribe aquí');
+    const dos = MISTER.saludoGrupo('es', null, ['Christian', 'Vale']);
+    expect(dos).toContain('Veo que Christian y Vale ya usan Luks 🙌 Alguno de ustedes, cree la cuenta del grupo');
+    expect(MISTER.saludoGrupo('en', null, ['Sam'])).toContain('I see Sam already uses Luks 🙌 Sam, create');
+    expect(MISTER.saludoGrupo('es', 'Paseo', ['Vale', 'Santi'])).toContain('En la cuenta ya están Vale y Santi 🙌');
+  });
+
+  it('sin nadie que use Luks, pide que una sola persona cree la cuenta', () => {
+    expect(MISTER.saludoGrupo('es', null)).toContain('*una sola persona* crea la cuenta en mrluks.com');
+  });
+
+  it('lo que escribe Mister Luks no se anota como gasto, aunque traiga montos de ejemplo', () => {
+    for (const t of [
+      MISTER.saludoGrupo('es', null),
+      MISTER.saludoGrupo('en', 'Trip', ['Sam']),
+      MISTER.bienvenida('es'),
+      MISTER.bienvenida('en'),
+      MSG.linked('Paseo', 8),
+      MSG.linked('Trip', 3, 'en'),
+    ]) {
+      expect(esMensajeDeLuks(t)).toBe(true);
+    }
   });
 });

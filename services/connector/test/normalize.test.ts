@@ -95,6 +95,25 @@ describe('mensajes de Baileys → IncomingMessage', () => {
 
   it('nada de chats privados, estados, reacciones, stickers ni mensajes vacíos', () => {
     expect(normalizeMessage(msg({ key: { remoteJid: '573016667788@s.whatsapp.net', id: 'P' } }), 's1', ME, bajar)).toBeNull();
+  });
+
+  it('un chat privado solo lo lee el contador: quien escribe es el chat, y nunca estados ni canales', () => {
+    const privado = msg({ key: { remoteJid: '573016667788@s.whatsapp.net', id: 'P1' } });
+    const m = normalizeMessage(privado, 'contador', ME, bajar, true);
+    expect(m).toMatchObject({ chatKind: 'privado', chatId: '573016667788@s.whatsapp.net', sender: { id: '573016667788', phone: '573016667788' } });
+    const conLid = normalizeMessage(
+      msg({ key: { remoteJid: '123456789012345@lid', remoteJidAlt: '573016667788@s.whatsapp.net', id: 'P2' } }),
+      'contador',
+      ME,
+      bajar,
+      true,
+    );
+    expect(conLid?.sender).toMatchObject({ id: '573016667788', phone: '573016667788' });
+    expect(
+      normalizeMessage(msg({ key: { remoteJid: 'status@broadcast', id: 'S', participant: '573016667788@s.whatsapp.net' } }), 'contador', ME, bajar, true),
+    ).toBeNull();
+    expect(normalizeMessage(msg({ key: { remoteJid: '120363999999999999@newsletter', id: 'N' } }), 'contador', ME, bajar, true)).toBeNull();
+    expect(normalizeMessage(msg({}), 'contador', ME, bajar, true)?.chatKind).toBe('grupo');
     expect(normalizeMessage(msg({ key: { remoteJid: 'status@broadcast', id: 'S' } }), 's1', ME, bajar)).toBeNull();
     expect(normalizeMessage(msg({ message: { reactionMessage: { text: '👍' } } as WAMessage['message'] }), 's1', ME, bajar)).toBeNull();
     expect(normalizeMessage(msg({ message: { stickerMessage: {} } as WAMessage['message'] }), 's1', ME, bajar)).toBeNull();

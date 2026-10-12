@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { IncomingMessage } from '../src/connector.js';
 import { Ingestor } from '../src/ingest.js';
 import { RateLimiter } from '../src/replies.js';
-import { MSG } from '../src/text.js';
+import { MISTER, MSG } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
 const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
+const GUIA = 'https://mrluks.com/guia';
+const PRIVADO = '573016667788@s.whatsapp.net';
 
 let store: FakeStore;
 let wa: FakeConnector;
@@ -17,12 +19,14 @@ beforeEach(() => {
   store = new FakeStore();
   wa = new FakeConnector(contador);
   reloj = 1_000_000;
-  ing = new Ingestor(store, LIMITS, new RateLimiter({ minIntervalMs: 20_000, maxPerHourPerGroup: 20, maxPerHourTotal: 60 }, () => reloj), silentLog);
+  const joins = new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 2, maxPerHourTotal: 4 }, () => reloj);
+  ing = new Ingestor(store, LIMITS, { guiaUrl: GUIA, joins }, silentLog);
 });
 
 const m = (over: Partial<IncomingMessage> = {}): IncomingMessage => ({
   sessionId: 'contador',
   chatId: GRUPO,
+  chatKind: 'grupo',
   chatName: 'Paseo Santa Marta 2026',
   messageId: `W${Math.random().toString(36).slice(2, 8)}`,
   sender: { id: '573016667788', phone: '573016667788', name: 'Mafe' },
@@ -33,17 +37,58 @@ const m = (over: Partial<IncomingMessage> = {}): IncomingMessage => ({
   ...over,
 });
 
+/** Un mensaje por privado a Mister Luks */
+const privado = (over: Partial<IncomingMessage> = {}) => m({ chatId: PRIVADO, chatKind: 'privado', chatName: null, text: 'Hola', ...over });
+
+/** Lo que Mister Luks dejó en la bandeja de salida (para un chat, o todo) */
+const bandeja = (jid?: string) => store.outbox.filter((o) => !jid || o.chat_jid === jid);
+
 async function enlazado() {
+  await ing.onGroupJoined(contador, wa, grupo());
   await ing.onMessage(contador, wa, m({ text: 'lucas PASEO-7K2Q' }));
-  wa.sent = [];
+  store.outbox = [];
   reloj += 60_000;
 }
 
-describe('cuando agregan a Luks a un grupo', () => {
-  it('saluda una sola vez y explica cómo enlazarlo', async () => {
+describe('cuando agregan a Mister Luks a un grupo', () => {
+  it('saluda una sola vez, con la guía, y explica cómo empezar', async () => {
     await ing.onGroupJoined(contador, wa, grupo());
     await ing.onGroupJoined(contador, wa, grupo());
-    expect(wa.sent).toEqual([{ chatId: GRUPO, text: MSG.hello }]);
+    expect(bandeja()).toEqual([
+      expect.objectContaining({
+        chat_jid: GRUPO,
+        reason: 'group_hello',
+        body: MISTER.saludoGrupo('es', null),
+        image_url: `${GUIA}/luks-guia-es.png`,
+        dedupe_key: 'group_hello:g-1',
+      }),
+    ]);
+    expect(bandeja()[0].body).toContain('*una sola persona*');
+    // Directo no escribe nada: lo manda el ReplyLoop con el límite de frecuencia
+    expect(wa.enviados).toEqual([]);
+  });
+
+  it('nombra a quienes del grupo ya usan Luks', async () => {
+    store.usuariosLuks = ['Christian', 'Vale'];
+    await ing.onGroupJoined(contador, wa, grupo());
+    expect(bandeja()[0].body).toContain('Veo que Christian y Vale ya usan Luks 🙌');
+  });
+
+  it('en un grupo que ya tiene cuenta, dice que desde hoy confirma ahí', async () => {
+    const mio = new FakeConnector(personal);
+    await ing.onMessage(personal, mio, m({ text: 'luks PASEO-7K2Q', fromMe: true }));
+    await ing.onGroupJoined(contador, wa, grupo());
+    expect(bandeja()[0].body).toBe(MISTER.saludoGrupo('es', 'Paseo Santa Marta'));
+  });
+
+  it('un grupo de gente de +1 se saluda en inglés', async () => {
+    wa.integrantes.set(GRUPO, [
+      { id: '13055550100', phone: '13055550100', lid: null, name: 'Sam', admin: true },
+      { id: '13055550101', phone: '13055550101', lid: null, name: 'Alex', admin: false },
+      { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: false },
+    ]);
+    await ing.onGroupJoined(contador, wa, grupo());
+    expect(bandeja()[0]).toMatchObject({ body: MISTER.saludoGrupo('en', null), image_url: `${GUIA}/luks-guia-en.png` });
   });
 
   it('manda quiénes están en el grupo; enlazado, quedan como personas de la cuenta', async () => {
@@ -57,17 +102,17 @@ describe('cuando agregan a Luks a un grupo', () => {
     expect(store.members.get(g?.group_id as string)).toEqual(members);
 
     // Al enlazar, el mensaje dice cuántos quedaron en la cuenta
-    wa.sent = [];
-    reloj += 60_000;
+    store.outbox = [];
     await ing.onMessage(contador, wa, m({ text: 'luks PASEO-7K2Q' }));
-    expect(wa.sent[0].text).toBe(MSG.linked('Paseo Santa Marta', 2));
-    expect(wa.sent[0].text).toContain('sus 2 integrantes ya están en la cuenta');
+    expect(bandeja()[0].body).toBe(MSG.linked('Paseo Santa Marta', 2));
+    expect(bandeja()[0].body).toContain('sus 2 integrantes ya están en la cuenta');
   });
 
-  it('una sesión personal no escribe en el grupo', async () => {
+  it('una sesión personal no escribe ni deja nada para escribir', async () => {
     const mio = new FakeConnector(personal);
     await ing.onGroupJoined(personal, mio, grupo());
-    expect(mio.sent).toEqual([]);
+    expect(mio.enviados).toEqual([]);
+    expect(bandeja()).toEqual([]);
   });
 
   it('de un grupo sin cuenta, una sesión personal guarda el nombre pero no quiénes están; al enlazarlo, sí', async () => {
@@ -86,25 +131,109 @@ describe('cuando agregan a Luks a un grupo', () => {
     await ing.onGroupJoined(personal, mio, grupo());
     expect(mio.pedidos).toEqual([GRUPO, GRUPO]);
   });
+
+  it('lo que escribe Mister Luks no es un gasto, aunque lo lea un WhatsApp vinculado', async () => {
+    const mio = new FakeConnector(personal);
+    await ing.onMessage(personal, mio, m({ text: 'luks PASEO-7K2Q', fromMe: true }));
+    ing.setMisterLuks(['573337627471', 'lid:99990000']);
+    const deLuks = { id: '573337627471', phone: '573337627471', name: 'Mister Luks' };
+    expect(await ing.onMessage(personal, mio, m({ sender: deLuks, text: 'por ejemplo «taxi 45 lucas»' }))).toBe('de_luks');
+    // Y aunque no se sepa su número, sus saludos se reconocen por el texto
+    expect(await ing.onMessage(personal, mio, m({ text: MISTER.saludoGrupo('es', null) }))).toBe('de_luks');
+    expect(await ing.onMessage(personal, mio, m({ text: MSG.linked('Paseo', 8) }))).toBe('de_luks');
+    expect(store.messages.size).toBe(0);
+  });
 });
 
 describe('«lucas CÓDIGO»', () => {
+  beforeEach(async () => {
+    await ing.onGroupJoined(contador, wa, grupo());
+    store.outbox = [];
+  });
+
   it('enlaza el grupo y lo confirma', async () => {
     expect(await ing.onMessage(contador, wa, m({ text: 'Luks paseo-7k2q' }))).toBe('enlazado');
     expect(store.groups.get(GRUPO)?.account_id).toBe(PASEO);
-    expect(wa.sent[0].text).toBe(MSG.linked('Paseo Santa Marta'));
+    expect(bandeja()).toEqual([expect.objectContaining({ reason: 'link', body: MSG.linked('Paseo Santa Marta') })]);
   });
 
   it('un código malo se explica, pero sin llenar el grupo si insisten', async () => {
     expect(await ing.onMessage(contador, wa, m({ text: 'lucas NADA-0000' }))).toBe('codigo_invalido');
     expect(await ing.onMessage(contador, wa, m({ text: 'lucas NADA-0001' }))).toBe('codigo_invalido');
-    expect(wa.sent).toEqual([{ chatId: GRUPO, text: MSG.badCode }]);
+    expect(bandeja().map((o) => o.body)).toEqual([MSG.badCode]);
   });
 
   it('desde una sesión personal también enlaza, en silencio', async () => {
     const mio = new FakeConnector(personal);
     expect(await ing.onMessage(personal, mio, m({ text: 'lucas PASEO-7K2Q', fromMe: true }))).toBe('enlazado');
-    expect(mio.sent).toEqual([]);
+    expect(mio.enviados).toEqual([]);
+    expect(bandeja()).toEqual([]);
+  });
+
+  it('«ayuda» en el grupo: la guía, como mucho una vez por hora', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'ayuda' }))).toBe('ayuda');
+    expect(await ing.onMessage(contador, wa, m({ text: '@573337627471 ayuda' }))).toBe('ayuda');
+    expect(bandeja()).toEqual([expect.objectContaining({ reason: 'guide', image_url: `${GUIA}/luks-guia-es.png` })]);
+    expect(bandeja()[0].document_url).toBeUndefined();
+    // «necesito ayuda con el taxi» es charla, no un pedido
+    expect(await ing.onMessage(contador, wa, m({ text: 'necesito ayuda con el taxi' }))).toBe('charla');
+  });
+});
+
+describe('chats privados con Mister Luks', () => {
+  it('la primera vez, la bienvenida con la imagen y el PDF de la guía; después, nada más', async () => {
+    expect(await ing.onMessage(contador, wa, privado())).toBe('bienvenida');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'gracias' }))).toBe('privado');
+    expect(bandeja()).toEqual([
+      expect.objectContaining({
+        chat_jid: PRIVADO,
+        reason: 'welcome',
+        body: MISTER.bienvenida('es'),
+        image_url: `${GUIA}/luks-guia-es.png`,
+        document_url: `${GUIA}/luks-guia-es.pdf`,
+        document_name: 'Guía de Mister Luks.pdf',
+      }),
+    ]);
+    expect(store.privados.has(PRIVADO)).toBe(true);
+    expect(store.messages.size).toBe(0);
+  });
+
+  it('a un número de +1, en inglés', async () => {
+    const sam = { id: '13055550100', phone: '13055550100', name: 'Sam' };
+    await ing.onMessage(contador, wa, privado({ chatId: '13055550100@s.whatsapp.net', sender: sam, text: 'Hi' }));
+    expect(bandeja()[0]).toMatchObject({ body: MISTER.bienvenida('en'), document_name: 'Mister Luks guide.pdf' });
+  });
+
+  it('«ayuda» manda la guía otra vez (no dos veces seguidas)', async () => {
+    await ing.onMessage(contador, wa, privado());
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Ayuda' }))).toBe('ayuda');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'instrucciones' }))).toBe('ayuda');
+    expect(bandeja().map((o) => o.reason)).toEqual(['welcome', 'guide']);
+  });
+
+  it('un link de grupo: entra y lo cuenta; con tope por hora', async () => {
+    const link = 'Únete: https://chat.whatsapp.com/AbCdEfGhIjKlMnOpQrStUv';
+    expect(await ing.onMessage(contador, wa, privado({ text: link }))).toBe('link_grupo:joined');
+    expect(wa.unidos).toEqual(['AbCdEfGhIjKlMnOpQrStUv']);
+    expect(bandeja().map((o) => o.body)).toEqual([MISTER.bienvenida('es'), MISTER.unirse.joined('es', 'Cumple de Caro')]);
+
+    expect(await ing.onMessage(contador, wa, privado({ text: link }))).toBe('link_grupo:joined');
+    expect(await ing.onMessage(contador, wa, privado({ text: link }))).toBe('link_grupo:tope');
+    expect(wa.unidos).toHaveLength(2);
+    expect(bandeja().at(-1)?.body).toBe(MISTER.unirse.tope('es'));
+  });
+
+  it('un link vencido se explica', async () => {
+    wa.alUnirse = { status: 'invalid' };
+    expect(await ing.onMessage(contador, wa, privado({ text: 'chat.whatsapp.com/AbCdEfGhIjKlMnOpQrStUv' }))).toBe('link_grupo:invalid');
+    expect(bandeja().at(-1)?.body).toBe(MISTER.unirse.invalid('es'));
+  });
+
+  it('«luks CÓDIGO» por privado no enlaza nada; y una sesión personal nunca lee chats privados', async () => {
+    expect(await ing.onMessage(contador, wa, privado({ text: 'luks PASEO-7K2Q' }))).toBe('bienvenida');
+    expect([...store.groups.values()].some((g) => g.account_id)).toBe(false);
+    const mio = new FakeConnector(personal);
+    expect(await ing.onMessage(personal, mio, privado({ sessionId: 'personal' }))).toBe('ignorado:privado');
   });
 });
 

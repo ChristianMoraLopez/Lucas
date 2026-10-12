@@ -31,6 +31,13 @@ export interface Config {
     maxSide: number;
     jpegQuality: number;
   };
+  misterLuks: {
+    /** Dónde están la imagen y el PDF de la guía que manda por WhatsApp */
+    guiaUrl: string;
+    /** Grupos a los que entra por hora con links que le mandan por privado */
+    joinsPerHour: number;
+    joinsPerHourPerSender: number;
+  };
   /** La cola está atascada si lo más viejo lleva más que esto (segundos) */
   queueStaleAfterS: number;
 }
@@ -91,6 +98,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       maxUploadBytes: int(env, 'MEDIA_MAX_UPLOAD_MB', 6) * 1024 * 1024,
       maxSide: int(env, 'IMAGE_MAX_SIDE', 1600),
       jpegQuality: int(env, 'IMAGE_QUALITY', 80),
+    },
+    misterLuks: {
+      guiaUrl: (env.GUIA_URL?.trim() || 'https://mrluks.com/guia').replace(/\/+$/, ''),
+      joinsPerHour: int(env, 'JOINS_MAX_PER_HOUR', 4),
+      joinsPerHourPerSender: int(env, 'JOINS_MAX_PER_HOUR_SENDER', 2),
     },
     queueStaleAfterS: int(env, 'QUEUE_STALE_AFTER_S', 900),
   };

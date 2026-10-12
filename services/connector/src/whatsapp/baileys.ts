@@ -14,7 +14,7 @@ import makeWASocket, {
   type WAMessage,
   type WASocket,
 } from 'baileys';
-import type { ConnectorHandlers, GroupInfo, GroupMember, MessagingConnector, SessionInfo } from '../connector.js';
+import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, SessionInfo } from '../connector.js';
 import type { SessionCipher } from '../crypto.js';
 import type { Logger } from '../log.js';
 import type { Store } from '../store.js';
@@ -133,9 +133,40 @@ export class BaileysConnector implements MessagingConnector {
     this.#sock = null;
   }
 
-  async sendText(chatId: string, text: string) {
+  async send(chatId: string, m: Outgoing) {
     if (!this.#sock || !this.#open) throw new Error('La sesión no está conectada');
-    await this.#sock.sendMessage(chatId, { text });
+    const contenido =
+      'text' in m
+        ? { text: m.text }
+        : 'imageUrl' in m
+          ? { image: { url: m.imageUrl }, caption: m.caption }
+          : { document: { url: m.documentUrl }, fileName: m.fileName, mimetype: m.mimeType, caption: m.caption };
+    const enviado = await this.#sock.sendMessage(chatId, contenido);
+    return enviado?.key.id ?? null;
+  }
+
+  /**
+   * Entra a un grupo con el código de su link. Si el grupo pide aprobación,
+   * WhatsApp no devuelve el grupo: queda la solicitud pendiente.
+   */
+  async joinGroup(code: string): Promise<JoinResult> {
+    const sock = this.#sock;
+    if (!sock || !this.#open) throw new Error('La sesión no está conectada');
+    let info: GroupMetadata;
+    try {
+      info = await sock.groupGetInviteInfo(code);
+    } catch {
+      return { status: 'invalid' };
+    }
+    const name = info.subject ?? null;
+    if (this.#groups.has(info.id)) return { status: 'already', chatId: info.id, name };
+    try {
+      const jid = await sock.groupAcceptInvite(code);
+      return jid ? { status: 'joined', chatId: jid, name } : { status: 'pending', chatId: info.id, name };
+    } catch (e) {
+      this.#log.info({ err: (e as Error).message }, 'No se pudo entrar al grupo con el link');
+      return { status: 'invalid' };
+    }
   }
 
   #me(): Me {
@@ -303,8 +334,13 @@ export class BaileysConnector implements MessagingConnector {
   }
 
   async #onRaw(raw: WAMessage, sock: WASocket) {
-    const m = normalizeMessage(raw, this.session.id, this.#me(), (r) =>
-      downloadMediaMessage(r, 'buffer', {}, { logger: this.#log, reuploadRequest: sock.updateMediaMessage }),
+    // Los chats privados solo los atiende el contador (Mister Luks); de una sesión personal, nunca
+    const m = normalizeMessage(
+      raw,
+      this.session.id,
+      this.#me(),
+      (r) => downloadMediaMessage(r, 'buffer', {}, { logger: this.#log, reuploadRequest: sock.updateMediaMessage }),
+      this.session.kind === 'contador',
     );
     if (!m) return;
     // Si WhatsApp solo mostró el LID, se intenta saber el número

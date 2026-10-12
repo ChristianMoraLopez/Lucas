@@ -1,6 +1,18 @@
 import pino from 'pino';
-import type { ConnectorHandlers, GroupInfo, GroupMember, MessagingConnector, SessionInfo } from '../src/connector.js';
-import type { GroupResult, IngestCheck, IngestInput, KeyItem, LinkResult, QueueHealth, SessionRow, Store } from '../src/store.js';
+import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, SessionInfo } from '../src/connector.js';
+import type {
+  GroupResult,
+  HelloResult,
+  IngestCheck,
+  IngestInput,
+  KeyItem,
+  LinkResult,
+  OutboxItem,
+  OutboxPending,
+  QueueHealth,
+  SessionRow,
+  Store,
+} from '../src/store.js';
 import type { PendingReply } from '../src/text.js';
 
 export const silentLog = pino({ level: 'silent' });
@@ -66,11 +78,55 @@ export class FakeStore implements Store {
     this.cleared.push({ id, reason });
     this.rows = this.rows.filter((r) => r.id !== id);
   }
-  async upsertGroup(_s: string, jid: string, name: string | null): Promise<GroupResult> {
+  async upsertGroup(sesion: string, jid: string, name: string | null): Promise<GroupResult> {
     const g = this.groups.get(jid) ?? { group_id: `g-${this.groups.size + 1}`, name, account_id: null, hello: false };
     g.name = name ?? g.name;
     this.groups.set(jid, g);
-    return { group_id: g.group_id, account_id: g.account_id, account_name: null, say_hello: !g.account_id && !g.hello };
+    this.presentes.add(`${jid}|${sesion}`);
+    const cuenta = [...this.codes.values()].find((c) => c.id === g.account_id);
+    return { group_id: g.group_id, account_id: g.account_id, account_name: cuenta?.name ?? null, language: cuenta ? 'es' : null, say_hello: !g.hello };
+  }
+  /** «jid|sesión» de quién está en qué chat (whatsapp_group_sessions) */
+  presentes = new Set<string>();
+  /** Quiénes del grupo ya usan Luks, para el saludo */
+  usuariosLuks: string[] = [];
+  async groupHello(groupId: string): Promise<HelloResult> {
+    const g = [...this.groups.values()].find((x) => x.group_id === groupId);
+    if (!g || g.hello) return { say_hello: false };
+    g.hello = true;
+    const cuenta = [...this.codes.values()].find((c) => c.id === g.account_id);
+    return { say_hello: true, account_name: cuenta?.name ?? null, language: cuenta ? 'es' : null, luks_users: this.usuariosLuks };
+  }
+  /** Chats privados con Mister Luks */
+  privados = new Set<string>();
+  async privateChat(sesion: string, jid: string) {
+    this.privados.add(jid);
+    this.presentes.add(`${jid}|${sesion}`);
+    return `p-${jid}`;
+  }
+  /** La bandeja de salida (whatsapp_outbox), como la base: solo a chats donde está el contador, sin repetir */
+  outbox: (OutboxItem & { id: string; sent: boolean; dropped: boolean; error: string | null; waId: string | null })[] = [];
+  async outboxEnqueue(items: OutboxItem[]) {
+    const nuevas: string[] = [];
+    for (const it of items) {
+      if (!this.presentes.has(`${it.chat_jid}|contador`) || this.outbox.some((o) => o.dedupe_key === it.dedupe_key)) continue;
+      this.outbox.push({ ...it, id: `o-${this.outbox.length + 1}`, sent: false, dropped: false, error: null, waId: null });
+      nuevas.push(it.dedupe_key);
+    }
+    return nuevas;
+  }
+  async outboxPending(): Promise<OutboxPending[]> {
+    return this.outbox
+      .filter((o) => !o.sent && !o.dropped)
+      .map(({ dedupe_key: _k, sent: _s, dropped: _d, error: _e, waId: _w, ...o }) => ({ ...o, created_at: '2026-10-12T00:00:00Z' }));
+  }
+  async outboxResult(id: string, waId: string | null, error: string | null = null, drop = false) {
+    const o = this.outbox.find((x) => x.id === id);
+    if (!o) return;
+    o.error = error;
+    o.waId = waId;
+    if (drop) o.dropped = true;
+    else if (!error) o.sent = true;
   }
   /** grupo → integrantes que mandó el connector */
   members = new Map<string, GroupMember[]>();
@@ -79,11 +135,9 @@ export class FakeStore implements Store {
     const enlazado = [...this.groups.values()].some((g) => g.group_id === groupId && g.account_id);
     return { members: members.length, people_added: enlazado ? members.length : 0 };
   }
-  async markHello(groupId: string) {
-    for (const g of this.groups.values()) if (g.group_id === groupId) g.hello = true;
-  }
-  async groupLeft(jid: string) {
+  async groupLeft(sesion: string, jid: string) {
     this.left.push(jid);
+    this.presentes.delete(`${jid}|${sesion}`);
   }
   async linkGroup(sessionId: string, jid: string, name: string | null, code: string): Promise<LinkResult> {
     const cuenta = this.codes.get(code);
@@ -123,7 +177,13 @@ export class FakeStore implements Store {
 
 /** Un WhatsApp de mentiras: guarda lo que se le pide enviar */
 export class FakeConnector implements MessagingConnector {
+  /** Los textos que mandó (los de solo texto) */
   sent: { chatId: string; text: string }[] = [];
+  /** Todo lo que mandó, también imágenes y documentos */
+  enviados: ({ chatId: string } & Outgoing)[] = [];
+  /** Lo que responde WhatsApp al entrar con un link */
+  alUnirse: JoinResult = { status: 'joined', chatId: '120363055555555555@g.us', name: 'Cumple de Caro' };
+  unidos: string[] = [];
   started = 0;
   stopped = 0;
   loggedOut = 0;
@@ -159,9 +219,15 @@ export class FakeConnector implements MessagingConnector {
     this.pedidos.push(chatId);
     return this.integrantes.get(chatId) ?? [];
   }
-  async sendText(chatId: string, text: string) {
+  async send(chatId: string, m: Outgoing) {
     if (this.failSend) throw new Error('sin señal');
-    this.sent.push({ chatId, text });
+    this.enviados.push({ chatId, ...m });
+    if ('text' in m) this.sent.push({ chatId, text: m.text });
+    return `W-${this.enviados.length}`;
+  }
+  async joinGroup(code: string) {
+    this.unidos.push(code);
+    return this.alUnirse;
   }
 }
 

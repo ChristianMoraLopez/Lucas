@@ -4,7 +4,7 @@
  * Hoy la implementa Baileys (whatsapp/baileys.ts), que se conecta como un
  * dispositivo vinculado de un número normal. Mañana la puede implementar la
  * API oficial (WhatsApp Cloud API): recibe los mensajes por webhook y los
- * entrega con `onMessage`, y `sendText` llama a su endpoint de envío. Nada de
+ * entrega con `onMessage`, y `send` llama a su endpoint de envío. Nada de
  * la ingesta, el enlace de grupos ni las confirmaciones sabe cuál de las dos
  * está detrás.
  */
@@ -40,10 +40,14 @@ export interface Sender {
   name: string | null;
 }
 
-/** Un mensaje de un grupo, ya sin nada propio de Baileys */
+/** Un grupo, o (solo para el contador) un chat privado con Mister Luks */
+export type ChatKind = 'grupo' | 'privado';
+
+/** Un mensaje de un grupo o de un chat privado, ya sin nada propio de Baileys */
 export interface IncomingMessage {
   sessionId: string;
   chatId: string;
+  chatKind: ChatKind;
   chatName: string | null;
   messageId: string;
   sender: Sender;
@@ -79,6 +83,15 @@ export interface GroupInfo {
   participants: number | null;
 }
 
+/** Lo que manda Mister Luks: un texto, o una imagen (con pie) o un documento por URL */
+export type Outgoing =
+  | { text: string }
+  | { imageUrl: string; caption?: string }
+  | { documentUrl: string; fileName: string; mimeType: string; caption?: string };
+
+/** Qué pasó al entrar a un grupo con su link de invitación */
+export type JoinResult = { status: 'joined' | 'pending' | 'already'; chatId: string; name: string | null } | { status: 'invalid' };
+
 export type SessionState =
   | { status: 'connecting' }
   | { status: 'pairing'; qr: string | null; code: string | null; expiresAt: Date }
@@ -106,7 +119,10 @@ export interface MessagingConnector {
   groups(): ReadonlySet<string>;
   /** Quiénes están en un grupo: con esto las personas de la cuenta son las del grupo */
   members(chatId: string): Promise<GroupMember[]>;
-  sendText(chatId: string, text: string): Promise<void>;
+  /** Manda un mensaje y devuelve su id en WhatsApp */
+  send(chatId: string, message: Outgoing): Promise<string | null>;
+  /** Entra a un grupo con el código de su link (chat.whatsapp.com/CÓDIGO) */
+  joinGroup(inviteCode: string): Promise<JoinResult>;
 }
 
 export type ConnectorFactory = (session: SessionInfo, handlers: ConnectorHandlers) => MessagingConnector;
