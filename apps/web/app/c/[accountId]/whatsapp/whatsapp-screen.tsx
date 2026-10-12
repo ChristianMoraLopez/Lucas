@@ -6,9 +6,11 @@ import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { CampoTelefono } from '@/components/campo-telefono';
 import { Cargando } from '@/components/cargando';
+import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
 import { Button, ConnectionStatus, LottieSlot, Sticker } from '@/components/lucas-ui';
+import { ItemAnimado, ListaAnimada } from '@/components/movimiento';
 import { copiar } from '@/lib/clipboard';
 import { formatDay, formatWhen, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
@@ -43,6 +45,17 @@ function useWhatsappChanges(accountId: string, onChange: () => void) {
       supabase.removeChannel(channel);
     };
   }, [accountId, supabase]);
+}
+
+/** true desde que `si` pasa de false a true mientras se mira (no al llegar ya en true) */
+function useRecien(si: boolean) {
+  const antes = useRef<boolean | null>(null);
+  const [recien, setRecien] = useState(false);
+  useEffect(() => {
+    if (antes.current === false && si) setRecien(true);
+    antes.current = si;
+  }, [si]);
+  return recien;
 }
 
 /** «hace 4 s», actualizado cada segundo */
@@ -139,6 +152,16 @@ export function WhatsappScreen({
     onError: (e) => setError(humanError(e)),
   });
 
+  // Se conectó el grupo mientras miraba la pantalla: se celebra una vez
+  const recienConectado = useRecien(Boolean(overview.data?.groups.some((g) => !g.left_at)));
+  const celebrado = useRef(false);
+  useEffect(() => {
+    if (!recienConectado || celebrado.current) return;
+    celebrado.current = true;
+    const el = document.querySelector('.wa-live');
+    lanzarChispas({ clientX: 0, clientY: 0, currentTarget: el });
+  }, [recienConectado]);
+
   if (overview.isPending) {
     return (
       <div className="wa">
@@ -205,7 +228,7 @@ export function WhatsappScreen({
             </p>
           </div>
         </div>
-        <div className="wa-formas__grid">
+        <div className="wa-formas__grid lu-stagger">
           <FormaMisterLuks telefono={telefono} conectado={contadorOk} />
           <FormaMiWhatsapp otrosLectores={otrosLectores} />
         </div>
@@ -298,7 +321,7 @@ export function WhatsappScreen({
       <aside className="wa-side">
         {conectado && (
           <div className="wa-ready">
-            <Sticker tone="pagado" rotate={-5} size="lg">
+            <Sticker tone="pagado" rotate={-5} size="lg" animate={recienConectado}>
               {t('¡Listo!')}
             </Sticker>
             <Link href={`/c/${accountId}/revisar`} className="lu-btn lu-btn--primary">
@@ -367,9 +390,11 @@ function QuienEs({ accountId, remitentes, onDone, onError }: { accountId: string
         {t('Escribieron en el grupo y no sabemos de quién son. Así sus gastos quedan a su nombre.')}
       </p>
       <ul className="wa-who">
-        {remitentes.map((r) => (
-          <Remitente key={r.wa_id} accountId={accountId} r={r} personas={personas.data ?? []} onDone={onDone} onError={onError} />
-        ))}
+        <ListaAnimada>
+          {remitentes.map((r) => (
+            <Remitente key={r.wa_id} accountId={accountId} r={r} personas={personas.data ?? []} onDone={onDone} onError={onError} />
+          ))}
+        </ListaAnimada>
       </ul>
     </section>
   );
@@ -417,7 +442,7 @@ function Remitente({
   };
 
   return (
-    <li>
+    <ItemAnimado>
       <div className="wa-who__id">
         <b className="lu-num">{numero ?? t('Número oculto por WhatsApp')}</b>
         <span className="lu-small lu-muted">
@@ -459,7 +484,7 @@ function Remitente({
           </Button>
         </div>
       </div>
-    </li>
+    </ItemAnimado>
   );
 }
 
@@ -493,44 +518,46 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
         {t('La gente del grupo es la gente de la cuenta: quien entra al grupo aparece solo en Personas, con su nombre de WhatsApp.')}
       </p>
       <ul className="wa-groups">
-        {grupos.map((g) => (
-          <li key={g.group_id}>
-            <div className="wa-groups__t">
-              <b>{g.name ?? t('Grupo sin nombre')}</b>
-              <span className="lu-small lu-muted">
-                {g.left_at
-                  ? t('Sacaron a Luks del grupo el {dia}', { dia: dia(g.left_at, t) })
-                  : [
-                      t('desde el {dia}', { dia: dia(g.linked_at, t) }),
-                      g.members != null ? plural(g.members, t('integrante'), t('integrantes')) : null,
-                      plural(g.expenses, t('gasto'), t('gastos')),
-                      g.connection_kind === 'personal' ? t('por un WhatsApp vinculado') : g.connection_kind === 'contador' ? t('por Mister Luks') : null,
-                      g.connection_ok ? null : t('nadie lo lee ahora'),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-              </span>
-            </div>
-            {isAdmin && !g.left_at && (
-              <div className="wa-groups__acts">
-                <label className="wa-switch">
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    aria-checked={g.confirm_in_group}
-                    className="lu-switch"
-                    checked={g.confirm_in_group}
-                    onChange={(e) => confirmaciones(g, e.target.checked)}
-                  />
-                  <span>{t('Confirmar en el grupo')}</span>
-                </label>
-                <Button size="sm" variant="ghost" onClick={() => setQuitar(g)}>
-                  {t('Desconectar')}
-                </Button>
+        <ListaAnimada>
+          {grupos.map((g) => (
+            <ItemAnimado key={g.group_id}>
+              <div className="wa-groups__t">
+                <b>{g.name ?? t('Grupo sin nombre')}</b>
+                <span className="lu-small lu-muted">
+                  {g.left_at
+                    ? t('Sacaron a Luks del grupo el {dia}', { dia: dia(g.left_at, t) })
+                    : [
+                        t('desde el {dia}', { dia: dia(g.linked_at, t) }),
+                        g.members != null ? plural(g.members, t('integrante'), t('integrantes')) : null,
+                        plural(g.expenses, t('gasto'), t('gastos')),
+                        g.connection_kind === 'personal' ? t('por un WhatsApp vinculado') : g.connection_kind === 'contador' ? t('por Mister Luks') : null,
+                        g.connection_ok ? null : t('nadie lo lee ahora'),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                </span>
               </div>
-            )}
-          </li>
-        ))}
+              {isAdmin && !g.left_at && (
+                <div className="wa-groups__acts">
+                  <label className="wa-switch">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      aria-checked={g.confirm_in_group}
+                      className="lu-switch"
+                      checked={g.confirm_in_group}
+                      onChange={(e) => confirmaciones(g, e.target.checked)}
+                    />
+                    <span>{t('Confirmar en el grupo')}</span>
+                  </label>
+                  <Button size="sm" variant="ghost" onClick={() => setQuitar(g)}>
+                    {t('Desconectar')}
+                  </Button>
+                </div>
+              )}
+            </ItemAnimado>
+          ))}
+        </ListaAnimada>
       </ul>
       <ConfirmDialog
         open={quitar !== null}
@@ -553,6 +580,8 @@ function Forma({
   id,
   titulo,
   resumen,
+  dibujo,
+  dibujoAncho = false,
   estado,
   compara,
   children,
@@ -560,6 +589,10 @@ function Forma({
   id: string;
   titulo: string;
   resumen: string;
+  /** La Lottie de la forma (se reproduce una vez, al verse) */
+  dibujo?: React.ReactNode;
+  /** El dibujo es más ancho que alto */
+  dibujoAncho?: boolean;
   estado?: React.ReactNode;
   /** [qué, cómo es]; mientras se usa (vinculando, vinculado) no hace falta y no sale */
   compara: [string, string][];
@@ -568,6 +601,11 @@ function Forma({
   return (
     <section className="wa-forma" aria-labelledby={id}>
       <div className="wa-forma__head">
+        {dibujo && (
+          <span className={`wa-forma__dibujo${dibujoAncho ? ' wa-forma__dibujo--ancho' : ''}`} aria-hidden="true">
+            {dibujo}
+          </span>
+        )}
         <h3 className="lu-title" id={id} style={{ margin: 0 }}>
           {titulo}
         </h3>
@@ -610,6 +648,7 @@ function FormaMisterLuks({ telefono, conectado }: { telefono: string | null; con
       id="wa-mister"
       titulo={t('Agregar a Mister Luks')}
       resumen={t('El número de Luks: lo guardas como contacto y lo agregas al grupo, como a cualquiera.')}
+      dibujo={<LottieSlot name="mister-luks" width={64} height={64} label="" alVerse />}
       estado={
         telefono ? null : (
           <Sticker tone="pendiente" size="sm" rotate={-3}>
@@ -711,6 +750,12 @@ function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
   };
 
   const enUso = l?.status === 'connected' || l?.status === 'connecting';
+  // Si se vinculó mientras miraba (escaneó el QR o puso el código): chispas
+  const recienVinculado = useRecien(l?.status === 'connected');
+  const tarjeta = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (recienVinculado) lanzarChispas({ clientX: 0, clientY: 0, currentTarget: tarjeta.current });
+  }, [recienVinculado]);
   const compara: [string, string][] = enUso
     ? []
     : [
@@ -725,7 +770,7 @@ function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
   let cuerpo: React.ReactNode;
   if (l?.status === 'connected') {
     cuerpo = (
-      <>
+      <div className="wa-vincular" ref={tarjeta}>
         <ConnectionStatus
           state={l.alive === false ? 'error' : 'conectado'}
           sub={
@@ -749,7 +794,7 @@ function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
         <ConfirmDialog open={cerrar} onOpenChange={setCerrar} title={t('¿Desvincular tu WhatsApp?')} confirmLabel={t('Desvincular')} onConfirm={desvincular}>
           {t('Luks deja de leer los grupos desde tu número. Si un grupo solo estaba conectado así, hay que agregar a Mister Luks o vincular otro WhatsApp.')}
         </ConfirmDialog>
-      </>
+      </div>
     );
   } else if (l?.status === 'connecting') {
     cuerpo = (
@@ -876,6 +921,14 @@ function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
       id="wa-mio"
       titulo={t('Vincular mi WhatsApp')}
       resumen={t('Luks lee el grupo desde tu WhatsApp, como un WhatsApp Web más. No hay que agregar a nadie.')}
+      dibujo={
+        l?.status === 'connected' ? (
+          <LottieSlot key="vinculado" name="whatsapp-conectado" width={64} height={64} label="" />
+        ) : (
+          <LottieSlot key="vincular" name="vincular-whatsapp" width={88} height={88} label="" alVerse />
+        )
+      }
+      dibujoAncho={l?.status !== 'connected'}
       compara={compara}
     >
       {cuerpo}

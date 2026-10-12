@@ -3,7 +3,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import { IdiomaProvider } from '@/components/idioma';
 import { LogoLink } from '@/components/logo-link';
-import { Avatar, Logo, Sticker } from '@/components/lucas-ui';
+import { Avatar, Logo, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { MenuPrincipal } from '@/components/menu-principal';
 import { crearT, esIdioma, type T } from '@/lib/i18n';
 import { rico } from '@/lib/i18n/rico';
@@ -83,7 +83,7 @@ function Chat({ mensajes, t }: { mensajes: { de: string; texto: string }[]; t: T
 
 function Paso({ n, id, titulo, pronto, children }: { n: number; id: Seccion; titulo: string; pronto?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <li className="ml-paso" id={id} aria-labelledby={`${id}-t`}>
+    <li className="ml-paso lu-al-verse" id={id} aria-labelledby={`${id}-t`}>
       <h2 className="lu-title ml-paso__t" id={`${id}-t`}>
         <span className="ml-n" aria-hidden="true">
           {n}
@@ -127,6 +127,9 @@ async function GuiaCompleta({ t }: { t: T }) {
 
         <section className="ml-contacto" aria-labelledby="ml-contacto-t">
           <div className="ml-contacto__txt">
+            <span className="ml-contacto__dibujo" aria-hidden="true">
+              <LottieSlot name="mister-luks" width={72} height={72} label="" alVerse />
+            </span>
             <h2 className="lu-label" id="ml-contacto-t" style={{ margin: 0 }}>
               {t('Guárdalo como contacto')}
             </h2>
