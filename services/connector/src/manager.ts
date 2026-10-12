@@ -4,6 +4,9 @@ import type { Logger } from './log.js';
 import type { SenderLookup } from './replies.js';
 import type { SessionRow, Store } from './store.js';
 
+/** «123456:7@lid» → «lid:123456» (como identifica el connector a quien escribe) */
+const lidWaId = (lid: string | null) => (lid ? `lid:${lid.split('@')[0].split(':')[0]}` : null);
+
 /** A quién avisar cuando una sesión se cierra del todo (Sentry, logs) */
 export type Alert = (message: string, extra: Record<string, unknown>) => void;
 
@@ -79,7 +82,7 @@ export class SessionManager {
         this.log.debug({ session: info.id.slice(0, 8), msg_id: m.messageId, outcome }, 'Mensaje');
       },
       onGroupJoined: (g) => this.ingestor.onGroupJoined(info, entry.conn, g),
-      onGroupLeft: (jid) => this.ingestor.onGroupLeft(jid),
+      onGroupLeft: (jid) => this.ingestor.onGroupLeft(info, jid),
     });
     this.#running.set(row.id, entry);
     this.log.info(
@@ -118,6 +121,8 @@ export class SessionManager {
         break;
       case 'connected':
         await this.store.setStatus(id, 'connected', { jid: s.jid, lid: s.lid, phone: s.phone });
+        // Lo que escribe Mister Luks no es un gasto aunque lo lea también un WhatsApp vinculado
+        if (entry.info.kind === 'contador') this.ingestor.setMisterLuks([s.phone, lidWaId(s.lid)]);
         break;
       case 'closed':
         if (s.loggedOut) {
@@ -138,11 +143,14 @@ export class SessionManager {
     }
   }
 
-  /** El número contador, si está conectado y en ese grupo (solo él escribe en los grupos) */
-  senderFor: SenderLookup = (groupJid) => {
+  /**
+   * El número contador, si está conectado y (en un grupo) si está ahí: solo él
+   * escribe. Un chat privado ya existe porque esa persona le escribió primero.
+   */
+  senderFor: SenderLookup = (chatJid) => {
     const contador = [...this.#running.values()].find((r) => r.info.kind === 'contador' && r.state === 'connected' && r.conn.isConnected());
     if (!contador) return { connector: null, reason: 'desconectado' };
-    if (!contador.conn.groups().has(groupJid)) return { connector: null, reason: 'no_esta_en_el_grupo' };
+    if (chatJid.endsWith('@g.us') && !contador.conn.groups().has(chatJid)) return { connector: null, reason: 'no_esta_en_el_grupo' };
     return { connector: contador.conn };
   };
 

@@ -93,7 +93,14 @@ export default async function AccountPickerPage() {
               <div className="lu-label">{t('Otras cuentas')}</div>
               {others.map((a, i) =>
                 a.status === 'closed' ? (
-                  <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada={false} titular={a.role === 'owner'} orden={i}>
+                  <FilaArchivable
+                    key={a.id}
+                    accountId={a.id}
+                    accountName={a.name}
+                    archivada={false}
+                    puedeBorrar={a.role === 'owner' || a.role === 'admin'}
+                    orden={i}
+                  >
                     <AccountRow a={a} t={t} />
                   </FilaArchivable>
                 ) : (
@@ -106,7 +113,7 @@ export default async function AccountPickerPage() {
           {archivadas.length > 0 && (
             <Archivadas cantidad={archivadas.length}>
               {archivadas.map((a) => (
-                <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada titular={a.role === 'owner'}>
+                <FilaArchivable key={a.id} accountId={a.id} accountName={a.name} archivada puedeBorrar={a.role === 'owner' || a.role === 'admin'}>
                   <AccountRow a={a} t={t} />
                 </FilaArchivable>
               ))}

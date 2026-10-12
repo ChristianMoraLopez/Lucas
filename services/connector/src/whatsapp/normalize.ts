@@ -1,5 +1,5 @@
 import { type Contact, type GroupMetadata, getContentType, isJidGroup, isLidUser, isPnUser, jidDecode, normalizeMessageContent, type WAMessage } from 'baileys';
-import type { GroupMember, IncomingMedia, IncomingMessage, Sender } from '../connector.js';
+import type { ChatKind, GroupMember, IncomingMedia, IncomingMessage, Sender } from '../connector.js';
 
 /* Un mensaje de Baileys → IncomingMessage (sin nada propio de Baileys). */
 
@@ -34,7 +34,11 @@ export function senderOf(raw: WAMessage, me: Me): Sender {
   if (raw.key.fromMe) {
     return { id: me.phone ?? (me.lid ? `lid:${me.lid}` : null), phone: me.phone, name: me.name ?? raw.pushName ?? null };
   }
-  const jids = [raw.key.participant, raw.key.participantAlt, raw.participant].filter((j): j is string => Boolean(j));
+  // En un chat privado quien escribe es el chat mismo
+  const privado = !isJidGroup(raw.key.remoteJid ?? undefined);
+  const jids = (privado ? [raw.key.remoteJid, raw.key.remoteJidAlt] : [raw.key.participant, raw.key.participantAlt, raw.participant]).filter((j): j is string =>
+    Boolean(j),
+  );
   const phone = usuario(jids.find((j) => isPnUser(j)));
   const lid = usuario(jids.find((j) => isLidUser(j)));
   return { id: phone ?? (lid ? `lid:${lid}` : null), phone, name: raw.pushName?.trim() || null };
@@ -103,9 +107,21 @@ export function membersOf(g: GroupMetadata, contactos: Contactos = new Map()): G
   return [...out.values()];
 }
 
-export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, download: Downloader): IncomingMessage | null {
+/**
+ * El tipo de chat, o null si no es de los que Luks lee: los grupos, y los chats
+ * privados (con una persona, no estados, canales ni bots) solo si `privados`,
+ * que es para el contador: de una sesión personal nunca se lee un chat privado.
+ */
+export function tipoDeChat(chatId: string, privados: boolean): ChatKind | null {
+  if (isJidGroup(chatId)) return 'grupo';
+  if (privados && (isPnUser(chatId) || isLidUser(chatId))) return 'privado';
+  return null;
+}
+
+export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, download: Downloader, privados = false): IncomingMessage | null {
   const chatId = raw.key.remoteJid;
-  if (!chatId || !isJidGroup(chatId) || !raw.key.id) return null;
+  const chatKind = chatId ? tipoDeChat(chatId, privados) : null;
+  if (!chatId || !chatKind || !raw.key.id) return null;
   const content = normalizeMessageContent(raw.message);
   if (!content) return null;
 
@@ -149,6 +165,7 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
   return {
     sessionId,
     chatId,
+    chatKind,
     chatName: null,
     messageId: raw.key.id,
     sender: senderOf(raw, me),

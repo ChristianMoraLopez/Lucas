@@ -27,6 +27,9 @@ CUENTAS = (
         "Anotado: Asadero · $272.500 · pagó Felipe.",
         "Anotados 2:\n• Hielo · $8.000\n• Ron · $116.000",
         "Recibido: Taxi · $45.000. Queda por revisar en Luks.",
+        "👋 Hola, soy Mister Luks: llevo las cuentas del grupo. Manden «taxi 45 lucas» y yo los anoto.",
+        "👋 Hi, I’m Mister Luks: I keep track of this group’s expenses. Send “taxi $45”.",
+        "Listo: este grupo quedó conectado a «Paseo». Manden «taxi al aeropuerto 45 lucas».",
     ],
 )
 def test_reconoce_lo_que_hizo_luks(texto: str) -> None:

@@ -4691,6 +4691,17 @@ a.ed-cat:focus-visible {
   white-space: normal;
 }
 
+/* ---------- Personas: borrar la cuenta (quien la administra) ---------- */
+.mb-borrar {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+}
+
 /* ---------- guía de Mister Luks (/guia): se ve sin entrar, y de ahí salen su imagen y su PDF ---------- */
 .ml {
   padding: var(--space-4) var(--space-4) var(--space-10);
@@ -5572,21 +5583,6 @@ a.ed-cat:focus-visible {
   margin-top: var(--space-2);
   font-weight: 700;
   color: var(--tinta);
-}
-.fb-input {
-  min-width: 0;
-  padding: 10px 12px;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--tinta);
-  background: var(--superficie);
-  border: 1.5px solid var(--borde);
-  border-radius: var(--radius-sm);
-}
-.fb-input:focus-visible {
-  outline: 2px solid var(--coral);
-  outline-offset: 1px;
 }
 .fb-estado {
   display: grid;

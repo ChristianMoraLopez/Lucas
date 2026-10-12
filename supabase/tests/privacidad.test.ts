@@ -38,10 +38,12 @@ const grupo = async (tx: Transaction, conexion: string, jid: string, nombre: str
   (await one<{ r: { group_id: string } }>(tx, 'select public.connector_upsert_group($1, $2, $3, 2) as r', [conexion, jid, nombre])).r.group_id;
 
 const fijar = async (tx: Transaction, grupoId: string) =>
-  (await one<{ r: { members: number; people_added: number; stored?: boolean } }>(tx, 'select public.connector_set_group_members($1, $2) as r', [
-    grupoId,
-    JSON.stringify(miembros),
-  ])).r;
+  (
+    await one<{ r: { members: number; people_added: number; stored?: boolean } }>(tx, 'select public.connector_set_group_members($1, $2) as r', [
+      grupoId,
+      JSON.stringify(miembros),
+    ])
+  ).r;
 
 const guardados = async (tx: Transaction, grupoId: string) =>
   (await one<{ n: number }>(tx, 'select count(*)::int as n from public.whatsapp_group_members where group_id = $1', [grupoId])).n;
@@ -80,6 +82,8 @@ describe('grupos de un WhatsApp vinculado', () => {
     await as(db, U.valeria, async (tx) => {
       const mio = await whatsappDeValeria(tx);
       await grupo(tx, mio, JID_PASEO, 'Paseo Santa Marta 2026');
+      // Mister Luks sale del grupo: queda solo el WhatsApp de Valeria (migración 290)
+      await tx.query('select public.connector_group_left($1, $2)', [JID_PASEO, CONTADOR]);
       await fijar(tx, GRUPO_PASEO);
       expect(await guardados(tx, GRUPO_PASEO)).toBeGreaterThan(0);
       const antes = (await one<{ n: number }>(tx, 'select count(*)::int as n from public.people where account_id = $1', [PASEO])).n;

@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { archivosBajo, enTandas, nombreCoincide } from './borrar-cuenta';
+import { archivosBajo, enTandas } from './borrar-cuenta';
 
 describe('borrar una cuenta del todo', () => {
-  it('el nombre escrito coincide sin importar mayúsculas ni espacios', () => {
-    expect(nombreCoincide('  noche de   fiesta ', 'Noche de fiesta')).toBe(true);
-    expect(nombreCoincide('Noche', 'Noche de fiesta')).toBe(false);
-    expect(nombreCoincide('', 'Kara')).toBe(false);
-  });
-
   it('encuentra los archivos de todas las subcarpetas', async () => {
     const arbol: Record<string, { name: string; id: string | null }[]> = {
       cuenta: [

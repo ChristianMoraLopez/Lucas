@@ -49,7 +49,7 @@ describe('archivar', () => {
 });
 
 describe('borrar del todo', () => {
-  it('solo el titular, escribiendo el nombre; se va todo, también lo que esperaba en la cola', async () => {
+  it('un admin (o el titular) la borra, con el nombre de seguro; se va todo, también lo que esperaba en la cola', async () => {
     await as(db, U.laura, async (tx) => {
       await cerrarPaseo(tx, U.laura);
       await tx.exec('reset role');
@@ -57,15 +57,17 @@ describe('borrar del todo', () => {
       await impersonate(tx, U.laura);
 
       await tx.exec('savepoint a');
-      // Laura administra, pero no es la titular
-      await expect(tx.query('select public.delete_account_forever($1, $2)', [PASEO, 'Paseo Santa Marta'])).rejects.toThrow('Solo el titular');
+      // Mafe es de la cuenta, pero no la administra
+      await impersonate(tx, U.mafe);
+      await expect(tx.query('select public.delete_account_forever($1, $2)', [PASEO, 'Paseo Santa Marta'])).rejects.toThrow('Solo quien administra');
       await tx.exec('rollback to savepoint a');
 
-      await impersonate(tx, U.valeria);
+      await impersonate(tx, U.laura);
       await expect(tx.query('select public.delete_account_forever($1, $2)', [PASEO, 'Paseo'])).rejects.toThrow('«Paseo Santa Marta»');
       await tx.exec('rollback to savepoint a');
 
-      await impersonate(tx, U.valeria);
+      // Laura administra (no es la titular) y la borra (migración 300)
+      await impersonate(tx, U.laura);
       expect(await one(tx, 'select public.delete_account_forever($1, $2) as r', [PASEO, '  paseo santa marta '])).toEqual({ r: 'Paseo Santa Marta' });
 
       await tx.exec('reset role');
@@ -74,6 +76,13 @@ describe('borrar del todo', () => {
         expect(await count(tx, `select 1 from public.${tabla} where ${col} = $1`, [PASEO]), tabla).toBe(0);
       }
       expect(await count(tx, `select 1 from public.jobs where payload ->> 'account_id' = $1`, [PASEO])).toBe(0);
+    });
+  });
+
+  it('también una cuenta que sigue abierta', async () => {
+    await as(db, U.laura, async (tx) => {
+      await tx.query('select public.delete_account_forever($1, $2)', [PASEO, 'Paseo Santa Marta']);
+      expect(await count(tx, 'select 1 from public.accounts where id = $1', [PASEO])).toBe(0);
     });
   });
 

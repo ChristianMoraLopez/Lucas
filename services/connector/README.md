@@ -1,12 +1,14 @@
 # Luks · connector de WhatsApp
 
-Lee los grupos de WhatsApp enlazados a una cuenta de Luks y deja en la cola lo que parece un gasto: fotos de recibos, PDFs y mensajes con montos. El [worker](../worker/README.md) los vuelve gastos. Node 22, TypeScript y [Baileys](https://github.com/WhiskeySockets/Baileys) 7.
+Lee los grupos de WhatsApp enlazados a una cuenta de Luks y deja en la cola lo que parece un gasto: fotos de recibos, PDFs y mensajes con montos. El [worker](../worker/README.md) los vuelve gastos. Con el número contador, **Mister Luks**, también atiende los chats privados: da la bienvenida con la guía, entra a los grupos cuyo link le mandan y responde «ayuda». Node 22, TypeScript y [Baileys](https://github.com/WhiskeySockets/Baileys) 7.
 
 ```mermaid
 flowchart TD
     WA[WhatsApp] -->|Baileys| N[normalize: mensaje sin Baileys]
-    N --> L{¿«luks CÓDIGO»?}
-    L -->|sí| E[(connector_link_group)] --> R1[«Listo: este grupo quedó conectado…»]
+    N --> PV{¿chat privado con Mister Luks?}
+    PV -->|sí| B[bienvenida · link de grupo · «ayuda»] --> O[(whatsapp_outbox)]
+    PV -->|no| L{¿«luks CÓDIGO»?}
+    L -->|sí| E[(connector_link_group)] --> O
     L -->|no| F{¿foto, PDF o monto?}
     F -->|no| X[charla: no sale de WhatsApp]
     F -->|sí| Q{¿grupo enlazado, cuenta activa,<br/>mensaje nuevo y después del enlace?}
@@ -14,7 +16,9 @@ flowchart TD
     Q -->|sí| M[bajar · comprimir a JPEG · Storage]
     M --> I[(connector_ingest_message<br/>mensaje + trabajo + remitente)]
     I --> W[worker]
-    W --> P[(connector_pending_replies)] --> R2[«Anotado: Asadero · $272.500 · pagó Mafe»]
+    W --> P[(connector_pending_replies)] --> R[ReplyLoop: límite de frecuencia]
+    O --> R
+    R --> R2[«✅ Anotado: Asadero · $272.500 · pagó Mafe»]
 ```
 
 ## Qué hace
@@ -26,15 +30,16 @@ flowchart TD
 | Vincular con código | WhatsApp cierra la conexión si nadie vincula en ~2,5 min, y el código de 8 letras solo sirve en la conexión que lo pidió: cada reconexión pide uno nuevo (la web muestra siempre el vigente) y olvida el anterior, para no entrar como si ya estuviera vinculada. Si piden el código mientras se mostraba el QR, la sesión arranca otra vez con el número. Tres intentos sin vincular (~8 min) y se rinde | `whatsapp/baileys.ts`, `manager.ts` |
 | Credenciales | Las de Baileys (creds y cada llave de Signal) se guardan **cifradas con AES-256-GCM** en Postgres (`whatsapp_connections`, `whatsapp_session_keys`). El contexto del cifrado ata cada valor a su sesión y su llave | `crypto.ts`, `whatsapp/auth-state.ts` |
 | Integrantes | Manda la lista de quién está en cada grupo (número o «lid:…», el nombre que cada uno se puso en WhatsApp y si es admin) al conectarse y cada vez que alguien entra o sale, **solo** de los grupos enlazados a una cuenta o que lee el contador (migración 280). Cada integrante de un grupo enlazado queda como persona de esa cuenta (migración 160) | `ingest.ts`, `whatsapp/baileys.ts`, `whatsapp/normalize.ts` |
-| Grupos | Cuando agregan a Luks a un grupo, lo anota y saluda una vez. El grupo se enlaza a una cuenta cuando alguien escribe **`luks CÓDIGO`** con un código de invitación vigente (también sirve `lucas CÓDIGO`, el nombre de antes) | `ingest.ts` |
+| Grupos | Cuando agregan a Mister Luks a un grupo, lo anota y saluda una vez, con la guía y nombrando a quienes del grupo ya usan Luks (migración 290). El grupo se enlaza a una cuenta cuando alguien escribe **`luks CÓDIGO`** con un código de invitación vigente (también sirve `lucas CÓDIGO`, el nombre de antes). Mister Luks y un WhatsApp vinculado pueden estar en el mismo grupo: cada sesión tiene su presencia (`whatsapp_group_sessions`) y el grupo lo lee principalmente Mister Luks | `ingest.ts` |
+| Chats privados | Solo los del contador: la sesión personal de alguien nunca lee sus chats privados. La primera vez, la bienvenida con la imagen y el PDF de [mrluks.com/guia](https://mrluks.com/guia); un link `chat.whatsapp.com/…`, entra al grupo (con tope por hora: `JOINS_MAX_PER_HOUR`); «ayuda» o «instrucciones», la guía otra vez. Del chat solo queda que esa persona escribió primero: ni su nombre ni sus mensajes | `ingest.ts`, `whatsapp/normalize.ts` |
 | Ingesta | Solo de grupos enlazados, solo lo escrito después del enlace, sin repetir (`unique (group_id, wa_message_id)`). Fotos a JPEG de 1600 px; PDFs tal cual (máximo 6 MB, el límite del bucket) | `ingest.ts`, `media.ts` |
 | Remitentes | Cada número que escribe queda anotado por cuenta. Los que no son de nadie le aparecen a un admin en la web: «¿Quién es este número?». En grupos con LID (WhatsApp oculta el número) se intenta traducir a número; si no se puede, queda «lid:…» | `whatsapp/normalize.ts` |
-| Confirmaciones | Opcionales por grupo. Lo que llegó seguido va en un solo mensaje; mínimo 20 s entre mensajes del mismo grupo, 20 por hora por grupo y 60 en total. Solo escribe el contador, nunca una sesión personal | `replies.ts` |
+| Lo que escribe | Las confirmaciones de los recibos (opcionales por grupo; lo que llegó seguido va en un solo mensaje) y la **bandeja de salida** (`whatsapp_outbox`: bienvenida, saludo, guía y respuestas). Lo mismo no se manda dos veces (`dedupe_key`), por privado solo a quien escribió primero, y todo con el mismo límite: mínimo 20 s entre mensajes del mismo chat, 20 por hora por chat y 60 en total. Solo escribe el contador, nunca una sesión personal | `replies.ts`, `text.ts` |
 | Monitoreo | `/health` (contador conectado), `/health/cola` (la cola del worker avanza) y `/health/vivo`, para Uptime Kuma | `health.ts` |
 
 ### La interfaz `MessagingConnector`
 
-Nada de la ingesta, el enlace ni las confirmaciones sabe que detrás está Baileys: todo depende de [`connector.ts`](src/connector.ts). Para pasar a la **API oficial (WhatsApp Cloud API)** basta otra implementación: recibe los mensajes por webhook y los entrega con `onMessage` como `IncomingMessage`, y `sendText` llama a su endpoint.
+Nada de la ingesta, el enlace ni las confirmaciones sabe que detrás está Baileys: todo depende de [`connector.ts`](src/connector.ts). Para pasar a la **API oficial (WhatsApp Cloud API)** basta otra implementación: recibe los mensajes por webhook y los entrega con `onMessage` como `IncomingMessage`, y `send` llama a su endpoint.
 
 ```ts
 interface MessagingConnector {
@@ -43,7 +48,9 @@ interface MessagingConnector {
   logout(): Promise<void>;         // desvincula
   isConnected(): boolean;
   groups(): ReadonlySet<string>;   // grupos donde está
-  sendText(chatId: string, text: string): Promise<void>;
+  members(chatId: string): Promise<GroupMember[]>;          // quiénes están (solo si se van a guardar)
+  send(chatId: string, m: Outgoing): Promise<string | null>; // texto, o imagen o documento por URL
+  joinGroup(inviteCode: string): Promise<JoinResult>;       // entrar con el link de un grupo
 }
 ```
 

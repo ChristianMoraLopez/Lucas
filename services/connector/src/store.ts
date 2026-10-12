@@ -3,7 +3,8 @@ import type { GroupMember, SessionKind } from './connector.js';
 import type { PendingReply } from './text.js';
 
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
-   Son RPC de 00000000000080_whatsapp_connector.sql (solo service role). */
+   Son RPC de 00000000000080_whatsapp_connector.sql y las que le siguieron
+   (la 290: presencia, chats privados y la bandeja de salida), solo service role. */
 
 export interface SessionRow {
   id: string;
@@ -27,7 +28,29 @@ export interface GroupResult {
   group_id: string;
   account_id: string | null;
   account_name: string | null;
+  /** El idioma de la cuenta (migración 290) */
+  language?: 'es' | 'en' | null;
   say_hello: boolean;
+}
+
+/** connector_group_hello: si toca saludar, con qué (quiénes del grupo ya usan Luks) */
+export type HelloResult = { say_hello: false } | { say_hello: true; account_name: string | null; language: 'es' | 'en' | null; luks_users: string[] };
+
+/** Un mensaje para la bandeja de salida de Mister Luks (whatsapp_outbox) */
+export interface OutboxItem {
+  chat_jid: string;
+  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link';
+  body?: string | null;
+  image_url?: string | null;
+  document_url?: string | null;
+  document_name?: string | null;
+  /** Lo mismo no se manda dos veces */
+  dedupe_key: string;
+}
+
+export interface OutboxPending extends Omit<OutboxItem, 'dedupe_key'> {
+  id: string;
+  created_at: string;
 }
 
 export type LinkResult =
@@ -42,7 +65,7 @@ export type LinkResult =
       /** El idioma de la cuenta (migración 260) */
       language?: 'es' | 'en' | null;
     }
-  | { ok: false; error: 'codigo_invalido' | 'otra_cuenta' };
+  | { ok: false; error: 'codigo_invalido' | 'otra_cuenta' | 'no_es_grupo' };
 
 export interface IngestCheck {
   ingest: boolean;
@@ -90,8 +113,16 @@ export interface Store {
   upsertGroup(sessionId: string, jid: string, name: string | null, participants: number | null): Promise<GroupResult>;
   /** La lista completa de integrantes; si el grupo está enlazado, cada uno queda como persona de la cuenta */
   setGroupMembers(groupId: string, members: GroupMember[]): Promise<{ members: number; people_added: number }>;
-  markHello(groupId: string): Promise<void>;
-  groupLeft(jid: string): Promise<void>;
+  /** Marca el saludo del grupo (una sola vez) y dice con qué saludar */
+  groupHello(groupId: string): Promise<HelloResult>;
+  /** Esta sesión ya no está en el grupo (las demás siguen) */
+  groupLeft(sessionId: string, jid: string): Promise<void>;
+  /** Alguien le escribió por privado a Mister Luks */
+  privateChat(sessionId: string, jid: string): Promise<string>;
+  /** Encola mensajes de Mister Luks; devuelve las dedupe_key que quedaron nuevas */
+  outboxEnqueue(items: OutboxItem[]): Promise<string[]>;
+  outboxPending(limit: number): Promise<OutboxPending[]>;
+  outboxResult(id: string, waMessageId: string | null, error?: string | null, drop?: boolean): Promise<void>;
   linkGroup(sessionId: string, jid: string, name: string | null, code: string, senderWaId: string | null): Promise<LinkResult>;
   shouldIngest(jid: string, waMessageId: string, sentAt: Date): Promise<IngestCheck>;
   ingest(input: IngestInput): Promise<IngestCheck>;
@@ -192,12 +223,29 @@ export class SupabaseStore implements Store {
     return this.#rpc<{ members: number; people_added: number }>('connector_set_group_members', { p_group_id: groupId, p_members: members });
   }
 
-  async markHello(groupId: string) {
-    await this.#rpc('connector_mark_hello', { p_group_id: groupId });
+  groupHello(groupId: string) {
+    return this.#rpc<HelloResult>('connector_group_hello', { p_group_id: groupId });
   }
 
-  async groupLeft(jid: string) {
-    await this.#rpc('connector_group_left', { p_jid: jid });
+  async groupLeft(sessionId: string, jid: string) {
+    await this.#rpc('connector_group_left', { p_jid: jid, p_connection_id: sessionId });
+  }
+
+  privateChat(sessionId: string, jid: string) {
+    return this.#rpc<string>('connector_private_chat', { p_connection_id: sessionId, p_jid: jid });
+  }
+
+  async outboxEnqueue(items: OutboxItem[]) {
+    if (!items.length) return [];
+    return (await this.#rpc<string[] | null>('connector_outbox_enqueue', { p_items: items })) ?? [];
+  }
+
+  outboxPending(limit: number) {
+    return this.#rpc<OutboxPending[]>('connector_outbox_pending', { p_limit: limit });
+  }
+
+  async outboxResult(id: string, waMessageId: string | null, error: string | null = null, drop = false) {
+    await this.#rpc('connector_outbox_result', { p_id: id, p_wa_message_id: waMessageId, p_error: error, p_drop: drop });
   }
 
   linkGroup(sessionId: string, jid: string, name: string | null, code: string, senderWaId: string | null) {

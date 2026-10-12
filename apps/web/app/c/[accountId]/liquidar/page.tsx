@@ -30,7 +30,7 @@ export default async function LiquidarPage({ params, searchParams }: PageProps<'
         d.people.map((p) => p.id),
       ),
     siteOrigin(),
-    // Si es titular (borra del todo) y si ya la archivó
+    // Si la administra (la puede borrar del todo) y si ya la archivó
     supabase.from('account_members').select('role, archived_at').eq('account_id', accountId).eq('user_id', userId).maybeSingle(),
   ]);
   const phones: Record<string, string> = {};
@@ -47,7 +47,7 @@ export default async function LiquidarPage({ params, searchParams }: PageProps<'
       shareToken={(link.data as string | null) ?? null}
       phones={phones}
       origin={origin}
-      titular={miembro?.role === 'owner'}
+      puedeBorrar={miembro?.role === 'owner' || miembro?.role === 'admin'}
       archivada={Boolean(miembro?.archived_at)}
     />
   );

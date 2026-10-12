@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { BorrarCuenta } from '@/components/archivo-cuenta';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
 import { InviteWhatsapp } from '@/components/invite-whatsapp';
@@ -455,6 +456,19 @@ export function MembersScreen({
             </div>
           ))}
         </dl>
+
+        {/* Quien administra la puede borrar cuando quiera, no solo al cerrarla (migración 300) */}
+        {isAdmin && (
+          <section className="mb-borrar" aria-labelledby="mb-borrar-t">
+            <h2 className="lu-label" id="mb-borrar-t" style={{ margin: 0 }}>
+              {t('Borrar esta cuenta')}
+            </h2>
+            <p className="lu-small" style={{ margin: 0 }}>
+              {t('Para todos y sin vuelta atrás: los gastos, las fotos y los PDF, las personas y el grupo de WhatsApp conectado.')}
+            </p>
+            <BorrarCuenta accountId={accountId} accountName={accountName} />
+          </section>
+        )}
       </aside>
 
       <ConfirmDialog

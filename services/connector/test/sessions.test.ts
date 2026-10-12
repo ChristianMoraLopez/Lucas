@@ -98,7 +98,7 @@ describe('gestor de sesiones', () => {
     const ing = new Ingestor(
       store,
       { maxDownloadBytes: 1, maxUploadBytes: 1, maxSide: 1, jpegQuality: 80 },
-      new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 99, maxPerHourTotal: 99 }),
+      { guiaUrl: 'https://mrluks.com/guia', joins: new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 99, maxPerHourTotal: 99 }) },
       silentLog,
     );
     manager = new SessionManager(

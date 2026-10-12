@@ -346,7 +346,6 @@ export const EN: Record<string, string> = {
   'Se borra para todos y no se puede deshacer: los gastos, las fotos y los PDF, la liquidación, las personas y el link público. Luks deja de leer su grupo de WhatsApp.':
     'It’s deleted for everyone and can’t be undone: the expenses, the photos and PDFs, the settlement, the people and the public link. Luks stops reading its WhatsApp group.',
   'Si solo quieres que no salga en tu inicio, mejor archívala.': 'If you just don’t want it on your home screen, archive it instead.',
-  'Para confirmar, escribe {nombre}': 'To confirm, type {nombre}',
   Cancelar: 'Cancel',
   'Borrar para siempre': 'Delete forever',
   'Volviendo al inicio…': 'Going back home…',
@@ -1476,9 +1475,9 @@ export const EN: Record<string, string> = {
   '¿No es entre todos? {a}.': 'Not for everyone? {a}.',
   'entre Vale y Caro': 'between Vale and Caro',
   'taxi al aeropuerto 45 lucas, la pagó Andrés': 'airport taxi $45, Andrés paid',
-  'Anotado: Taxi · $45.000 · pagó Andrés.': 'Logged: Taxi · $45.00 · paid by Andrés.',
+  '✅ Anotado: Taxi · $45.000 · pagó Andrés.': '✅ Logged: Taxi · $45.00 · paid by Andrés.',
   'pizza 60 mil, entre Vale y Caro': 'pizza $60, between Vale and Caro',
-  'Anotado: Pizza · $60.000 · entre 2.': 'Logged: Pizza · $60.00 · split 2 ways.',
+  '✅ Anotado: Pizza · $60.000 · entre 2.': '✅ Logged: Pizza · $60.00 · split 2 ways.',
   Pregúntenle: 'Ask him',
   'Escribe @ y elige a Mister Luks: {a}, {b} o {c}.': 'Type @ and pick Mister Luks: {a}, {b} or {c}.',
   '@Mister Luks cuánto llevamos': '@Mister Luks how much so far',
@@ -1588,6 +1587,11 @@ export const EN: Record<string, string> = {
     'Luks joins as one more linked device, just like WhatsApp Web, but it’s not an official WhatsApp connection: WhatsApp could restrict your account. Luks never writes from your number, and of your groups it only keeps the ones you connect to an account.',
   'Luks lee el grupo desde tu WhatsApp, como un WhatsApp Web más. No hay que agregar a nadie.':
     'Luks reads the group from your WhatsApp, like one more WhatsApp Web. No need to add anyone.',
+
+  // ---------- Personas: borrar la cuenta ----------
+  'Borrar esta cuenta': 'Delete this account',
+  'Para todos y sin vuelta atrás: los gastos, las fotos y los PDF, las personas y el grupo de WhatsApp conectado.':
+    'For everyone, with no way back: the expenses, photos and PDFs, the people and the connected WhatsApp group.',
 
   // ⟨más⟩
 };

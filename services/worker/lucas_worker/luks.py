@@ -3,8 +3,9 @@
 Las cuentas y los cobros que se mandan desde Liquidar llevan la firma «Esto se
 hizo en mrluks.com» y el link /r/TOKEN; la imagen de ese link (o un pantallazo
 de Liquidar) dice «¿Quién le paga a quién?». Las respuestas de Luks en el grupo
-son «Anotado: Hielo · $8.000». La base y el connector revisan lo mismo
-(public.es_mensaje_de_luks, migración 180, y services/connector/src/text.ts).
+son «✅ Anotado: Hielo · $8.000», y Mister Luks saluda con «Soy Mister Luks…».
+La base y el connector revisan lo mismo (public.es_mensaje_de_luks, migraciones
+180 y 290, y services/connector/src/text.ts).
 """
 
 from __future__ import annotations
@@ -17,8 +18,15 @@ _FIRMA = re.compile(
     re.IGNORECASE,
 )
 _RESPUESTA = re.compile(
-    r"^\s*(?:anotad[oa]s?|recibido|ya estaba anotado|logged|received|already logged)[\s:].*·\s*(?:\$|bs\s?)\d",
+    r"^\s*\W{0,4}\s*(?:anotad[oa]s?|recibido|ya estaba anotado|logged|received|already logged)"
+    r"[\s:].*·\s*(?:\$|bs\s?)\d",
     re.IGNORECASE | re.DOTALL,
+)
+# Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo
+_SALUDO = re.compile(
+    r"(?:soy|i[’']m) \*?mister luks"
+    r"|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)",
+    re.IGNORECASE,
 )
 # En una imagen el OCR no siempre lee bien la firma: basta la marca con algo de las cuentas
 _MARCA = re.compile(r"mr\s*luks", re.IGNORECASE)
@@ -29,7 +37,7 @@ def es_mensaje_de_luks(texto: str | None) -> bool:
     """Un mensaje escrito por Luks o mandado desde Luks (las cuentas, un cobro, una respuesta)."""
     if not texto:
         return False
-    return bool(_FIRMA.search(texto) or _RESPUESTA.search(texto))
+    return bool(_FIRMA.search(texto) or _RESPUESTA.search(texto) or _SALUDO.search(texto))
 
 
 def es_imagen_de_luks(texto: str | None) -> bool:

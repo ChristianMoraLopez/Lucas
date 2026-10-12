@@ -202,9 +202,9 @@ async function GuiaCompleta({ t }: { t: T }) {
               t={t}
               mensajes={[
                 { de: 'Mafe', texto: t('taxi al aeropuerto 45 lucas, la pagó Andrés') },
-                { de: MISTER_LUKS.nombre, texto: t('Anotado: Taxi · $45.000 · pagó Andrés.') },
+                { de: MISTER_LUKS.nombre, texto: t('✅ Anotado: Taxi · $45.000 · pagó Andrés.') },
                 { de: 'Santi', texto: t('pizza 60 mil, entre Vale y Caro') },
-                { de: MISTER_LUKS.nombre, texto: t('Anotado: Pizza · $60.000 · entre 2.') },
+                { de: MISTER_LUKS.nombre, texto: t('✅ Anotado: Pizza · $60.000 · entre 2.') },
               ]}
             />
           </Paso>

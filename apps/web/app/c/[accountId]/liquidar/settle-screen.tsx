@@ -45,7 +45,7 @@ export function SettleScreen({
   shareToken,
   phones,
   origin,
-  titular = false,
+  puedeBorrar = false,
   archivada = false,
 }: {
   d: SettlementOverview;
@@ -54,8 +54,8 @@ export function SettleScreen({
   /** WhatsApp de cada persona (person_id → 573001234567), para cobrarle directo */
   phones: Record<string, string>;
   origin: string;
-  /** Es la persona titular de la cuenta (solo ella la borra del todo) */
-  titular?: boolean;
+  /** La administra (titular o admin): puede borrarla del todo */
+  puedeBorrar?: boolean;
   /** Ya la archivó (solo para ella) */
   archivada?: boolean;
 }) {
@@ -399,7 +399,7 @@ export function SettleScreen({
           queSe={queSe}
           busy={busy}
           onAccion={setConfirmar}
-          fin={cerrada ? <FinDeCuenta accountId={accountId} accountName={d.account.name} archivada={archivada} titular={titular} /> : null}
+          fin={cerrada ? <FinDeCuenta accountId={accountId} accountName={d.account.name} archivada={archivada} puedeBorrar={puedeBorrar} /> : null}
         />
         {error && (
           <p className="lu-small st-error" role="alert">

@@ -1,78 +1,152 @@
-import type { GroupInfo, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
+import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
 import type { RateLimiter } from './replies.js';
-import type { Store } from './store.js';
-import { esMensajeDeLuks, looksLikeExpense, MSG, parseLinkCommand } from './text.js';
+import type { OutboxItem, Store } from './store.js';
+import {
+  esMensajeDeLuks,
+  esPedidoDeAyuda,
+  guia,
+  type Idioma,
+  idiomaDeNumero,
+  looksLikeExpense,
+  MISTER,
+  MSG,
+  parseInviteLink,
+  parseLinkCommand,
+} from './text.js';
 
 /** Qué pasó con un mensaje (va a los logs; sirve para las pruebas) */
 export type Outcome =
   | 'propio'
   | 'de_luks'
   | 'charla'
+  | 'ayuda'
   | 'enlazado'
   | 'codigo_invalido'
   | 'otra_cuenta'
+  | 'no_es_grupo'
   | 'guardado'
   | 'archivo_muy_pesado'
   | 'archivo_rechazado'
+  | 'privado'
+  | 'bienvenida'
+  | `link_grupo:${string}`
   | `ignorado:${string}`;
 
 export interface IngestLimits extends MediaLimits {
   maxDownloadBytes: number;
 }
 
+export interface MisterLuksOptions {
+  /** Dónde están la imagen y el PDF de la guía (https://mrluks.com/guia) */
+  guiaUrl: string;
+  /** Cuántos grupos acepta Mister Luks con links de invitación (por quien manda el link y en total, por hora) */
+  joins: RateLimiter;
+}
+
 const mes = (d: Date) => d.toISOString().slice(0, 7);
 const nombreSeguro = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
+/** El tramo de tiempo del mensaje: lo mismo dentro del tramo no se responde dos veces */
+const tramo = (d: Date, minutos: number) => Math.floor(d.getTime() / (minutos * 60_000));
+
+/** El idioma de un grupo sin cuenta: inglés si la mayoría tiene número de +1 */
+function idiomaDelGrupo(members: GroupMember[]): Idioma {
+  const conNumero = members.filter((m) => m.phone);
+  return conNumero.length && conNumero.filter((m) => m.phone?.startsWith('1')).length * 2 > conNumero.length ? 'en' : 'es';
+}
 
 /**
- * Lo que entra de los grupos. Solo los grupos enlazados a una cuenta activa
- * llegan a la base, y de ellos solo fotos, PDFs y mensajes con montos.
+ * Lo que entra de los grupos y, para Mister Luks (el contador), de los chats
+ * privados. Solo los grupos enlazados a una cuenta activa llegan a la base, y
+ * de ellos solo fotos, PDFs y mensajes con montos. Lo que Mister Luks contesta
+ * no sale de aquí: va a la bandeja de salida (whatsapp_outbox) y lo manda el
+ * ReplyLoop con el límite de frecuencia. Una sesión personal nunca escribe.
  */
 export class Ingestor {
+  /** El número de Mister Luks (y su LID): lo que escribe no es un gasto aunque lo lea otra sesión */
+  #misterLuks = new Set<string>();
+
   constructor(
     private readonly store: Store,
     private readonly limits: IngestLimits,
-    private readonly limiter: RateLimiter,
+    private readonly mister: MisterLuksOptions,
     private readonly log: Logger,
   ) {}
+
+  setMisterLuks(ids: (string | null)[]) {
+    this.#misterLuks = new Set(ids.filter((x): x is string => Boolean(x)));
+  }
 
   /** Luks quedó en un grupo (lo agregaron, o ya estaba al conectar) */
   async onGroupJoined(session: SessionInfo, connector: MessagingConnector, group: GroupInfo): Promise<void> {
     const g = await this.store.upsertGroup(session.id, group.chatId, group.name, group.participants);
     // Quiénes están, solo si el grupo es de una cuenta (cada uno queda como persona de ella) o si
     // lo lee el contador. De los demás grupos de un WhatsApp vinculado se guarda solo el nombre.
-    if (g.account_id || session.kind === 'contador') await this.#members(connector, group.chatId, g.group_id);
-    // Solo el número contador escribe; una sesión personal es el WhatsApp de alguien
-    if (g.say_hello && session.kind === 'contador' && this.limiter.allow(group.chatId)) {
-      try {
-        await connector.sendText(group.chatId, MSG.hello);
-        this.limiter.record(group.chatId);
-      } catch (e) {
-        this.log.warn({ err: (e as Error).message }, 'No se pudo saludar en el grupo');
-      }
-      await this.store.markHello(g.group_id);
-    }
+    const { lista: members } = g.account_id || session.kind === 'contador' ? await this.#members(connector, group.chatId, g.group_id) : { lista: [] };
+    // Solo Mister Luks saluda, una vez por grupo, y nombra a quienes ya usan Luks
+    if (!g.say_hello || session.kind !== 'contador') return;
+    const hola = await this.store.groupHello(g.group_id);
+    if (!hola.say_hello) return;
+    const idioma = hola.language ?? (hola.account_name ? 'es' : idiomaDelGrupo(members));
+    await this.#encolar([
+      {
+        chat_jid: group.chatId,
+        reason: 'group_hello',
+        body: MISTER.saludoGrupo(idioma, hola.account_name, hola.luks_users),
+        image_url: guia(this.mister.guiaUrl, idioma).imagen,
+        dedupe_key: `group_hello:${g.group_id}`,
+      },
+    ]);
   }
 
-  async onGroupLeft(chatId: string): Promise<void> {
-    await this.store.groupLeft(chatId);
+  async onGroupLeft(session: SessionInfo, chatId: string): Promise<void> {
+    await this.store.groupLeft(session.id, chatId);
   }
 
+  /** Manda quiénes están en el grupo; devuelve la lista y cuántos son sin contar a Mister Luks */
   async #members(connector: MessagingConnector, chatId: string, groupId: string) {
-    const members = await connector.members(chatId);
-    if (!members.length) return null;
-    const r = await this.store.setGroupMembers(groupId, members);
+    const lista = await connector.members(chatId);
+    if (!lista.length) return { lista, cuantos: null };
+    const r = await this.store.setGroupMembers(groupId, lista);
     if (r.people_added) this.log.info({ group: groupId, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
-    return r;
+    return { lista, cuantos: r.members };
+  }
+
+  async #encolar(items: OutboxItem[]) {
+    try {
+      return await this.store.outboxEnqueue(items);
+    } catch (e) {
+      this.log.warn({ err: (e as Error).message, reasons: items.map((i) => i.reason) }, 'No se pudo encolar lo que iba a escribir Mister Luks');
+      return [];
+    }
   }
 
   async onMessage(session: SessionInfo, connector: MessagingConnector, m: IncomingMessage): Promise<Outcome> {
     // El contador no se lee a sí mismo; en una sesión personal lo propio sí cuenta (es quien paga)
     if (m.fromMe && session.kind === 'contador') return 'propio';
+    // Lo que escribe Mister Luks en un grupo que también lee un WhatsApp vinculado
+    if (session.kind === 'personal' && m.sender.id && this.#misterLuks.has(m.sender.id)) return 'de_luks';
+
+    if (m.chatKind === 'privado') return session.kind === 'contador' ? this.#privado(session, connector, m) : 'ignorado:privado';
 
     const code = parseLinkCommand(m.text);
     if (code) return this.#link(session, connector, m, code);
+
+    // «ayuda» en el grupo: la guía, como mucho una vez por hora
+    if (session.kind === 'contador' && !m.media && esPedidoDeAyuda(m.text)) {
+      const idioma = idiomaDeNumero(m.sender.phone);
+      await this.#encolar([
+        {
+          chat_jid: m.chatId,
+          reason: 'guide',
+          body: MISTER.guia(idioma),
+          image_url: guia(this.mister.guiaUrl, idioma).imagen,
+          dedupe_key: `guide:${m.chatId}:${tramo(m.sentAt, 60)}`,
+        },
+      ]);
+      return 'ayuda';
+    }
 
     // Las cuentas o un cobro que mandaron desde Luks, o una respuesta de Luks: no es un gasto
     if (esMensajeDeLuks(m.text)) return 'de_luks';
@@ -127,21 +201,72 @@ export class Ingestor {
     this.log.info({ group: m.chatId, ok: r.ok, error: r.ok ? undefined : r.error, sender: maskWaId(m.sender.id) }, 'Pidieron enlazar el grupo');
     // Recién enlazado: ahora sí se guardan quiénes están (de un WhatsApp vinculado no se tenían)
     const gente = r.ok && !r.already ? await this.#members(connector, m.chatId, r.group_id) : null;
-    if (session.kind === 'contador' && this.limiter.allow(m.chatId)) {
-      const text = r.ok
+    // Solo Mister Luks responde; un código malo se explica como mucho una vez por hora
+    if (session.kind === 'contador') {
+      const body = r.ok
         ? r.already
           ? MSG.alreadyLinked(r.account_name, r.language ?? 'es')
-          : MSG.linked(r.account_name, gente?.members ?? r.members, r.language ?? 'es')
+          : MSG.linked(r.account_name, gente?.cuantos ?? r.members, r.language ?? 'es')
         : r.error === 'otra_cuenta'
           ? MSG.otherAccount
           : MSG.badCode;
-      try {
-        await connector.sendText(m.chatId, text);
-        this.limiter.record(m.chatId);
-      } catch (e) {
-        this.log.warn({ err: (e as Error).message }, 'No se pudo responder en el grupo');
-      }
+      const dedupe = r.ok ? `link:${m.chatId}:${m.messageId}` : `link:${m.chatId}:error:${tramo(m.sentAt, 60)}`;
+      await this.#encolar([{ chat_jid: m.chatId, reason: 'link', body, dedupe_key: dedupe }]);
     }
     return r.ok ? 'enlazado' : r.error;
+  }
+
+  /**
+   * Un chat privado con Mister Luks. La primera vez, la bienvenida con la guía
+   * (imagen y PDF); un link de grupo, entra (con tope por hora); «ayuda», la
+   * guía otra vez. Lo demás no se guarda ni se contesta.
+   */
+  async #privado(session: SessionInfo, connector: MessagingConnector, m: IncomingMessage): Promise<Outcome> {
+    await this.store.privateChat(session.id, m.chatId);
+    const idioma = idiomaDeNumero(m.sender.phone);
+    const g = guia(this.mister.guiaUrl, idioma);
+    const conGuia = { image_url: g.imagen, document_url: g.pdf, document_name: g.nombrePdf };
+
+    const nuevas = await this.#encolar([
+      { chat_jid: m.chatId, reason: 'welcome', body: MISTER.bienvenida(idioma), ...conGuia, dedupe_key: `welcome:${m.chatId}` },
+    ]);
+    const primeraVez = nuevas.length > 0;
+
+    const invitacion = parseInviteLink(m.text);
+    if (invitacion) return this.#unirse(connector, m, invitacion, idioma);
+
+    if (esPedidoDeAyuda(m.text) && !primeraVez) {
+      await this.#encolar([
+        { chat_jid: m.chatId, reason: 'guide', body: MISTER.guia(idioma), ...conGuia, dedupe_key: `guide:${m.chatId}:${tramo(m.sentAt, 10)}` },
+      ]);
+      return 'ayuda';
+    }
+    return primeraVez ? 'bienvenida' : 'privado';
+  }
+
+  /** Mandaron por privado el link de un grupo: Mister Luks entra (y lo cuenta por privado) */
+  async #unirse(connector: MessagingConnector, m: IncomingMessage, code: string, idioma: Idioma): Promise<Outcome> {
+    const quien = m.sender.id ?? m.chatId;
+    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'invite', body, dedupe_key: `invite:${m.chatId}:${m.messageId}` }]);
+    if (!this.mister.joins.allow(quien)) {
+      await responder(MISTER.unirse.tope(idioma));
+      return 'link_grupo:tope';
+    }
+    let r: Awaited<ReturnType<MessagingConnector['joinGroup']>>;
+    try {
+      r = await connector.joinGroup(code);
+    } catch (e) {
+      this.log.warn({ err: (e as Error).message }, 'No se pudo entrar al grupo con el link');
+      r = { status: 'invalid' };
+    }
+    this.log.info({ status: r.status, sender: maskWaId(m.sender.id) }, 'Link de grupo por privado');
+    if (r.status === 'invalid') {
+      await responder(MISTER.unirse.invalid(idioma));
+      return 'link_grupo:invalid';
+    }
+    if (r.status !== 'already') this.mister.joins.record(quien);
+    const nombre = r.name ?? (idioma === 'en' ? 'the group' : 'el grupo');
+    await responder(MISTER.unirse[r.status](idioma, nombre));
+    return `link_grupo:${r.status}`;
   }
 }

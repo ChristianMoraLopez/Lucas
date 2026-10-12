@@ -1,6 +1,6 @@
 import type { MessagingConnector } from './connector.js';
 import type { Logger } from './log.js';
-import type { Store } from './store.js';
+import type { OutboxPending, Store } from './store.js';
 import { formatReplies, type PendingReply } from './text.js';
 
 /*
@@ -43,18 +43,24 @@ export class RateLimiter {
   }
 }
 
-/** Quién puede escribir en un grupo: el número contador, si está ahí y conectado */
-export type SenderLookup = (groupJid: string) => { connector: MessagingConnector } | { connector: null; reason: 'no_esta_en_el_grupo' | 'desconectado' };
+/** Quién puede escribir en un chat: el número contador, si está conectado (y, en un grupo, si está ahí) */
+export type SenderLookup = (chatJid: string) => { connector: MessagingConnector } | { connector: null; reason: 'no_esta_en_el_grupo' | 'desconectado' };
 
 export interface ReplyOptions {
   batchMax: number;
   /** Si en este tiempo nadie pudo confirmar (contador caído), ya no se confirma */
   maxWaitMs: number;
+  /** Las confirmaciones de los recibos (GROUP_REPLIES); la bandeja de salida va siempre */
+  confirmations?: boolean;
 }
 
 /**
- * Cuenta en el grupo lo que el worker terminó de procesar («Anotado: …»),
- * agrupando lo que llegó seguido en un solo mensaje.
+ * Todo lo que escribe Mister Luks, con el mismo límite de frecuencia:
+ *   · las confirmaciones de lo que el worker terminó de procesar («✅ Anotado: …»),
+ *     agrupando lo que llegó seguido en un solo mensaje;
+ *   · la bandeja de salida (whatsapp_outbox): la bienvenida, el saludo del
+ *     grupo, la guía y las respuestas a los links. Un mensaje de la bandeja puede
+ *     ser texto, imagen con pie y un documento: cuenta como uno solo.
  */
 export class ReplyLoop {
   constructor(
@@ -66,7 +72,12 @@ export class ReplyLoop {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async tick(): Promise<{ sent: number; dropped: number }> {
+  async tick(): Promise<{ sent: number; dropped: number; outbox: number }> {
+    const { sent, dropped } = this.options.confirmations === false ? { sent: 0, dropped: 0 } : await this.#confirmaciones();
+    return { sent, dropped, outbox: await this.#bandeja() };
+  }
+
+  async #confirmaciones(): Promise<{ sent: number; dropped: number }> {
     const pending = await this.store.pendingReplies(100);
     const porGrupo = new Map<string, PendingReply[]>();
     for (const r of pending) porGrupo.set(r.group_jid, [...(porGrupo.get(r.group_jid) ?? []), r]);
@@ -89,7 +100,7 @@ export class ReplyLoop {
 
       const tanda = items.slice(0, this.options.batchMax);
       try {
-        await who.connector.sendText(jid, formatReplies(tanda));
+        await who.connector.send(jid, { text: formatReplies(tanda) });
         this.limiter.record(jid);
         await this.store.markReplied(tanda.map((r) => r.message_id));
         sent += tanda.length;
@@ -98,5 +109,38 @@ export class ReplyLoop {
       }
     }
     return { sent, dropped };
+  }
+  /** Lo de la bandeja de salida: uno por chat en cada vuelta, el más viejo primero */
+  async #bandeja(): Promise<number> {
+    const pendientes = await this.store.outboxPending(50);
+    const porChat = new Map<string, OutboxPending>();
+    for (const o of pendientes) if (!porChat.has(o.chat_jid)) porChat.set(o.chat_jid, o);
+
+    let enviados = 0;
+    for (const [jid, o] of porChat) {
+      const who = this.senderFor(jid);
+      if (!who.connector) {
+        // Mister Luks ya no está en ese grupo: no va a poder; si está caído, se espera (la base lo deja al día)
+        if (who.reason === 'no_esta_en_el_grupo') await this.store.outboxResult(o.id, null, 'Mister Luks no está en ese chat', true);
+        continue;
+      }
+      if (!this.limiter.allow(jid)) continue;
+      try {
+        let waId: string | null = null;
+        if (o.image_url) waId = await who.connector.send(jid, { imageUrl: o.image_url, caption: o.body ?? undefined });
+        else if (o.body) waId = await who.connector.send(jid, { text: o.body });
+        if (o.document_url && o.document_name) {
+          const doc = await who.connector.send(jid, { documentUrl: o.document_url, fileName: o.document_name, mimeType: 'application/pdf' });
+          waId ??= doc;
+        }
+        this.limiter.record(jid);
+        await this.store.outboxResult(o.id, waId);
+        enviados += 1;
+      } catch (e) {
+        this.log.warn({ err: (e as Error).message, reason: o.reason }, 'No se pudo mandar un mensaje de Mister Luks; se intenta otra vez');
+        await this.store.outboxResult(o.id, null, (e as Error).message);
+      }
+    }
+    return enviados;
   }
 }

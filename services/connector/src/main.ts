@@ -47,7 +47,13 @@ const limiter = new RateLimiter({
   maxPerHourPerGroup: config.replies.maxPerHourPerGroup,
   maxPerHourTotal: config.replies.maxPerHourTotal,
 });
-const ingestor = new Ingestor(store, { ...config.media }, limiter, log);
+// Cuántos grupos acepta Mister Luks con links que le mandan por privado: por quien manda el link y en total, por hora
+const joins = new RateLimiter({
+  minIntervalMs: 0,
+  maxPerHourPerGroup: config.misterLuks.joinsPerHourPerSender,
+  maxPerHourTotal: config.misterLuks.joinsPerHour,
+});
+const ingestor = new Ingestor(store, { ...config.media }, { guiaUrl: config.misterLuks.guiaUrl, joins }, log);
 const manager = new SessionManager(
   store,
   (session, handlers) => new BaileysConnector(session, handlers, { store, cipher, log }),
@@ -58,7 +64,13 @@ const manager = new SessionManager(
     if (config.sentryDsn) Sentry.captureMessage(message, { level: 'warning', extra });
   },
 );
-const replies = new ReplyLoop(store, limiter, manager.senderFor, { batchMax: config.replies.batchMax, maxWaitMs: 30 * 60_000 }, log);
+const replies = new ReplyLoop(
+  store,
+  limiter,
+  manager.senderFor,
+  { batchMax: config.replies.batchMax, maxWaitMs: 30 * 60_000, confirmations: config.replies.enabled },
+  log,
+);
 const health = startHealthServer(config.healthPort, { manager, store, queueStaleAfterS: config.queueStaleAfterS, log });
 
 /** Corre `fn` cada `ms`, sin solaparse consigo misma */
@@ -80,8 +92,8 @@ function cada(ms: number, nombre: string, fn: () => Promise<unknown>) {
   return setInterval(tick, ms);
 }
 
-const timers = [cada(config.syncIntervalMs, 'sesiones', () => manager.sync())];
-if (config.replies.enabled) timers.push(cada(config.replies.pollIntervalMs, 'confirmaciones', () => replies.tick()));
+// Las confirmaciones (si están prendidas) y la bandeja de salida de Mister Luks van en la misma vuelta
+const timers = [cada(config.syncIntervalMs, 'sesiones', () => manager.sync()), cada(config.replies.pollIntervalMs, 'mensajes', () => replies.tick())];
 log.info({ replies: config.replies.enabled }, 'Connector listo');
 
 let apagando = false;
