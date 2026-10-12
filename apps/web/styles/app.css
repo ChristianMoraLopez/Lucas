@@ -2630,14 +2630,132 @@ a.ed-cat:focus-visible {
   background: #fff;
   padding: 8px;
 }
+/* Paso 1: las dos formas de conectar el grupo, lado a lado y con el mismo peso */
+.wa-formas {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+/* Con el grupo ya conectado, lo primero es cómo va: las formas pasan abajo */
+.wa--conectado .wa-formas {
+  order: 1;
+}
+.wa-formas__head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+.wa-formas__head .wa-t {
+  margin-top: 10px;
+}
+.wa-n.is-done {
+  background: var(--verde);
+  color: var(--on-verde);
+}
+.wa-formas__grid {
+  display: grid;
+  gap: var(--space-3);
+}
+/* Las acciones van abajo: lado a lado, las dos tarjetas terminan parejas */
+.wa-forma {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.wa-forma__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.wa-forma__acciones {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  min-width: 0;
+}
+.wa-compara + .wa-forma__acciones {
+  margin-top: auto;
+}
+/* Lo que tiene cada forma: una etiqueta y su respuesta corta */
+.wa-compara {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.wa-compara > div {
+  display: grid;
+  gap: 2px;
+}
+.wa-compara dt {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--tinta-2);
+}
+.wa-compara dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.wa-mister {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+.wa-mister__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wa-mister__txt .wa-num {
+  margin: 0;
+}
+/* En el celular el chat se abre con el botón; el QR sirve desde un computador */
+.wa-mister__qr {
+  display: none;
+  width: 120px;
+  height: auto;
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 6px;
+}
+.wa-vincular {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
 @container app (min-width: 760px) {
   .wa {
     grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
     column-gap: var(--space-8);
     padding: var(--space-6) var(--space-10);
   }
-  .wa-head {
+  .wa-head,
+  .wa-formas {
     grid-column: 1 / -1;
+  }
+  .wa-formas__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+  .wa-mister__qr {
+    display: block;
   }
 }
 
@@ -4571,6 +4689,316 @@ a.ed-cat:focus-visible {
 /* En la página pública el detalle de cada persona se lee completo */
 .sh-p .st-p__sub {
   white-space: normal;
+}
+
+/* ---------- guía de Mister Luks (/guia): se ve sin entrar, y de ahí salen su imagen y su PDF ---------- */
+.ml {
+  padding: var(--space-4) var(--space-4) var(--space-10);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  max-width: 760px;
+  width: 100%;
+  margin-inline: auto;
+}
+.ml-head {
+  display: grid;
+  gap: 6px;
+}
+.ml-lead {
+  margin: 4px 0 0;
+  font-size: 17px;
+  line-height: 26px;
+  max-width: 56ch;
+}
+.ml-contacto {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--verde-suave);
+}
+.ml-contacto__txt {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  min-width: 0;
+}
+.ml-tel {
+  font-size: clamp(28px, 9cqi, 40px);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.ml-acciones {
+  margin-top: var(--space-1);
+}
+/* En el celular el chat se abre con el botón; el QR sirve desde un computador */
+.ml-qr {
+  display: none;
+  margin: 0;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+}
+.ml-qr img {
+  width: 180px;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 8px;
+}
+.ml-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.ml-paso {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-5);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  scroll-margin-top: 72px;
+}
+.ml-paso p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+.ml-n {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  background: var(--morado);
+  color: var(--on-morado);
+}
+.ml-paso__t {
+  margin: 0 0 var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.ml-lista {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: var(--space-2);
+  font-size: 16px;
+  line-height: 24px;
+}
+.ml-cita {
+  font-weight: 700;
+  quotes: "«" "»";
+}
+:lang(en) .ml-cita {
+  quotes: "“" "”";
+}
+.ml-nota {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.ml-chat {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.ml-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.ml-msg__luks {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.ml-msg__burbuja {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--superficie);
+  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 4px;
+  font-size: 15px;
+  line-height: 21px;
+  max-width: 36ch;
+  min-width: 0;
+}
+.ml-msg__de {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--tinta-2);
+}
+.ml-msg--luks .ml-msg__burbuja {
+  background: var(--verde-suave);
+}
+.ml-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--superficie-2);
+}
+@container app (min-width: 600px) {
+  .ml-contacto {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .ml-qr {
+    display: grid;
+  }
+}
+@container app (min-width: 760px) {
+  .ml {
+    padding: var(--space-8) var(--space-6) var(--space-10);
+  }
+}
+
+/* La imagen para WhatsApp (?formato=imagen): 540 px que se guardan al doble (1080 px) */
+.ml-img {
+  width: 540px;
+  padding: 28px 24px 22px;
+  display: grid;
+  gap: 18px;
+  background: var(--fondo);
+  color: var(--tinta);
+}
+.ml-img__head {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 20px 20px 18px;
+  border-radius: var(--radius-xl);
+  background: var(--verde-suave);
+}
+.ml-img__head .lu-label {
+  margin-top: 10px;
+}
+.ml-img__nombre {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 36px;
+  letter-spacing: -0.03em;
+}
+.ml-img__tel {
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 800;
+}
+.ml-img__sub {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+}
+.ml-img__filas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ml-img__fila {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 10px 14px 12px 10px;
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.ml-img__fila .ml-n {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+}
+.ml-img__txt {
+  display: grid;
+  gap: 2px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.ml-img__txt b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 800;
+}
+.ml-img__pie {
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--tinta-2);
+}
+.ml-img__pie b {
+  color: var(--tinta);
+}
+
+/* El PDF sale de la página completa: sin barra, sin botones y cada paso entero en su hoja */
+@media print {
+  .ml-bar {
+    position: static;
+    padding: 0 0 var(--space-3);
+  }
+  .ml-bar > :not(.lu-logo-link),
+  .ml-acciones,
+  .ml-pie .lu-btn,
+  .lu-intro {
+    display: none;
+  }
+  .ml {
+    max-width: none;
+    padding: 0;
+    gap: 14px;
+  }
+  .ml-qr {
+    display: grid;
+  }
+  .ml-contacto {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .ml-paso,
+  .ml-contacto,
+  .ml-chat {
+    break-inside: avoid;
+  }
 }
 
 /* ---------- WhatsApp, el motor de Luks: siempre a la vista ---------- */

@@ -25,7 +25,7 @@ flowchart TD
 | Reconexión | Si se cae, se reconecta con espera creciente (2 s … 1 min). Si la cierran desde el teléfono o no la vinculan a tiempo, borra las credenciales, la marca desconectada y **avisa** (Sentry, logs, `/health` y la pantalla de Conectar WhatsApp) | `whatsapp/baileys.ts` |
 | Vincular con código | WhatsApp cierra la conexión si nadie vincula en ~2,5 min, y el código de 8 letras solo sirve en la conexión que lo pidió: cada reconexión pide uno nuevo (la web muestra siempre el vigente) y olvida el anterior, para no entrar como si ya estuviera vinculada. Si piden el código mientras se mostraba el QR, la sesión arranca otra vez con el número. Tres intentos sin vincular (~8 min) y se rinde | `whatsapp/baileys.ts`, `manager.ts` |
 | Credenciales | Las de Baileys (creds y cada llave de Signal) se guardan **cifradas con AES-256-GCM** en Postgres (`whatsapp_connections`, `whatsapp_session_keys`). El contexto del cifrado ata cada valor a su sesión y su llave | `crypto.ts`, `whatsapp/auth-state.ts` |
-| Integrantes | Manda la lista de quién está en cada grupo (número o «lid:…», el nombre que cada uno se puso en WhatsApp y si es admin) al conectarse y cada vez que alguien entra o sale. Si el grupo está enlazado a una cuenta, cada integrante queda como persona de esa cuenta (migración 160) | `whatsapp/baileys.ts`, `whatsapp/normalize.ts` |
+| Integrantes | Manda la lista de quién está en cada grupo (número o «lid:…», el nombre que cada uno se puso en WhatsApp y si es admin) al conectarse y cada vez que alguien entra o sale, **solo** de los grupos enlazados a una cuenta o que lee el contador (migración 280). Cada integrante de un grupo enlazado queda como persona de esa cuenta (migración 160) | `ingest.ts`, `whatsapp/baileys.ts`, `whatsapp/normalize.ts` |
 | Grupos | Cuando agregan a Luks a un grupo, lo anota y saluda una vez. El grupo se enlaza a una cuenta cuando alguien escribe **`luks CÓDIGO`** con un código de invitación vigente (también sirve `lucas CÓDIGO`, el nombre de antes) | `ingest.ts` |
 | Ingesta | Solo de grupos enlazados, solo lo escrito después del enlace, sin repetir (`unique (group_id, wa_message_id)`). Fotos a JPEG de 1600 px; PDFs tal cual (máximo 6 MB, el límite del bucket) | `ingest.ts`, `media.ts` |
 | Remitentes | Cada número que escribe queda anotado por cuenta. Los que no son de nadie le aparecen a un admin en la web: «¿Quién es este número?». En grupos con LID (WhatsApp oculta el número) se intenta traducir a número; si no se puede, queda «lid:…» | `whatsapp/normalize.ts` |
@@ -72,5 +72,6 @@ Las funciones de la base que usa están en `supabase/migrations/00000000000080_w
 ## Privacidad
 
 - Solo se guarda lo que parece un gasto; la conversación del grupo no sale de WhatsApp.
+- De los grupos de una vinculación personal que no son de una cuenta solo se guardan el nombre y el JID: ni quiénes están ni mensajes. Al desconectar un grupo se olvidan sus integrantes (salvo que lo lea el contador).
 - Los logs y Sentry llevan ids, estados y tiempos, nunca el texto de los mensajes ni números completos (`57•••4567`).
 - Las credenciales de WhatsApp nunca quedan en claro fuera de la memoria del proceso.

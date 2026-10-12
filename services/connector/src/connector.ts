@@ -67,12 +67,16 @@ export interface GroupMember {
   admin: boolean;
 }
 
+/**
+ * Un grupo, sin quiénes están: de los grupos de un WhatsApp vinculado que no
+ * son de una cuenta solo se guarda el nombre. Los integrantes se piden aparte
+ * (MessagingConnector.members) cuando el grupo es de una cuenta o lo lee el
+ * contador (migración 280).
+ */
 export interface GroupInfo {
   chatId: string;
   name: string | null;
   participants: number | null;
-  /** Quiénes están: con esto las personas de la cuenta son las del grupo */
-  members?: GroupMember[];
 }
 
 export type SessionState =
@@ -100,6 +104,8 @@ export interface MessagingConnector {
   isConnected(): boolean;
   /** Grupos donde está ahora (para saber quién puede responder en cada uno) */
   groups(): ReadonlySet<string>;
+  /** Quiénes están en un grupo: con esto las personas de la cuenta son las del grupo */
+  members(chatId: string): Promise<GroupMember[]>;
   sendText(chatId: string, text: string): Promise<void>;
 }
 

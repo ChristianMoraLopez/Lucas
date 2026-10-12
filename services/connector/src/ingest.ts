@@ -40,11 +40,9 @@ export class Ingestor {
   /** Luks quedó en un grupo (lo agregaron, o ya estaba al conectar) */
   async onGroupJoined(session: SessionInfo, connector: MessagingConnector, group: GroupInfo): Promise<void> {
     const g = await this.store.upsertGroup(session.id, group.chatId, group.name, group.participants);
-    // Quiénes están: si el grupo ya es de una cuenta, cada uno queda como persona de ella
-    if (group.members?.length) {
-      const r = await this.store.setGroupMembers(g.group_id, group.members);
-      if (r.people_added) this.log.info({ group: g.group_id, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
-    }
+    // Quiénes están, solo si el grupo es de una cuenta (cada uno queda como persona de ella) o si
+    // lo lee el contador. De los demás grupos de un WhatsApp vinculado se guarda solo el nombre.
+    if (g.account_id || session.kind === 'contador') await this.#members(connector, group.chatId, g.group_id);
     // Solo el número contador escribe; una sesión personal es el WhatsApp de alguien
     if (g.say_hello && session.kind === 'contador' && this.limiter.allow(group.chatId)) {
       try {
@@ -59,6 +57,14 @@ export class Ingestor {
 
   async onGroupLeft(chatId: string): Promise<void> {
     await this.store.groupLeft(chatId);
+  }
+
+  async #members(connector: MessagingConnector, chatId: string, groupId: string) {
+    const members = await connector.members(chatId);
+    if (!members.length) return null;
+    const r = await this.store.setGroupMembers(groupId, members);
+    if (r.people_added) this.log.info({ group: groupId, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
+    return r;
   }
 
   async onMessage(session: SessionInfo, connector: MessagingConnector, m: IncomingMessage): Promise<Outcome> {
@@ -119,11 +125,13 @@ export class Ingestor {
   async #link(session: SessionInfo, connector: MessagingConnector, m: IncomingMessage, code: string): Promise<Outcome> {
     const r = await this.store.linkGroup(session.id, m.chatId, m.chatName, code, m.sender.id);
     this.log.info({ group: m.chatId, ok: r.ok, error: r.ok ? undefined : r.error, sender: maskWaId(m.sender.id) }, 'Pidieron enlazar el grupo');
+    // Recién enlazado: ahora sí se guardan quiénes están (de un WhatsApp vinculado no se tenían)
+    const gente = r.ok && !r.already ? await this.#members(connector, m.chatId, r.group_id) : null;
     if (session.kind === 'contador' && this.limiter.allow(m.chatId)) {
       const text = r.ok
         ? r.already
           ? MSG.alreadyLinked(r.account_name, r.language ?? 'es')
-          : MSG.linked(r.account_name, r.members, r.language ?? 'es')
+          : MSG.linked(r.account_name, gente?.members ?? r.members, r.language ?? 'es')
         : r.error === 'otra_cuenta'
           ? MSG.otherAccount
           : MSG.badCode;

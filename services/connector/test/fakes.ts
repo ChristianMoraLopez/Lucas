@@ -129,6 +129,10 @@ export class FakeConnector implements MessagingConnector {
   loggedOut = 0;
   connected = true;
   inGroups = new Set<string>([GRUPO]);
+  /** grupo → quiénes están (lo que devolvería WhatsApp) */
+  integrantes = new Map<string, GroupMember[]>();
+  /** Grupos de los que se pidió quiénes están */
+  pedidos: string[] = [];
   failSend = false;
 
   constructor(
@@ -150,6 +154,10 @@ export class FakeConnector implements MessagingConnector {
   }
   groups() {
     return this.inGroups;
+  }
+  async members(chatId: string) {
+    this.pedidos.push(chatId);
+    return this.integrantes.get(chatId) ?? [];
   }
   async sendText(chatId: string, text: string) {
     if (this.failSend) throw new Error('sin señal');

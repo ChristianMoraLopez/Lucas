@@ -4,7 +4,8 @@ import { safeNext } from '@/lib/auth';
 
 // /r/TOKEN: las cuentas que alguien compartió; las ve cualquiera con el link, sin entrar
 // /historia: la imagen para recomendar Luks en Instagram (la misma para todos)
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/r', '/historia'];
+// /guia: la guía de Mister Luks, con su imagen y su PDF (public/guia/), que llegan por WhatsApp
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/r', '/historia', '/guia'];
 
 /**
  * Refresca la sesión de Supabase en cada request y hace la verificación

@@ -14,6 +14,7 @@ import { formatDay, formatWhen, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import type { T } from '@/lib/i18n';
 import { rico } from '@/lib/i18n/rico';
+import { archivosGuia, chatHref, MISTER_LUKS, vcardHref } from '@/lib/mister-luks';
 import { formatear } from '@/lib/telefono';
 import { type AccountPerson, type AccountType, type MyWhatsappLink, plural, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
@@ -160,20 +161,23 @@ export function WhatsappScreen({
   const d = overview.data;
   const enlazados = d.groups.filter((g) => !g.left_at);
   const conectado = enlazados.length > 0;
-  // Cada grupo lo lee una sesión: el número de Luks o el WhatsApp vinculado de alguien
+  // Cada grupo lo lee una sesión: Mister Luks o el WhatsApp vinculado de alguien
   const leidos = enlazados.filter((g) => g.connection_ok);
   const contadorOk = Boolean(d.contador?.connected);
   const lectores = d.lectores ?? [];
-  const yoLeo = lectores.some((l) => l.is_me);
   const otrosLectores = lectores.filter((l) => !l.is_me).map((l) => l.name);
   const alguienLee = contadorOk || lectores.length > 0;
   const estado: 'conectado' | 'esperando' | 'error' = conectado ? (leidos.length > 0 ? 'conectado' : 'error') : alguienLee ? 'esperando' : 'error';
   const principal = leidos[0] ?? enlazados[0];
+  // Mister Luks existe cuando su número quedó vinculado alguna vez; antes, su tarjeta dice «Pronto»
   const telefono = d.contador?.phone ?? null;
-  const caido = principal?.connection_kind === 'personal' ? t('el WhatsApp vinculado que lo lee está desconectado') : t('el número de Luks está desconectado');
+  // El paso 1 está hecho si el grupo ya está conectado o alguien de la cuenta vinculó su WhatsApp
+  // (que Mister Luks esté conectado no dice que ya esté en el grupo)
+  const paso1 = conectado || lectores.length > 0;
+  const caido = principal?.connection_kind === 'personal' ? t('el WhatsApp vinculado que lo lee está desconectado') : t('Mister Luks está desconectado');
 
   return (
-    <div className="wa">
+    <div className={`wa${conectado ? ' wa--conectado' : ''}`}>
       <header className="wa-head">
         <h1 className="lu-display">{t('Conecta el grupo de WhatsApp')}</h1>
         <p className="lu-small lu-muted" style={{ margin: '6px 0 0', maxWidth: '52ch' }}>
@@ -187,44 +191,27 @@ export function WhatsappScreen({
         </p>
       )}
 
-      <ol className="wa-steps">
-        <Step
-          n={1}
-          title={telefono || !lectores.length ? t('Agrega a Luks al grupo') : t('Luks ya lee tus grupos')}
-          done={conectado || (!telefono && lectores.length > 0)}
-        >
-          {telefono ? (
-            <>
-              <div className="wa-num lu-num">{formatear(telefono)}</div>
-              <p className="lu-small lu-muted" style={{ margin: '0 0 12px' }}>
-                {t('Aparece como «Luks». Solo lee el grupo; escribe únicamente para confirmar.')}
-              </p>
-              <div className="wa-row">
-                <CopyButton text={`+${telefono}`} label={t('Copiar número')} />
-                <a
-                  className="lu-btn lu-btn--sm lu-btn--ghost"
-                  download="Luks.vcf"
-                  href={`data:text/vcard;charset=utf-8,${encodeURIComponent(`BEGIN:VCARD\nVERSION:3.0\nFN:Luks\nTEL;TYPE=CELL:+${telefono}\nEND:VCARD\n`)}`}
-                >
-                  {t('Guardar contacto')}
-                </a>
-              </div>
-            </>
-          ) : lectores.length > 0 ? (
+      <section className="wa-formas" aria-labelledby="wa-formas-t">
+        <div className="wa-formas__head">
+          <span className={`wa-n${paso1 ? ' is-done' : ''}`} aria-hidden="true">
+            {paso1 ? '✓' : 1}
+          </span>
+          <div>
+            <h2 className="wa-t" id="wa-formas-t">
+              {t('Elige cómo entra Luks al grupo')}
+            </h2>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              {yoLeo
-                ? t('Luks lee desde tu WhatsApp los grupos donde estás: no hay que agregar a nadie.')
-                : otrosLectores.length > 1
-                  ? t('Luks lee desde el WhatsApp de {nombres}: alguien de ellos tiene que estar en el grupo.', { nombres: listaNombres(otrosLectores, t) })
-                  : t('Luks lee desde el WhatsApp de {nombres}: tiene que estar en el grupo.', { nombres: listaNombres(otrosLectores, t) })}
+              {t('Las dos sirven y se pueden usar juntas en el mismo grupo: nada se anota dos veces.')}
             </p>
-          ) : (
-            <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              {t('El número de Luks todavía no está listo. Vincula tu WhatsApp aquí abajo: Luks leerá desde ahí los grupos donde estás.')}
-            </p>
-          )}
-        </Step>
+          </div>
+        </div>
+        <div className="wa-formas__grid">
+          <FormaMisterLuks telefono={telefono} conectado={contadorOk} />
+          <FormaMiWhatsapp otrosLectores={otrosLectores} />
+        </div>
+      </section>
 
+      <ol className="wa-steps">
         <Step n={2} title={t('Escribe este mensaje en el grupo')} done={conectado}>
           {d.code && !closed ? (
             <>
@@ -275,7 +262,7 @@ export function WhatsappScreen({
               {estado === 'error' && (
                 <ConnectionStatus
                   state="error"
-                  sub={conectado ? caido : d.contador ? t('el número de Luks está desconectado') : t('todavía no hay un WhatsApp vinculado que lo lea')}
+                  sub={conectado ? caido : telefono ? t('Mister Luks está desconectado') : t('todavía no hay un WhatsApp vinculado que lo lea')}
                 >
                   {conectado ? t('Luks no está leyendo el grupo ahora') : t('Nadie está leyendo el grupo todavía')}
                 </ConnectionStatus>
@@ -298,8 +285,10 @@ export function WhatsappScreen({
                     : t('Ya avisamos a quien opera Luks. Lo que manden al grupo se lee cuando vuelva.')}
                 </span>
               )}
-              {estado === 'error' && !conectado && !d.contador && (
-                <span className="lu-small">{t('Vincula tu WhatsApp aquí abajo y después escribe el mensaje del paso 2 en el grupo.')}</span>
+              {estado === 'error' && !conectado && (
+                <span className="lu-small">
+                  {t('Agrega a Mister Luks o vincula tu WhatsApp (paso 1) y después escribe el mensaje del paso 2 en el grupo.')}
+                </span>
               )}
             </div>
           </div>
@@ -322,12 +311,9 @@ export function WhatsappScreen({
             {error}
           </p>
         )}
-        {/* Sin número de Luks ni WhatsApp vinculado, vincular el propio es lo primero que toca */}
-        {!telefono && !yoLeo && <MiWhatsapp />}
         {d.is_admin && d.unknown_senders.length > 0 && <QuienEs accountId={accountId} remitentes={d.unknown_senders} onDone={refrescar} onError={setError} />}
         {d.groups.length > 0 && <Grupos grupos={d.groups} isAdmin={d.is_admin} onDone={refrescar} onError={setError} />}
         {conectado && <OtrosGrupos />}
-        {(telefono || yoLeo) && <MiWhatsapp />}
         {d.is_admin && !closed && <MonedaIdioma accountId={accountId} {...ajustes} />}
       </aside>
     </div>
@@ -518,7 +504,7 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
                       t('desde el {dia}', { dia: dia(g.linked_at, t) }),
                       g.members != null ? plural(g.members, t('integrante'), t('integrantes')) : null,
                       plural(g.expenses, t('gasto'), t('gastos')),
-                      g.connection_kind === 'personal' ? t('por un WhatsApp vinculado') : null,
+                      g.connection_kind === 'personal' ? t('por un WhatsApp vinculado') : g.connection_kind === 'contador' ? t('por Mister Luks') : null,
                       g.connection_ok ? null : t('nadie lo lee ahora'),
                     ]
                       .filter(Boolean)
@@ -562,11 +548,129 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
   );
 }
 
-/** Vincular el WhatsApp propio (opcional): Luks lee los grupos sin agregar el número contador */
-function MiWhatsapp() {
+/** Una de las dos formas de conectar el grupo, con lo que tiene cada una en palabras simples */
+function Forma({
+  id,
+  titulo,
+  resumen,
+  estado,
+  compara,
+  children,
+}: {
+  id: string;
+  titulo: string;
+  resumen: string;
+  estado?: React.ReactNode;
+  /** [qué, cómo es]; mientras se usa (vinculando, vinculado) no hace falta y no sale */
+  compara: [string, string][];
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="wa-forma" aria-labelledby={id}>
+      <div className="wa-forma__head">
+        <h3 className="lu-title" id={id} style={{ margin: 0 }}>
+          {titulo}
+        </h3>
+        {estado}
+      </div>
+      <p className="lu-small" style={{ margin: 0 }}>
+        {resumen}
+      </p>
+      {compara.length > 0 && (
+        <dl className="wa-compara">
+          {compara.map(([que, como]) => (
+            <div key={que}>
+              <dt>{que}</dt>
+              <dd>{como}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <div className="wa-forma__acciones">{children}</div>
+    </section>
+  );
+}
+
+/** Agregar a Mister Luks: el número propio de Luks, que la gente guarda y agrega a sus grupos */
+function FormaMisterLuks({ telefono, conectado }: { telefono: string | null; conectado: boolean }) {
+  const t = useT();
+  const [qr, setQr] = useState<string | null>(null);
+  const chat = telefono ? chatHref(telefono, t('Hola')) : null;
+
+  // Desde un computador: el QR abre el chat en el celular
+  useEffect(() => {
+    if (!chat) return setQr(null);
+    QRCode.toDataURL(chat, { margin: 1, width: 240 })
+      .then(setQr)
+      .catch(() => setQr(null));
+  }, [chat]);
+
+  return (
+    <Forma
+      id="wa-mister"
+      titulo={t('Agregar a Mister Luks')}
+      resumen={t('El número de Luks: lo guardas como contacto y lo agregas al grupo, como a cualquiera.')}
+      estado={
+        telefono ? null : (
+          <Sticker tone="pendiente" size="sm" rotate={-3}>
+            {t('Pronto')}
+          </Sticker>
+        )
+      }
+      compara={[
+        [t('Qué haces'), t('Lo agregas al grupo, o le mandas el link del grupo por privado.')],
+        [t('Qué ve Luks'), t('Solo los grupos donde lo agregues.')],
+        [t('¿Responde en el grupo?'), t('Sí: confirma cada gasto («Anotado: …»).')],
+        [t('Lo de antes'), t('Lee desde que lo agregan. Lo anterior, con el chat exportado (pronto).')],
+        [t('Ideal si'), t('El grupo acepta a alguien más.')],
+        [t('Ojo'), t('Si WhatsApp bloquea a Mister Luks, deja de leer todos sus grupos hasta que vuelva. Lo anotado no se pierde.')],
+      ]}
+    >
+      {telefono && chat ? (
+        <>
+          <div className="wa-mister">
+            <div className="wa-mister__txt">
+              <span className="wa-num lu-num">{formatear(telefono)}</span>
+              {conectado ? (
+                <span className="lu-small lu-muted">{t('Aparece como «{nombre}».', { nombre: MISTER_LUKS.nombre })}</span>
+              ) : (
+                <ConnectionStatus state="error" sub={t('lo que manden se lee cuando vuelva')}>
+                  {t('Desconectado ahora')}
+                </ConnectionStatus>
+              )}
+            </div>
+            {qr && (
+              // biome-ignore lint/performance/noImgElement: es un QR generado en el navegador, no una imagen para optimizar
+              <img className="wa-mister__qr" src={qr} alt={t('Código QR para abrir el chat con Mister Luks')} width={120} height={120} />
+            )}
+          </div>
+          <div className="wa-row">
+            <a className="lu-btn lu-btn--sm lu-btn--secondary" download="Mister Luks.vcf" href={vcardHref(telefono)}>
+              {t('Guardar contacto')}
+            </a>
+            <a className="lu-btn lu-btn--sm lu-btn--secondary" href={chat} target="_blank" rel="noopener noreferrer">
+              {t('Abrir chat con Mister Luks')}
+            </a>
+            <a className="lu-btn lu-btn--sm lu-btn--ghost" href={archivosGuia(t.idioma).pdf} download>
+              {t('Descargar el instructivo')}
+            </a>
+          </div>
+        </>
+      ) : (
+        <p className="lu-small lu-muted" style={{ margin: 0 }}>
+          {t('Mister Luks está por llegar. Mientras tanto, vincula tu WhatsApp: Luks lee el grupo desde ahí.')}
+        </p>
+      )}
+    </Forma>
+  );
+}
+
+/** Vincular mi WhatsApp: Luks lee los grupos desde el WhatsApp de la persona, como un WhatsApp Web más */
+function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
   const t = useT();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
+  const [aviso, setAviso] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [telefono, setTelefono] = useState<string | null>(null);
   const [escribio, setEscribio] = useState(false);
@@ -606,12 +710,22 @@ function MiWhatsapp() {
     queryClient.invalidateQueries({ queryKey: ['mi-whatsapp'] });
   };
 
+  const enUso = l?.status === 'connected' || l?.status === 'connecting';
+  const compara: [string, string][] = enUso
+    ? []
+    : [
+        [t('Qué haces'), t('Escaneas un QR o escribes un código de 8 letras, como en WhatsApp Web.')],
+        [t('Qué ve Luks'), t('Tus grupos, pero solo guarda los que conectes a una cuenta.')],
+        [t('¿Responde en el grupo?'), t('No. Luks nunca escribe desde tu número: lo anotado lo ves en la app.')],
+        [t('Lo de antes'), t('Lee desde que conectas el grupo. Lo anterior, con el chat exportado o pidiéndole una parte a WhatsApp (pronto).')],
+        [t('Ideal si'), t('El grupo no deja agregar a nadie, o no quieren a alguien más en el grupo.')],
+        [t('Ojo'), t('No es una conexión oficial de WhatsApp: podría restringir tu cuenta.')],
+      ];
+
+  let cuerpo: React.ReactNode;
   if (l?.status === 'connected') {
-    return (
-      <section className="wa-card" aria-labelledby="wa-mio">
-        <h2 className="lu-title" id="wa-mio" style={{ margin: 0 }}>
-          {t('Tu WhatsApp')}
-        </h2>
+    cuerpo = (
+      <>
         <ConnectionStatus
           state={l.alive === false ? 'error' : 'conectado'}
           sub={
@@ -633,18 +747,13 @@ function MiWhatsapp() {
           </Button>
         )}
         <ConfirmDialog open={cerrar} onOpenChange={setCerrar} title={t('¿Desvincular tu WhatsApp?')} confirmLabel={t('Desvincular')} onConfirm={desvincular}>
-          {t('Luks deja de leer los grupos desde tu número. Si un grupo solo estaba conectado así, hay que agregar el número de Luks.')}
+          {t('Luks deja de leer los grupos desde tu número. Si un grupo solo estaba conectado así, hay que agregar a Mister Luks o vincular otro WhatsApp.')}
         </ConfirmDialog>
-      </section>
+      </>
     );
-  }
-
-  if (l?.status === 'connecting') {
-    return (
-      <section className="wa-card" aria-labelledby="wa-mio" aria-live="polite">
-        <h2 className="lu-title" id="wa-mio" style={{ margin: 0 }}>
-          {t('Vincula tu WhatsApp')}
-        </h2>
+  } else if (l?.status === 'connecting') {
+    cuerpo = (
+      <div className="wa-vincular" aria-live="polite">
         {l.code ? (
           <>
             <div className="wa-code lu-num">
@@ -688,67 +797,93 @@ function MiWhatsapp() {
         <Button size="sm" variant="ghost" onClick={desvincular}>
           {t('Cancelar')}
         </Button>
-      </section>
+      </div>
+    );
+  } else {
+    cuerpo = (
+      <>
+        {otrosLectores.length > 0 && (
+          <p className="lu-small lu-muted" style={{ margin: 0 }}>
+            {otrosLectores.length > 1
+              ? t('Ya lo tienen vinculado {nombres}: si alguno está en el grupo, no hace falta nada más.', { nombres: listaNombres(otrosLectores, t) })
+              : t('Ya lo tiene vinculado {nombres}: si está en el grupo, no hace falta nada más.', { nombres: listaNombres(otrosLectores, t) })}
+          </p>
+        )}
+        {l?.status === 'disconnected' && l.disconnect_reason && (
+          <p className="lu-small lu-muted" style={{ margin: 0 }}>
+            {t('La última vez: {razon}', { razon: t(l.disconnect_reason) })}
+          </p>
+        )}
+        {abierto ? (
+          <>
+            <label className="lu-label" htmlFor="wa-numero">
+              {t('Tu número de WhatsApp')}
+            </label>
+            <CampoTelefono
+              id="wa-numero"
+              describedBy="wa-numero-ayuda"
+              onNumero={(n, e) => {
+                setTelefono(n);
+                setEscribio(e);
+              }}
+            />
+            <p className="lu-small lu-muted" id="wa-numero-ayuda" style={{ margin: 0 }}>
+              {escribio && !telefono
+                ? t('Escribe el número completo. Si es de otro país, elígelo primero (o escríbelo con + y su indicativo).')
+                : telefono
+                  ? t('Te damos un código de 8 letras para {numero}: sirve desde este mismo celular.', { numero: formatear(telefono) ?? telefono })
+                  : t('Desde este celular: escribe tu número y te damos un código de 8 letras. Desde un computador: usa el QR.')}
+            </p>
+            <div className="wa-row">
+              <Button size="sm" onClick={() => pedir(true)} disabled={!telefono}>
+                {t('Pedir código')}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => pedir(false)}>
+                {t('Mostrar QR')}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setAbierto(false)}>
+                {t('Cancelar')}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={() => setAviso(true)}>
+            {t('Vincular mi WhatsApp')}
+          </Button>
+        )}
+        {/* Antes de vincular, el riesgo: no es una conexión oficial */}
+        <ConfirmDialog
+          open={aviso}
+          onOpenChange={setAviso}
+          title={t('Antes de vincular tu WhatsApp')}
+          confirmLabel={t('Entiendo, vincular')}
+          danger={false}
+          onConfirm={() => {
+            setAviso(false);
+            setAbierto(true);
+          }}
+        >
+          {t(
+            'Luks entra como un dispositivo vinculado más, igual que WhatsApp Web, pero no es una conexión oficial de WhatsApp: WhatsApp podría restringir tu cuenta. Luks nunca escribe desde tu número y de tus grupos solo guarda los que conectes a una cuenta.',
+          )}
+        </ConfirmDialog>
+      </>
     );
   }
 
   return (
-    <section className="wa-card wa-card--muted" aria-labelledby="wa-mio">
-      <h2 className="lu-label" id="wa-mio" style={{ margin: 0 }}>
-        {t('¿Sin el número de Luks?')}
-      </h2>
-      <p className="lu-small" style={{ margin: 0 }}>
-        {t(
-          'Luks también puede leer los grupos desde tu propio WhatsApp, como un dispositivo vinculado más. Solo lee los grupos que conectes y nunca escribe desde tu número.',
-        )}
-      </p>
-      {l?.status === 'disconnected' && l.disconnect_reason && (
-        <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          {t('La última vez: {razon}', { razon: t(l.disconnect_reason) })}
-        </p>
-      )}
-      {abierto ? (
-        <>
-          <label className="lu-label" htmlFor="wa-numero">
-            {t('Tu número de WhatsApp')}
-          </label>
-          <CampoTelefono
-            id="wa-numero"
-            describedBy="wa-numero-ayuda"
-            onNumero={(n, e) => {
-              setTelefono(n);
-              setEscribio(e);
-            }}
-          />
-          <p className="lu-small lu-muted" id="wa-numero-ayuda" style={{ margin: 0 }}>
-            {escribio && !telefono
-              ? t('Escribe el número completo. Si es de otro país, elígelo primero (o escríbelo con + y su indicativo).')
-              : telefono
-                ? t('Te damos un código de 8 letras para {numero}: sirve desde este mismo celular.', { numero: formatear(telefono) ?? telefono })
-                : t('Desde este celular: escribe tu número y te damos un código de 8 letras. Desde un computador: usa el QR.')}
-          </p>
-          <div className="wa-row">
-            <Button size="sm" onClick={() => pedir(true)} disabled={!telefono}>
-              {t('Pedir código')}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => pedir(false)}>
-              {t('Mostrar QR')}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setAbierto(false)}>
-              {t('Cancelar')}
-            </Button>
-          </div>
-        </>
-      ) : (
-        <Button size="sm" variant="secondary" onClick={() => setAbierto(true)}>
-          {t('Vincular mi WhatsApp')}
-        </Button>
-      )}
+    <Forma
+      id="wa-mio"
+      titulo={t('Vincular mi WhatsApp')}
+      resumen={t('Luks lee el grupo desde tu WhatsApp, como un WhatsApp Web más. No hay que agregar a nadie.')}
+      compara={compara}
+    >
+      {cuerpo}
       {error && (
         <p className="lu-error" role="alert">
           {error}
         </p>
       )}
-    </section>
+    </Forma>
   );
 }

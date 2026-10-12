@@ -14,7 +14,7 @@ import makeWASocket, {
   type WAMessage,
   type WASocket,
 } from 'baileys';
-import type { ConnectorHandlers, GroupInfo, MessagingConnector, SessionInfo } from '../connector.js';
+import type { ConnectorHandlers, GroupInfo, GroupMember, MessagingConnector, SessionInfo } from '../connector.js';
 import type { SessionCipher } from '../crypto.js';
 import type { Logger } from '../log.js';
 import type { Store } from '../store.js';
@@ -197,7 +197,7 @@ export class BaileysConnector implements MessagingConnector {
     sock.ev.on('groups.upsert', (grupos) => {
       for (const g of grupos) {
         this.#groups.set(g.id, g);
-        this.#encolar(async () => this.handlers.onGroupJoined(await this.#info(g, sock)));
+        this.#encolar(() => this.handlers.onGroupJoined(this.#info(g)));
       }
     });
     sock.ev.on('groups.update', (cambios) => {
@@ -205,7 +205,7 @@ export class BaileysConnector implements MessagingConnector {
         const g = c.id ? this.#groups.get(c.id) : undefined;
         if (g && c.subject) {
           g.subject = c.subject;
-          this.#encolar(async () => this.handlers.onGroupJoined(await this.#info(g, sock)));
+          this.#encolar(() => this.handlers.onGroupJoined(this.#info(g)));
         }
       }
     });
@@ -226,13 +226,24 @@ export class BaileysConnector implements MessagingConnector {
       this.#encolar(async () => {
         const g = await sock.groupMetadata(ev.id);
         this.#groups.set(g.id, g);
-        await this.handlers.onGroupJoined(await this.#info(g, sock));
+        await this.handlers.onGroupJoined(this.#info(g));
       });
     });
   }
 
-  /** El grupo con sus integrantes; si de alguien solo se ve el LID, se intenta saber su número */
-  async #info(g: GroupMetadata, sock: WASocket): Promise<GroupInfo> {
+  #info(g: GroupMetadata): GroupInfo {
+    return { chatId: g.id, name: g.subject ?? null, participants: g.size ?? g.participants?.length ?? null };
+  }
+
+  /**
+   * Los integrantes de un grupo donde está; si de alguien solo se ve el LID, se
+   * intenta saber su número. Solo se piden cuando se van a guardar (el grupo es
+   * de una cuenta o esta sesión es el contador): de los demás no se lee nada.
+   */
+  async members(chatId: string): Promise<GroupMember[]> {
+    const g = this.#groups.get(chatId);
+    const sock = this.#sock;
+    if (!g || !sock) return [];
     const members = membersOf(g, this.#contactos);
     for (const m of members) {
       if (m.phone || !m.lid) continue;
@@ -246,7 +257,7 @@ export class BaileysConnector implements MessagingConnector {
         // se queda con el LID
       }
     }
-    return { chatId: g.id, name: g.subject ?? null, participants: g.size ?? g.participants?.length ?? null, members };
+    return members;
   }
 
   /** Manda otra vez (con espera y sin repetir seguido) los grupos donde alguien tiene un nombre nuevo */
@@ -275,7 +286,7 @@ export class BaileysConnector implements MessagingConnector {
       this.#nombresEnviados.set(jid, ahora);
       this.#encolar(async () => {
         const g = this.#groups.get(jid);
-        if (g) await this.handlers.onGroupJoined(await this.#info(g, sock));
+        if (g) await this.handlers.onGroupJoined(this.#info(g));
       });
     }
     this.#programarNombres(sock);
@@ -333,7 +344,7 @@ export class BaileysConnector implements MessagingConnector {
       try {
         const todos = await sock.groupFetchAllParticipating();
         this.#groups = new Map(Object.entries(todos));
-        for (const g of this.#groups.values()) await this.handlers.onGroupJoined(await this.#info(g, sock));
+        for (const g of this.#groups.values()) await this.handlers.onGroupJoined(this.#info(g));
       } catch (e) {
         this.#log.warn({ err: (e as Error).message }, 'No se pudieron leer los grupos');
       }
