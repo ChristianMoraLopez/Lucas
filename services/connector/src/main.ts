@@ -5,6 +5,7 @@ import { startHealthServer } from './health.js';
 import { Ingestor } from './ingest.js';
 import { createLogger } from './log.js';
 import { SessionManager } from './manager.js';
+import { clasificadorOllama } from './qwen.js';
 import { RateLimiter, ReplyLoop } from './replies.js';
 import { SupabaseStore } from './store.js';
 import { BaileysConnector } from './whatsapp/baileys.js';
@@ -53,7 +54,9 @@ const joins = new RateLimiter({
   maxPerHourPerGroup: config.misterLuks.joinsPerHourPerSender,
   maxPerHourTotal: config.misterLuks.joinsPerHour,
 });
-const ingestor = new Ingestor(store, { ...config.media }, { guiaUrl: config.misterLuks.guiaUrl, joins }, log);
+// Qwen solo clasifica las preguntas que las reglas no entienden (los números salen de la base)
+const clasificar = config.ollama ? clasificadorOllama(config.ollama, log) : null;
+const ingestor = new Ingestor(store, { ...config.media }, { guiaUrl: config.misterLuks.guiaUrl, joins, clasificar }, log);
 const manager = new SessionManager(
   store,
   (session, handlers) => new BaileysConnector(session, handlers, { store, cipher, log }),

@@ -23,7 +23,7 @@ import { formatear } from '@/lib/telefono';
  */
 
 type Seccion = 'que-es' | 'agregar' | 'anotar' | 'preguntar' | 'corregir' | 'desde-cuando' | 'consejos' | 'privacidad' | 'no-me-cuentes';
-const PRONTO = new Set<Seccion>(['preguntar', 'corregir', 'desde-cuando', 'no-me-cuentes']);
+const PRONTO = new Set<Seccion>(['corregir']);
 
 const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
 
@@ -276,7 +276,10 @@ async function GuiaCompleta({ t }: { t: T }) {
               <li>{t('Mister Luks solo guarda lo que parece un gasto: fotos, PDFs y mensajes con montos. La charla del grupo no sale de WhatsApp.')}</li>
               <li>{t('Los gastos solo los ven las personas de la cuenta.')}</li>
               <li>
-                {rico(t('¿Prefieres que no te cuente? Escribe {a} y deja de anotar lo que tú mandes.'), { a: cita(t('@Mister Luks no me cuentes')) })}{' '}
+                {rico(t('¿Prefieres que no te cuente? Escribe {a}: desde ahí deja de anotar lo que tú mandes (lo de antes queda igual). Para volver, {b}.'), {
+                  a: cita(t('@Mister Luks no me cuentes')),
+                  b: cita(t('@Mister Luks cuéntame')),
+                })}{' '}
                 {pronto('no-me-cuentes')}
               </li>
               <li>{t('Puedes borrar tu usuario y tus datos cuando quieras, desde tu perfil en mrluks.com.')}</li>

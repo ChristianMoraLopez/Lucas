@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { IncomingMessage } from '../src/connector.js';
 import { Ingestor } from '../src/ingest.js';
+import { PREGUNTAS } from '../src/preguntas.js';
 import { RateLimiter } from '../src/replies.js';
 import { LINK_GRUPO, MISTER, MSG } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
@@ -447,5 +448,133 @@ describe('el chat exportado', () => {
 
     expect(await ing.onMessage(contador, wa, porPrivado('WhatsApp Chat with Otro.zip'))).toBe('ignorado:sin_grupo');
     expect(bandeja(PRIVADO).map((o) => o.body)).toContain(MISTER.importar.sinGrupo('es'));
+  });
+});
+
+describe('preguntas a Mister Luks', () => {
+  const NUMEROS = {
+    ok: true as const,
+    account: { name: 'Paseo', type: 'evento' as const, status: 'active', currency: 'COP' as const, language: 'es' as const, month: null },
+    optout: false,
+    total: 1_250_000,
+    count: 12,
+    pending: 0,
+    incomplete: 0,
+    people: [
+      { id: 'v', name: 'Valeria', paid: 800_000, share: 500_000, balance: 300_000 },
+      { id: 'm', name: 'Mafe', paid: 200_000, share: 500_000, balance: -300_000 },
+    ],
+    settlement: null,
+    me: { id: 'm', name: 'Mafe', paid_total: 200_000, paid_count: 1, expenses: [{ merchant: 'Lancha', total: 200_000, date: '2026-09-26' }] },
+  };
+  const textos = (jid?: string) => bandeja(jid).map((o) => o.body);
+
+  beforeEach(async () => {
+    ing.setMisterLuks(['573337627471', 'lid:98765432101234']);
+    await enlazado();
+    store.numeros = NUMEROS;
+  });
+
+  it('«cuánto llevamos» y «quién le debe a quién» se responden en el grupo', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks cuánto llevamos?' }))).toBe('pregunta:total');
+    expect(await ing.onMessage(contador, wa, m({ text: '@573337627471 quién le debe a quién', mentions: ['573337627471'] }))).toBe('pregunta:deudas');
+    expect(textos(GRUPO)).toEqual([
+      '🧾 En «Paseo» llevan *$1.250.000* en 12 gastos.\n\n📊 Más detalle en mrluks.com',
+      '💸 Así van las cuentas de «Paseo» (si liquidaran hoy):\n• Mafe le paga a Valeria *$300.000*\n\n📊 Más detalle en mrluks.com',
+    ]);
+    expect(bandeja()[0]).toMatchObject({ reason: 'answer' });
+  });
+
+  it('lo de cada quien: la primera vez pregunta «¿privado o aquí?», y se acuerda', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'cuánto debo', quotedFrom: '573337627471' }))).toBe('pregunta:canal');
+    expect(textos()).toEqual([PREGUNTAS.canal('es', 'Mafe')]);
+    // Responde «privado» a secas: le llega por privado (lo pidió) y en el grupo solo el aviso
+    expect(await ing.onMessage(contador, wa, m({ text: 'privado' }))).toBe('pregunta:privado');
+    expect(store.privados.has(PRIVADO)).toBe(true);
+    expect(textos(PRIVADO)).toEqual([expect.stringContaining('debes *$300.000*')]);
+    expect(textos(GRUPO).at(-1)).toBe(PREGUNTAS.porPrivado('es', 'Mafe'));
+    // La próxima vez, directo por privado
+    await ing.onMessage(contador, wa, m({ text: 'luks mis gastos' }));
+    expect(textos(PRIVADO).at(-1)).toContain('pagaste *$200.000*');
+    // Un «aquí» suelto ya no responde nada; «luks dímelo aquí» cambia la preferencia
+    expect(await ing.onMessage(contador, wa, m({ text: 'aquí' }))).toBe('charla');
+    await ing.onMessage(contador, wa, m({ text: 'luks dímelo aquí' }));
+    await ing.onMessage(contador, wa, m({ text: 'luks cuánto debo' }));
+    expect(textos(GRUPO).at(-1)).toContain('debes *$300.000*');
+  });
+
+  it('un gasto dicho a Luks sigue siendo un gasto, y un «Luks…» que no entiende no lo contesta', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks taxi al aeropuerto 45 lucas' }))).toBe('guardado');
+    expect(await ing.onMessage(contador, wa, m({ text: 'Luks está buenísimo' }))).toBe('charla');
+    expect(bandeja()).toEqual([]);
+  });
+
+  it('a una mención que no entiende le explica qué puede preguntar, una vez cada 10 minutos', async () => {
+    await ing.onMessage(contador, wa, m({ text: '@573337627471 hola!', mentions: ['573337627471'] }));
+    await ing.onMessage(contador, wa, m({ text: '@573337627471 ???', mentions: ['573337627471'] }));
+    expect(textos()).toEqual([PREGUNTAS.noEntendi('es')]);
+  });
+
+  it('lo que las reglas no entienden lo clasifica Qwen (los números siguen saliendo de la base)', async () => {
+    const preguntas: string[] = [];
+    const conQwen = new Ingestor(
+      store,
+      LIMITS,
+      {
+        guiaUrl: GUIA,
+        joins: new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 2, maxPerHourTotal: 4 }),
+        clasificar: async (t) => {
+          preguntas.push(t);
+          return 'total';
+        },
+      },
+      silentLog,
+    );
+    expect(await conQwen.onMessage(contador, wa, m({ text: 'luks y la vaca cómo va de plata' }))).toBe('pregunta:total');
+    expect(preguntas).toEqual(['y la vaca cómo va de plata']);
+    expect(textos(GRUPO)).toEqual([expect.stringContaining('*$1.250.000*')]);
+  });
+
+  it('«no me cuentes»: desde ahí no se anota lo que manda (lo de antes queda), y «cuéntame» lo deshace', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks no me cuentes' }))).toBe('pregunta:no_me_cuentes');
+    expect(textos()).toEqual([PREGUNTAS.noMeCuentes('es', 'Mafe', 'Paseo')]);
+    expect(await ing.onMessage(contador, wa, m({ text: 'almuerzo 45 lucas' }))).toBe('ignorado:no_me_cuentes');
+    // Los demás sí
+    expect(await ing.onMessage(contador, wa, m({ text: 'hielo 8 mil', sender: { id: '573001112233', phone: '573001112233', name: 'Vale' } }))).toBe('guardado');
+    await ing.onMessage(contador, wa, m({ text: 'luks cuéntame' }));
+    expect(await ing.onMessage(contador, wa, m({ text: 'almuerzo 45 lucas' }))).toBe('guardado');
+  });
+
+  it('en un grupo sin cuenta dice cómo crearla', async () => {
+    store.numeros = null;
+    await ing.onMessage(contador, wa, m({ text: 'luks cuánto llevamos' }));
+    expect(textos()).toEqual([PREGUNTAS.sinCuenta('es')]);
+  });
+
+  describe('en un grupo que lee solo un WhatsApp vinculado', () => {
+    const mio = () => new FakeConnector(personal);
+    beforeEach(() => {
+      // Mister Luks no está en ese grupo
+      store.presentes.delete(`${GRUPO}|contador`);
+    });
+
+    it('nadie escribe en el grupo: Mister Luks le responde por privado a quien preguntó', async () => {
+      expect(await ing.onMessage(personal, mio(), m({ sessionId: 'personal', text: 'luks cuánto llevamos' }))).toBe('pregunta:total');
+      expect(store.privados.has(PRIVADO)).toBe(true);
+      expect(textos()).toEqual([expect.stringContaining('*$1.250.000*')]);
+      expect(bandeja()[0].chat_jid).toBe(PRIVADO);
+    });
+
+    it('sin Mister Luks no hay a dónde responder (queda en la app)', async () => {
+      store.hayMisterLuks = false;
+      expect(await ing.onMessage(personal, mio(), m({ sessionId: 'personal', text: 'luks cuánto llevamos' }))).toBe('pregunta:sin_mister_luks');
+      expect(bandeja()).toEqual([]);
+    });
+
+    it('si Mister Luks también está en el grupo, responde él (el WhatsApp vinculado no)', async () => {
+      store.presentes.add(`${GRUPO}|contador`);
+      expect(await ing.onMessage(personal, mio(), m({ sessionId: 'personal', text: 'luks cuánto llevamos' }))).toBe('ignorado:lo_responde_mister_luks');
+      expect(bandeja()).toEqual([]);
+    });
   });
 });

@@ -1,15 +1,20 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
+import { PREGUNTAS, primerNombre, RESPUESTA } from './preguntas.js';
+import type { Clasificador } from './qwen.js';
 import type { RateLimiter } from './replies.js';
 import type { OutboxItem, Store } from './store.js';
 import {
+  aMisterLuks,
+  canalDe,
   esMensajeDeLuks,
   esPedidoDeAyuda,
   esSoyYo,
   guia,
   type Idioma,
   idiomaDeNumero,
+  intencionDe,
   looksLikeExpense,
   MISTER,
   MSG,
@@ -39,6 +44,7 @@ export type Outcome =
   | 'desde_cuando'
   | 'chat_importado'
   | 'chat_muy_pesado'
+  | `pregunta:${string}`
   | `link_grupo:${string}`
   | `ignorado:${string}`;
 
@@ -53,12 +59,18 @@ export interface MisterLuksOptions {
   guiaUrl: string;
   /** Cuántos grupos acepta Mister Luks con links de invitación (por quien manda el link y en total, por hora) */
   joins: RateLimiter;
+  /** Qwen, para las preguntas que las reglas no entienden (sin Ollama, no hay) */
+  clasificar?: Clasificador | null;
 }
 
 const mes = (d: Date) => d.toISOString().slice(0, 7);
 const nombreSeguro = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
 /** El tramo de tiempo del mensaje: lo mismo dentro del tramo no se responde dos veces */
 const tramo = (d: Date, minutos: number) => Math.floor(d.getTime() / (minutos * 60_000));
+
+/** El chat privado de quien escribe (con su número, o su LID si WhatsApp no deja ver el número) */
+const privadoDe = (m: IncomingMessage) =>
+  m.chatKind === 'privado' ? m.chatId : m.sender.phone ? `${m.sender.phone}@s.whatsapp.net` : m.sender.lid ? `${m.sender.lid}@lid` : null;
 
 /** El idioma de un grupo sin cuenta: inglés si la mayoría tiene número de +1 */
 function idiomaDelGrupo(members: GroupMember[]): Idioma {
@@ -187,11 +199,23 @@ export class Ingestor {
       return 'ayuda';
     }
 
+    // Le preguntan algo a Mister Luks (antes del filtro de la charla), o responden «privado» / «aquí»
+    if (!m.media) {
+      const pregunta = aMisterLuks(m, this.#misterLuks);
+      const respuesta = pregunta
+        ? await this.#pregunta(session, m, pregunta.texto, pregunta.explicito)
+        : session.kind === 'contador' && canalDe(m.text)
+          ? await this.#canal(session, m, canalDe(m.text) as 'privado' | 'aqui', true)
+          : null;
+      if (respuesta) return respuesta;
+    }
+
     // Las cuentas o un cobro que mandaron desde Luks, o una respuesta de Luks: no es un gasto
     if (esMensajeDeLuks(m.text)) return 'de_luks';
     if (!m.media && !looksLikeExpense(m.text)) return 'charla';
 
-    const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt);
+    // Con quién lo mandó: de quien dijo «no me cuentes» ya no se baja ni se guarda nada
+    const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt, m.sender.id);
     if (!check.ingest || !check.account_id) return `ignorado:${check.reason ?? 'sin_cuenta'}`;
 
     let mediaPath: string | null = null;
@@ -294,8 +318,110 @@ export class Ingestor {
    * /v/CÓDIGO de un solo uso, y en el grupo, que lo revise. Como mucho una vez
    * cada 10 minutos por persona.
    */
+  /**
+   * Le preguntan algo a Mister Luks (fase 7): «cuánto llevamos», «quién le debe
+   * a quién», «cuánto debo», «mis gastos», «privado» o «aquí», «no me cuentes».
+   * Los números salen de la base. Lo del grupo se responde en el grupo; lo de
+   * cada quien, como lo prefiera (la primera vez pregunta). En un grupo que solo
+   * lee un WhatsApp vinculado nadie escribe en el grupo: Mister Luks le responde
+   * por privado a quien le preguntó, si existe (si no, queda en la app).
+   * Devuelve null si no era una pregunta («luks taxi 45 lucas» es un gasto).
+   */
+  async #pregunta(session: SessionInfo, m: IncomingMessage, texto: string, explicito: boolean): Promise<Outcome | null> {
+    let intencion = intencionDe(texto);
+    if (!intencion && looksLikeExpense(texto)) return null;
+    if (!intencion && texto && this.mister.clasificar) intencion = await this.mister.clasificar(texto);
+    // Un «Luks…» que no se entiende puede ser charla; a una mención o a una cita sí se le contesta
+    if (!intencion && !explicito) return null;
+
+    const d = await this.store.question(m.chatId, m.sender);
+    if (!d) return 'ignorado:pregunta';
+    // Si Mister Luks está en el grupo, responde él (no también el WhatsApp vinculado)
+    if (session.kind !== 'contador' && d.contador_en_grupo) return 'ignorado:lo_responde_mister_luks';
+    const enGrupo = session.kind === 'contador';
+    if (enGrupo && (intencion === 'privado' || intencion === 'aqui')) return this.#canal(session, m, intencion, false);
+
+    const privado = privadoDe(m);
+    // Un WhatsApp vinculado nunca escribe: le responde Mister Luks por privado
+    if (!enGrupo && (!privado || !(await this.store.openPrivateAnswer(privado)))) return 'pregunta:sin_mister_luks';
+    const idioma: Idioma = d.ok ? (d.account.language ?? 'es') : idiomaDeNumero(m.sender.phone);
+    const nombre = primerNombre((d.ok ? d.me?.name : null) ?? m.sender.name);
+    const items: OutboxItem[] = [];
+    const decir = (body: string, donde: 'grupo' | 'privado' = enGrupo ? 'grupo' : 'privado', clave = m.messageId) => {
+      const chat = donde === 'grupo' ? m.chatId : (privado as string);
+      items.push({ chat_jid: chat, reason: 'answer', body, dedupe_key: `answer:${chat}:${clave}` });
+    };
+    let outcome: Outcome = `pregunta:${intencion ?? 'no_entendi'}`;
+
+    if (!intencion) {
+      // Como mucho una vez cada 10 minutos por grupo
+      decir(PREGUNTAS.noEntendi(idioma), undefined, `no_entendi:${tramo(m.sentAt, 10)}`);
+    } else if (!d.ok) {
+      decir(PREGUNTAS.sinCuenta(idioma), undefined, `sin_cuenta:${tramo(m.sentAt, 60)}`);
+    } else if (intencion === 'privado' || intencion === 'aqui') {
+      await this.store.answerPref(m.chatId, m.sender, intencion, false);
+      decir(PREGUNTAS.canalListo(idioma, nombre, intencion));
+    } else if (intencion === 'no_me_cuentes' || intencion === 'cuentame') {
+      await this.store.optout(m.chatId, m.sender, intencion === 'no_me_cuentes');
+      decir(intencion === 'no_me_cuentes' ? PREGUNTAS.noMeCuentes(idioma, nombre, d.account.name) : PREGUNTAS.cuentame(idioma, nombre, d.account.name));
+    } else if (intencion === 'total' || intencion === 'deudas') {
+      decir(intencion === 'total' ? RESPUESTA.total(d, idioma) : RESPUESTA.deudas(d, idioma));
+    } else if (!d.me) {
+      decir(PREGUNTAS.noTeConozco(idioma, d.account.name));
+    } else {
+      const respuesta = intencion === 'mi_saldo' ? RESPUESTA.miSaldo(d, d.me, idioma) : RESPUESTA.misGastos(d, d.me, idioma);
+      if (!enGrupo || d.pref === 'aqui' || (d.pref === 'privado' && !privado)) {
+        decir(respuesta);
+      } else if (d.pref === 'privado' && privado) {
+        // Lo pidió: su chat privado queda abierto
+        await this.store.privateChat(session.id, privado);
+        decir(respuesta, 'privado');
+        decir(PREGUNTAS.porPrivado(idioma, nombre));
+      } else {
+        await this.store.askAnswerPref(m.chatId, d.identity_id, intencion);
+        decir(PREGUNTAS.canal(idioma, nombre));
+        outcome = 'pregunta:canal';
+      }
+    }
+    await this.#encolar(items);
+    this.log.info({ group: m.chatId, intent: intencion, sender: maskWaId(m.sender.id), in_group: enGrupo }, 'Pregunta a Mister Luks');
+    return outcome;
+  }
+
+  /**
+   * «privado» o «aquí»: cómo quiere recibir lo suyo. Si una pregunta suya
+   * estaba esperando esa respuesta, la responde ya; a secas (sin hablarle a
+   * Luks, soloPendiente) solo cuenta si había una esperando.
+   */
+  async #canal(session: SessionInfo, m: IncomingMessage, modo: 'privado' | 'aqui', soloPendiente: boolean): Promise<Outcome | null> {
+    const r = await this.store.answerPref(m.chatId, m.sender, modo, soloPendiente);
+    if (!r.changed) return null;
+    const d = await this.store.question(m.chatId, m.sender);
+    const idioma: Idioma = d?.ok ? (d.account.language ?? 'es') : idiomaDeNumero(m.sender.phone);
+    const nombre = primerNombre((d?.ok ? d.me?.name : null) ?? m.sender.name);
+    const privado = privadoDe(m);
+    const items: OutboxItem[] = [];
+    const decir = (chat: string, body: string) => items.push({ chat_jid: chat, reason: 'answer', body, dedupe_key: `answer:${chat}:${m.messageId}` });
+    if (r.pending_intent && d?.ok && d.me) {
+      const respuesta = r.pending_intent === 'mi_saldo' ? RESPUESTA.miSaldo(d, d.me, idioma) : RESPUESTA.misGastos(d, d.me, idioma);
+      if (modo === 'privado' && privado) {
+        // Lo pidió: su chat privado queda abierto
+        await this.store.privateChat(session.id, privado);
+        decir(privado, respuesta);
+        decir(m.chatId, PREGUNTAS.porPrivado(idioma, nombre));
+      } else {
+        decir(m.chatId, respuesta);
+      }
+    } else {
+      decir(m.chatId, PREGUNTAS.canalListo(idioma, nombre, modo));
+    }
+    await this.#encolar(items);
+    this.log.info({ group: m.chatId, mode: modo, pending: r.pending_intent ?? null, sender: maskWaId(m.sender.id) }, '¿Privado o aquí?');
+    return `pregunta:${modo}`;
+  }
+
   async #soyYo(session: SessionInfo, m: IncomingMessage): Promise<Outcome> {
-    const privado = m.chatKind === 'privado' ? m.chatId : m.sender.phone ? `${m.sender.phone}@s.whatsapp.net` : m.sender.lid ? `${m.sender.lid}@lid` : null;
+    const privado = privadoDe(m);
     if (!privado) return 'ignorado:sin_numero';
     const idioma = idiomaDeNumero(m.sender.phone);
     const r = await this.store.soyYo(session.id, privado, m.sender.phone, m.sender.lid ?? null, m.sender.name);

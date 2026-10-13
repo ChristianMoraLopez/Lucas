@@ -60,6 +60,10 @@ export interface IncomingMessage {
   media: IncomingMedia | null;
   /** Lo mandó el mismo número de la sesión */
   fromMe: boolean;
+  /** A quiénes menciona (@…): números sin «+» o LID, sin el dominio */
+  mentions?: string[];
+  /** Si responde (cita) un mensaje: el número o LID de quien lo escribió */
+  quotedFrom?: string | null;
 }
 
 /** Alguien que está en el grupo */
