@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { RateLimiter, ReplyLoop, type SenderLookup } from '../src/replies.js';
-import type { PendingReply } from '../src/text.js';
-import { contador, FakeConnector, FakeStore, GRUPO, silentLog } from './fakes.js';
+import { LINK_GRUPO, MISTER, type PendingReply } from '../src/text.js';
+import { contador, FakeConnector, FakeStore, GRUPO, PASEO, silentLog } from './fakes.js';
 
 describe('límite de frecuencia', () => {
   let t = 0;
@@ -209,5 +209,39 @@ describe('el link de verificación', () => {
     expect((await loop.tick()).outbox).toBe(1);
     expect(wa.sent).toEqual([{ chatId: jid, text: 'Abre este link: https://mrluks.com/v/Cod1_aB-9' }]);
     expect(store.outbox[0].body).toBe('Abre este link: {link}');
+  });
+});
+
+describe('el link /g/ para crear la cuenta del grupo', () => {
+  const armar = (store: FakeStore, wa: FakeConnector) =>
+    new ReplyLoop(
+      store,
+      new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 20, maxPerHourTotal: 60 }),
+      () => ({ connector: wa }),
+      { batchMax: 5, maxWaitMs: 60_000, webUrl: 'https://mrluks.com' },
+      silentLog,
+    );
+
+  it('se crea al mandar el saludo de un grupo sin cuenta; la bandeja sigue sin el código', async () => {
+    const store = new FakeStore();
+    const wa = new FakeConnector(contador);
+    const g = await store.upsertGroup('contador', GRUPO, 'Finca');
+    await store.outboxEnqueue([{ chat_jid: GRUPO, reason: 'group_hello', body: `Créenla aquí 👉 ${LINK_GRUPO}`, group_id: g.group_id, dedupe_key: 'h1' }]);
+    await armar(store, wa).tick();
+    expect(wa.sent).toEqual([{ chatId: GRUPO, text: 'Créenla aquí 👉 https://mrluks.com/g/Grp1_xY-7' }]);
+    expect(store.outbox[0].body).toBe(`Créenla aquí 👉 ${LINK_GRUPO}`);
+  });
+
+  it('si el grupo ya tiene cuenta cuando se manda, va sin la línea del link', async () => {
+    const store = new FakeStore();
+    const wa = new FakeConnector(contador);
+    await store.upsertGroup('contador', GRUPO, 'Finca');
+    await store.outboxEnqueue([{ chat_jid: GRUPO, reason: 'guide', body: MISTER.guiaGrupo('es'), dedupe_key: 'g1' }]);
+    // Mientras tanto la crearon desde la app
+    const grupo = store.groups.get(GRUPO);
+    if (grupo) grupo.account_id = PASEO;
+    await armar(store, wa).tick();
+    expect(wa.sent).toEqual([{ chatId: GRUPO, text: '📘 Aquí tienes la guía de Mister Luks. La completa está en mrluks.com/guia 😉' }]);
+    expect(store.codigosGrupo).toEqual([]);
   });
 });

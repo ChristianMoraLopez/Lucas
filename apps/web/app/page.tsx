@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Archivadas, FilaArchivable } from '@/components/archivo-cuenta';
+import { GruposDetectados } from '@/components/grupos-detectados';
 import { Guia } from '@/components/guia';
 import { InvitacionesRecibidas } from '@/components/invitaciones-recibidas';
 import { LogoLink } from '@/components/logo-link';
@@ -11,14 +12,14 @@ import { eventMoment, formatRange, monthName, todayInBogota } from '@/lib/dates'
 import type { T } from '@/lib/i18n';
 import { rico } from '@/lib/i18n/rico';
 import { getT } from '@/lib/i18n/server';
-import { type AccountOverview, accountGlyph, accountTone, asTone, type InvitacionRecibida, plural } from '@/lib/types';
+import { type AccountOverview, accountGlyph, accountTone, asTone, type GrupoDetectado, type InvitacionRecibida, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
 export default async function AccountPickerPage() {
   const { supabase, userId } = await requireUser();
   const t = await getT();
 
-  const [{ data: profile }, { data: overview, error }, { data: recibidas }, { data: membresias }, guias] = await Promise.all([
+  const [{ data: profile }, { data: overview, error }, { data: recibidas }, { data: membresias }, guias, { data: detectados }] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
     supabase.rpc('account_overview'),
     // Me agregaron a una cuenta desde otra (sin código): falta que acepte
@@ -27,6 +28,8 @@ export default async function AccountPickerPage() {
     supabase.from('account_members').select('account_id, archived_at').eq('user_id', userId),
     // Si ya vio la guía del inicio (si no se sabe, no sale sola)
     supabase.from('profiles').select('guias_vistas').eq('id', userId).maybeSingle(),
+    // Grupos de Mister Luks sin cuenta donde está mi número verificado
+    supabase.rpc('my_detected_groups'),
   ]);
   const guiaVista = guias.error || !guias.data ? true : ((guias.data.guias_vistas as string[] | null) ?? []).includes('inicio');
   const invitaciones = (recibidas ?? []) as InvitacionRecibida[];
@@ -68,6 +71,7 @@ export default async function AccountPickerPage() {
           </div>
 
           <InvitacionesRecibidas invitaciones={invitaciones} />
+          <GruposDetectados grupos={(detectados ?? []) as GrupoDetectado[]} />
 
           {error && (
             <p className="lu-error" role="alert">

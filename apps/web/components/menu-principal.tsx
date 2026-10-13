@@ -36,6 +36,14 @@ const ICONOS = {
       <circle {...P} cx="12" cy="10" r="2.5" />
     </svg>
   ),
+  grupos: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path {...P} d="M4 18.5V20l3.2-1.6A8.5 8.5 0 1 0 4 12.5c0 2.3.9 4.4 2.4 6" />
+      <circle {...P} cx="9" cy="12" r=".6" />
+      <circle {...P} cx="12.5" cy="12" r=".6" />
+      <circle {...P} cx="16" cy="12" r=".6" />
+    </svg>
+  ),
   salir: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path {...P} d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10" />
@@ -44,8 +52,8 @@ const ICONOS = {
 };
 
 /**
- * El menú de arriba (☰): tu perfil, la guía de esta pantalla, el idioma, el
- * tema y cerrar sesión. Sin sesión (login, link público) quedan idioma y tema.
+ * El menú de arriba (☰): tu perfil, la guía de esta pantalla, tus grupos de
+ * WhatsApp, el idioma, el tema y cerrar sesión. Sin sesión (login, link público) quedan idioma y tema.
  * Las tres rayas se vuelven una X al abrir.
  */
 export function MenuPrincipal({ sesion = true, nombre, guia = false }: { sesion?: boolean; nombre?: string; guia?: boolean }) {
@@ -97,6 +105,14 @@ export function MenuPrincipal({ sesion = true, nombre, guia = false }: { sesion?
             <Menu.Item className="mn-item" style={orden()} onSelect={() => window.dispatchEvent(new Event(EVENTO_GUIA))}>
               {ICONOS.guia}
               {t('Guía de esta pantalla')}
+            </Menu.Item>
+          )}
+          {sesion && (
+            <Menu.Item asChild>
+              <Link href="/grupos" className="mn-item" style={orden()}>
+                {ICONOS.grupos}
+                {t('Tus grupos de WhatsApp')}
+              </Link>
             </Menu.Item>
           )}
           {sesion && <Menu.Separator className="mn-sep" />}

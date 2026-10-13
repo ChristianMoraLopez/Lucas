@@ -170,6 +170,22 @@ export const MSG = {
 /** En el mensaje de verificación, el lugar del link /v/CÓDIGO: el código se crea al mandarlo (nunca se guarda) */
 export const LINK_VERIFICACION = '{link}';
 
+/**
+ * En el saludo y la guía de un grupo sin cuenta, el lugar del link /g/CÓDIGO
+ * para crearla: también se crea al mandarlo. Si el grupo ya tiene cuenta,
+ * la línea entera se quita (sinLineaDelLink).
+ */
+export const LINK_GRUPO = '{grupo}';
+
+/** El mensaje sin las líneas que llevan el link /g/ (el grupo ya tiene cuenta) */
+export const sinLineaDelLink = (body: string) =>
+  body
+    .split('\n')
+    .filter((l) => !l.includes(LINK_GRUPO))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
 /** La guía de mrluks.com/guia: la imagen vertical y el PDF, en el idioma de quien la recibe */
 export const guia = (base: string, idioma: Idioma) => ({
   imagen: `${base}/luks-guia-${idioma}.png`,
@@ -193,10 +209,18 @@ export const MISTER = {
     idioma === 'en'
       ? '📘 Here’s the Mister Luks guide. The full one is at mrluks.com/guia 😉'
       : '📘 Aquí tienes la guía de Mister Luks. La completa está en mrluks.com/guia 😉',
+  /** La guía en un grupo: si todavía no tiene cuenta, con el link para crearla (se quita si ya la tiene) */
+  guiaGrupo: (idioma: Idioma) =>
+    idioma === 'en'
+      ? `📘 Here’s the Mister Luks guide. The full one is at mrluks.com/guia 😉\n\nNo account for this group yet? Just one person creates it here 👉 ${LINK_GRUPO}`
+      : `📘 Aquí tienes la guía de Mister Luks. La completa está en mrluks.com/guia 😉\n\n¿Todavía no tienen cuenta? Una sola persona la crea aquí 👉 ${LINK_GRUPO}`,
   /**
-   * El saludo del grupo, una sola vez. Con cuenta: desde hoy confirma aquí.
-   * Sin cuenta: quién del grupo ya usa Luks (por su primer nombre) o, si nadie,
-   * que una persona cree la cuenta.
+   * El saludo del grupo, una sola vez. Con cuenta: desde hoy lleva las cuentas
+   * aquí. Sin cuenta, el link /g/ para crearla (LINK_GRUPO, se crea al mandarlo)
+   * y según quién del grupo ya usa Luks (su número verificado, por su primer
+   * nombre): a esa persona la cuenta la espera en la app; si nadie, que quien
+   * ya tenga cuenta (con Gmail, por ejemplo) escriba «luks soy yo» y, si no,
+   * que una sola persona la cree.
    */
   saludoGrupo: (idioma: Idioma, cuenta: string | null, usuarios: string[] = []) => {
     const en = idioma === 'en';
@@ -214,17 +238,24 @@ export const MISTER = {
         ? `Hi everyone! 👋 I’m *Mister Luks* and from today I keep the books for “${cuenta}” 🧾✨${ya}\n\n${cierre}`
         : `¡Hola, parche! 👋 Soy *Mister Luks* y desde hoy llevo las cuentas de «${cuenta}» 🧾✨${ya}\n\n${cierre}`;
     }
+    const hola = en
+      ? 'Hi everyone! 👋 I’m *Mister Luks* and I’m here to keep this group’s books 🧾✨'
+      : '¡Hola, parche! 👋 Soy *Mister Luks* y vengo a llevar las cuentas del grupo 🧾✨';
     if (usuarios.length) {
-      const quien = en
-        ? `I see ${nombres} already ${usuarios.length === 1 ? 'uses' : 'use'} Luks 🙌 ${usuarios.length === 1 ? `${nombres}, create` : 'One of you, create'} the group’s account at mrluks.com and type “luks” here followed by the code the app gives you.`
-        : `Veo que ${nombres} ya ${usuarios.length === 1 ? 'usa' : 'usan'} Luks 🙌 ${usuarios.length === 1 ? `${nombres}, crea` : 'Alguno de ustedes, cree'} la cuenta del grupo en mrluks.com y ${usuarios.length === 1 ? 'escribe' : 'escriba'} aquí «luks» y el código que le da la app.`;
-      return en
-        ? `Hi everyone! 👋 I’m *Mister Luks* and I’m here to keep this group’s books 🧾✨\n\n${quien}\n\n${cierre}`
-        : `¡Hola, parche! 👋 Soy *Mister Luks* y vengo a llevar las cuentas del grupo 🧾✨\n\n${quien}\n\n${cierre}`;
+      const quien =
+        usuarios.length === 1
+          ? en
+            ? `I see ${nombres} already uses Luks 🙌 ${nombres}, this group’s account is waiting for you in the app 👉 ${LINK_GRUPO}`
+            : `Veo que ${nombres} ya usa Luks 🙌 ${nombres}, la cuenta de este grupo te espera en la app 👉 ${LINK_GRUPO}`
+          : en
+            ? `I see ${nombres} already use Luks 🙌 One of you, create this group’s account in the app 👉 ${LINK_GRUPO}`
+            : `Veo que ${nombres} ya usan Luks 🙌 Alguno de ustedes, cree la cuenta del grupo en la app 👉 ${LINK_GRUPO}`;
+      return `${hola}\n\n${quien}\n\n${cierre}`;
     }
-    return en
-      ? `Hi everyone! 👋 I’m *Mister Luks* and I’m here to keep this group’s books 🧾✨\n\nTo start, *just one person* creates the account at mrluks.com and types “luks” here followed by the code the app gives them. Nobody else has to do anything 🙌\n\n${cierre}`
-      : `¡Hola, parche! 👋 Soy *Mister Luks* y vengo a llevar las cuentas del grupo 🧾✨\n\nPara empezar, *una sola persona* crea la cuenta en mrluks.com y escribe aquí «luks» y el código que le da la app. Los demás no tienen que hacer nada 🙌\n\n${cierre}`;
+    const empezar = en
+      ? `I don’t recognize any number in this group on Luks yet:\n• Already have an account (for example, you signed in with Gmail)? Type *luks it’s me* here and I’ll send you a private link to add your number.\n• Nobody? *Just one person* creates the account here and nobody else has to do anything 🙌\n👉 ${LINK_GRUPO}`
+      : `Todavía no reconozco ningún número de este grupo en Luks:\n• ¿Ya tienes cuenta (por ejemplo, entraste con Gmail)? Escribe *luks soy yo* aquí y te mando por privado un link para unir tu número.\n• ¿Nadie? *Una sola persona* crea la cuenta aquí y los demás no tienen que hacer nada 🙌\n👉 ${LINK_GRUPO}`;
+    return `${hola}\n\n${empezar}\n\n${cierre}`;
   },
   /** «luks soy yo»: en el grupo, si ya lo reconoce o si le mandó el link por privado */
   soyYo: {

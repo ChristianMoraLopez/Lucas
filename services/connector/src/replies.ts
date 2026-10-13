@@ -1,7 +1,7 @@
 import type { MessagingConnector } from './connector.js';
 import type { Logger } from './log.js';
 import type { OutboxPending, Store } from './store.js';
-import { formatReplies, LINK_VERIFICACION, type PendingReply } from './text.js';
+import { formatReplies, LINK_GRUPO, LINK_VERIFICACION, type PendingReply, sinLineaDelLink } from './text.js';
 
 /*
  * Límite de frecuencia para todo lo que Luks escribe en los grupos: un
@@ -62,7 +62,8 @@ export interface ReplyOptions {
  *     agrupando lo que llegó seguido en un solo mensaje;
  *   · la bandeja de salida (whatsapp_outbox): la bienvenida, el saludo del
  *     grupo, la guía y las respuestas a los links. Un mensaje de la bandeja puede
- *     ser texto, imagen con pie y un documento: cuenta como uno solo.
+ *     ser texto, imagen con pie y un documento: cuenta como uno solo. Los links
+ *     /v/ y /g/ se crean justo antes de mandarlo.
  */
 export class ReplyLoop {
   constructor(
@@ -134,6 +135,11 @@ export class ReplyLoop {
         if (o.reason === 'verify' && body?.includes(LINK_VERIFICACION)) {
           const codigo = await this.store.verifyMint(o.id);
           body = body.replace(LINK_VERIFICACION, `${this.options.webUrl ?? 'https://mrluks.com'}/v/${codigo}`);
+        }
+        // Igual el link /g/ para crear la cuenta del grupo; si ya la tiene, esa línea sobra
+        if (body?.includes(LINK_GRUPO)) {
+          const codigo = await this.store.groupLinkMint(o.id);
+          body = codigo ? body.replaceAll(LINK_GRUPO, `${this.options.webUrl ?? 'https://mrluks.com'}/g/${codigo}`) : sinLineaDelLink(body);
         }
         if (o.image_url) waId = await who.connector.send(jid, { imageUrl: o.image_url, caption: body ?? undefined });
         else if (body) waId = await who.connector.send(jid, { text: body });

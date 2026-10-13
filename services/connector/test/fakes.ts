@@ -1,6 +1,7 @@
 import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, SessionInfo } from '../src/connector.js';
 import type {
+  DetectedResult,
   GroupResult,
   HelloResult,
   IngestCheck,
@@ -9,6 +10,7 @@ import type {
   LinkResult,
   OutboxItem,
   OutboxPending,
+  PendingMembers,
   QueueHealth,
   SessionRow,
   SoyYoResult,
@@ -98,6 +100,27 @@ export class FakeStore implements Store {
     const cuenta = [...this.codes.values()].find((c) => c.id === g.account_id);
     return { say_hello: true, account_name: cuenta?.name ?? null, language: cuenta ? 'es' : null, luks_users: this.usuariosLuks };
   }
+  async groupDetected(sesion: string, jid: string, name: string | null, _participants: number | null, members: GroupMember[]): Promise<DetectedResult> {
+    const g = await this.upsertGroup(sesion, jid, name);
+    const r = members.length ? await this.setGroupMembers(g.group_id, members) : { members: this.members.get(g.group_id)?.length ?? 0, people_added: 0 };
+    const hello: HelloResult = g.say_hello ? await this.groupHello(g.group_id) : { say_hello: false };
+    return { ...g, ...r, hello };
+  }
+  /** Los códigos de los links /g/ que se crearon al mandar saludos y guías */
+  codigosGrupo: string[] = [];
+  async groupLinkMint(outboxId: string) {
+    const o = this.outbox.find((x) => x.id === outboxId);
+    if (!o?.group_id) throw new Error('Ese mensaje no lleva el link de un grupo');
+    if ([...this.groups.values()].some((g) => g.group_id === o.group_id && g.account_id)) return null;
+    const codigo = `Grp${this.codigosGrupo.length + 1}_xY-7`;
+    this.codigosGrupo.push(codigo);
+    return codigo;
+  }
+  /** Los grupos conectados desde la web que esperan a su gente */
+  pendientes: PendingMembers[] = [];
+  async groupsPendingMembers(ids: string[]) {
+    return this.pendientes.filter((p) => ids.includes(p.connection_id) && !this.members.has(p.group_id));
+  }
   /** Chats privados con Mister Luks */
   privados = new Set<string>();
   async privateChat(sesion: string, jid: string) {
@@ -111,7 +134,9 @@ export class FakeStore implements Store {
     const nuevas: string[] = [];
     for (const it of items) {
       if (!this.presentes.has(`${it.chat_jid}|contador`) || this.outbox.some((o) => o.dedupe_key === it.dedupe_key)) continue;
-      this.outbox.push({ ...it, id: `o-${this.outbox.length + 1}`, sent: false, dropped: false, error: null, waId: null });
+      // Como la base: si no llega el grupo, el del chat
+      const group_id = it.group_id ?? this.groups.get(it.chat_jid)?.group_id;
+      this.outbox.push({ ...it, ...(group_id ? { group_id } : {}), id: `o-${this.outbox.length + 1}`, sent: false, dropped: false, error: null, waId: null });
       nuevas.push(it.dedupe_key);
     }
     return nuevas;

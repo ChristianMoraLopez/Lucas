@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { IncomingMessage } from '../src/connector.js';
 import { Ingestor } from '../src/ingest.js';
 import { RateLimiter } from '../src/replies.js';
-import { MISTER, MSG } from '../src/text.js';
+import { LINK_GRUPO, MISTER, MSG } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
 const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
@@ -60,10 +60,15 @@ describe('cuando agregan a Mister Luks a un grupo', () => {
         reason: 'group_hello',
         body: MISTER.saludoGrupo('es', null),
         image_url: `${GUIA}/luks-guia-es.png`,
+        // El grupo va con el saludo: el link /g/ para crear la cuenta se crea al mandarlo
+        group_id: 'g-1',
         dedupe_key: 'group_hello:g-1',
       }),
     ]);
-    expect(bandeja()[0].body).toContain('*una sola persona*');
+    expect(bandeja()[0].body).toContain('*Una sola persona*');
+    expect(bandeja()[0].body).toContain(LINK_GRUPO);
+    // Una sola llamada: el grupo, su gente y el saludo
+    expect(wa.pedidos).toEqual([GRUPO, GRUPO]);
     // Directo no escribe nada: lo manda el ReplyLoop con el límite de frecuencia
     expect(wa.enviados).toEqual([]);
   });
@@ -170,10 +175,12 @@ describe('«lucas CÓDIGO»', () => {
     expect(bandeja()).toEqual([]);
   });
 
-  it('«ayuda» en el grupo: la guía, como mucho una vez por hora', async () => {
+  it('«ayuda» en el grupo: la guía (con el link para crear la cuenta, que se quita si ya la tiene), como mucho una vez por hora', async () => {
     expect(await ing.onMessage(contador, wa, m({ text: 'ayuda' }))).toBe('ayuda');
     expect(await ing.onMessage(contador, wa, m({ text: '@573337627471 ayuda' }))).toBe('ayuda');
-    expect(bandeja()).toEqual([expect.objectContaining({ reason: 'guide', image_url: `${GUIA}/luks-guia-es.png` })]);
+    expect(bandeja()).toEqual([
+      expect.objectContaining({ reason: 'guide', body: MISTER.guiaGrupo('es'), group_id: 'g-1', image_url: `${GUIA}/luks-guia-es.png` }),
+    ]);
     expect(bandeja()[0].document_url).toBeUndefined();
     // «necesito ayuda con el taxi» es charla, no un pedido
     expect(await ing.onMessage(contador, wa, m({ text: 'necesito ayuda con el taxi' }))).toBe('charla');

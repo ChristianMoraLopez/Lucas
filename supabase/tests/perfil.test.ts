@@ -77,8 +77,11 @@ describe('su WhatsApp', () => {
         [PASEO],
       );
       await impersonate(tx, U.santi);
-      const r = await one<{ r: { wa_id: string; accounts: number; taken_in: string[] } }>(tx, `select public.add_my_whatsapp('300 999 8877') as r`);
-      expect(r.r).toEqual({ wa_id: '573009998877', accounts: 1, taken_in: [] });
+      const r = await one<{ r: { wa_id: string; accounts: number; taken_in: string[]; merged_in: string[] } }>(
+        tx,
+        `select public.add_my_whatsapp('300 999 8877') as r`,
+      );
+      expect(r.r).toEqual({ wa_id: '573009998877', accounts: 1, taken_in: [], merged_in: [] });
       expect((await perfil(tx)).whatsapp.sort()).toEqual(['573009998877', '573128880365']);
       await tx.exec('reset role');
       expect(await one(tx, 'select sender_person_id from public.messages where id = $1', [id])).toEqual({ sender_person_id: P.paseoSanti });

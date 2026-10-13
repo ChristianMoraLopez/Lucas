@@ -154,6 +154,33 @@ export class SessionManager {
     return { connector: contador.conn };
   };
 
+  /**
+   * Los grupos que conectaron desde la web todavía no tienen a su gente (sin
+   * cuenta no se guardaba quién estaba): se lee desde una sesión conectada que
+   * esté en el grupo, Mister Luks primero, y cada uno queda como persona.
+   */
+  async syncPendingMembers(): Promise<number> {
+    const conectadas = [...this.#running.values()].filter((r) => r.state === 'connected' && r.conn.isConnected());
+    if (!conectadas.length) return 0;
+    const pendientes = await this.store.groupsPendingMembers(conectadas.map((r) => r.info.id));
+    let leidos = 0;
+    for (const p of pendientes) {
+      const r = this.#running.get(p.connection_id);
+      if (!r) continue;
+      try {
+        const lista = await r.conn.members(p.jid);
+        // WhatsApp no contestó: queda pendiente para la próxima vuelta
+        if (!lista.length) continue;
+        const res = await this.store.setGroupMembers(p.group_id, lista);
+        leidos += 1;
+        this.log.info({ group: p.group_id, members: res.members, added: res.people_added }, 'Gente del grupo conectado desde la web');
+      } catch (e) {
+        this.log.warn({ err: (e as Error).message }, 'No se pudo leer quién está en el grupo; se intenta otra vez');
+      }
+    }
+    return leidos;
+  }
+
   snapshot(): SessionSnapshot[] {
     return [...this.#running.values()].map((r) => ({
       id: r.info.id,

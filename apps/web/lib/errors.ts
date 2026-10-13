@@ -25,8 +25,16 @@ const CON_DATOS: [RegExp, string][] = [
   [/^Las partes suman (.+) y el gasto es de (.+): tienen que dar lo mismo$/, 'The shares add up to $1 and the expense is $2: they have to match'],
   [/^Para confirmar, escribe el nombre de la cuenta tal cual: «(.+)»$/, 'To confirm, type the account name exactly: “$1”'],
   [
-    /^Para entrar como «(.+)», primero confirma que el WhatsApp ••• (\d+) es tuyo: escríbele «luks soy yo» a Mister Luks y abre el link que te manda\. O entra como persona nueva y pídele a quien administra la cuenta que te agregue desde Personas\.$/,
-    'To join as “$1”, first confirm that WhatsApp ••• $2 is yours: text Mister Luks “luks soy yo” and open the link he sends you. Or join as a new person and ask whoever runs the account to add you from People.',
+    /^Para entrar como «(.+)», primero confirma que el WhatsApp ••• (\d+) es tuyo: escríbele «luks soy yo» a Mister Luks y abre el link que te manda\. Así no quedas dos veces en la cuenta\.$/,
+    'To join as “$1”, first confirm that WhatsApp ••• $2 is yours: text Mister Luks “luks soy yo” and open the link he sends you. That way you don’t end up twice in the account.',
+  ],
+  [
+    /^Este grupo ya tiene cuenta \(«(.+)»\)\. Para entrar, escribe «luks soy yo» en el grupo y abre el link que te manda Mister Luks$/,
+    'This group already has an account (“$1”). To join, type “luks soy yo” in the group and open the link Mister Luks sends you',
+  ],
+  [
+    /^En «(.+)» tu número ya es de otra persona\. Pídele a quien la administra que lo arregle$/,
+    'In “$1” your number already belongs to someone else. Ask whoever runs it to fix it',
   ],
   [/^Primero revisen 1 gasto pendiente$/, 'First review 1 pending expense'],
   [/^Primero revisen (\d+) gastos pendientes$/, 'First review $1 pending expenses'],

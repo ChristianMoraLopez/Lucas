@@ -82,22 +82,33 @@ export class Ingestor {
 
   /** Luks quedó en un grupo (lo agregaron, o ya estaba al conectar) */
   async onGroupJoined(session: SessionInfo, connector: MessagingConnector, group: GroupInfo): Promise<void> {
+    if (session.kind === 'contador') return this.#detectado(connector, session, group);
     const g = await this.store.upsertGroup(session.id, group.chatId, group.name, group.participants);
-    // Quiénes están, solo si el grupo es de una cuenta (cada uno queda como persona de ella) o si
-    // lo lee el contador. De los demás grupos de un WhatsApp vinculado se guarda solo el nombre.
-    const { lista: members } = g.account_id || session.kind === 'contador' ? await this.#members(connector, group.chatId, g.group_id) : { lista: [] };
-    // Solo Mister Luks saluda, una vez por grupo, y nombra a quienes ya usan Luks
-    if (!g.say_hello || session.kind !== 'contador') return;
-    const hola = await this.store.groupHello(g.group_id);
+    // De un WhatsApp vinculado, quiénes están solo si el grupo es de una cuenta (cada uno queda
+    // como persona de ella); de los demás grupos se guarda solo el nombre
+    if (g.account_id) await this.#members(connector, group.chatId, g.group_id);
+  }
+
+  /**
+   * Mister Luks está en un grupo: lo guarda con su gente en una sola llamada y,
+   * la primera vez, saluda. Sin cuenta, el saludo lleva el link /g/ para
+   * crearla (se crea al mandarlo) y nombra a quienes ya usan Luks.
+   */
+  async #detectado(connector: MessagingConnector, session: SessionInfo, group: GroupInfo) {
+    const lista = await connector.members(group.chatId);
+    const r = await this.store.groupDetected(session.id, group.chatId, group.name, group.participants, lista);
+    if (r.people_added) this.log.info({ group: r.group_id, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
+    const hola = r.hello;
     if (!hola.say_hello) return;
-    const idioma = hola.language ?? (hola.account_name ? 'es' : idiomaDelGrupo(members));
+    const idioma = hola.language ?? (hola.account_name ? 'es' : idiomaDelGrupo(lista));
     await this.#encolar([
       {
         chat_jid: group.chatId,
         reason: 'group_hello',
         body: MISTER.saludoGrupo(idioma, hola.account_name, hola.luks_users),
         image_url: guia(this.mister.guiaUrl, idioma).imagen,
-        dedupe_key: `group_hello:${g.group_id}`,
+        group_id: r.group_id,
+        dedupe_key: `group_hello:${r.group_id}`,
       },
     ]);
   }
@@ -138,14 +149,15 @@ export class Ingestor {
     // «luks soy yo» en el grupo: solo lo atiende Mister Luks
     if (session.kind === 'contador' && !m.media && esSoyYo(m.text)) return this.#soyYo(session, m);
 
-    // «ayuda» en el grupo: la guía, como mucho una vez por hora
+    // «ayuda» en el grupo: la guía (y el link /g/ si no tiene cuenta), como mucho una vez por hora
     if (session.kind === 'contador' && !m.media && esPedidoDeAyuda(m.text)) {
       const idioma = idiomaDeNumero(m.sender.phone);
       await this.#encolar([
         {
           chat_jid: m.chatId,
           reason: 'guide',
-          body: MISTER.guia(idioma),
+          // Con el link para crear la cuenta, si el grupo todavía no la tiene
+          body: MISTER.guiaGrupo(idioma),
           image_url: guia(this.mister.guiaUrl, idioma).imagen,
           dedupe_key: `guide:${m.chatId}:${tramo(m.sentAt, 60)}`,
         },

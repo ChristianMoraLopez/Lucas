@@ -704,8 +704,8 @@ function FormaMisterLuks({ telefono, conectado }: { telefono: string | null; con
   );
 }
 
-/** Vincular mi WhatsApp: Luks lee los grupos desde el WhatsApp de la persona, como un WhatsApp Web más */
-function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
+/** Vincular mi WhatsApp: Luks lee los grupos desde el WhatsApp de la persona, como un WhatsApp Web más (también en /grupos) */
+export function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
   const t = useT();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
@@ -784,8 +784,11 @@ function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) {
           {l.stopping ? t('Desvinculando…') : `${t('Vinculado')}${l.phone ? ` (${formatear(l.phone)})` : ''}`}
         </ConnectionStatus>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          {t('Luks lee los grupos que conectes con «luks» y el código. Nunca escribe desde tu número.')}
+          {t('Luks lee los grupos que conectes desde «Tus grupos de WhatsApp» (o con «luks» y el código). Nunca escribe desde tu número.')}
         </p>
+        <Link href="/grupos" className="lu-btn lu-btn--secondary lu-btn--sm">
+          {t('Ver tus grupos de WhatsApp')}
+        </Link>
         {!l.stopping && (
           <Button size="sm" variant="ghost" onClick={() => setCerrar(true)}>
             {t('Desvincular mi WhatsApp')}

@@ -93,7 +93,12 @@ function cada(ms: number, nombre: string, fn: () => Promise<unknown>) {
 }
 
 // Las confirmaciones (si están prendidas) y la bandeja de salida de Mister Luks van en la misma vuelta
-const timers = [cada(config.syncIntervalMs, 'sesiones', () => manager.sync()), cada(config.replies.pollIntervalMs, 'mensajes', () => replies.tick())];
+// La gente de los grupos que conectaron desde la web: cada 15 s como mucho (es una consulta más)
+const timers = [
+  cada(config.syncIntervalMs, 'sesiones', () => manager.sync()),
+  cada(config.replies.pollIntervalMs, 'mensajes', () => replies.tick()),
+  cada(Math.max(config.syncIntervalMs, 15_000), 'integrantes', () => manager.syncPendingMembers()),
+];
 log.info({ replies: config.replies.enabled }, 'Connector listo');
 
 let apagando = false;

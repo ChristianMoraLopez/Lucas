@@ -5,7 +5,8 @@ import type { PendingReply } from './text.js';
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
    Son RPC de 00000000000080_whatsapp_connector.sql y las que le siguieron
    (la 290: presencia, chats privados y la bandeja de salida; la 310: «luks soy
-   yo» y el link de verificación), solo service role. */
+   yo» y el link de verificación; la 330: grupos detectados y el link /g/),
+   solo service role. */
 
 export interface SessionRow {
   id: string;
@@ -37,6 +38,20 @@ export interface GroupResult {
 /** connector_group_hello: si toca saludar, con qué (quiénes del grupo ya usan Luks) */
 export type HelloResult = { say_hello: false } | { say_hello: true; account_name: string | null; language: 'es' | 'en' | null; luks_users: string[] };
 
+/** connector_group_detected (migración 330): el grupo con su gente y, la primera vez, con qué saludar */
+export interface DetectedResult extends GroupResult {
+  members: number;
+  people_added: number;
+  hello: HelloResult;
+}
+
+/** Un grupo conectado desde la web que todavía no tiene a su gente (connector_groups_pending_members) */
+export interface PendingMembers {
+  group_id: string;
+  jid: string;
+  connection_id: string;
+}
+
 /** Un mensaje para la bandeja de salida de Mister Luks (whatsapp_outbox) */
 export interface OutboxItem {
   chat_jid: string;
@@ -49,6 +64,8 @@ export interface OutboxItem {
   dedupe_key: string;
   /** De qué número es el link de verificación (reason 'verify'; migración 310) */
   identity_id?: string | null;
+  /** De qué grupo es el link /g/ para crear su cuenta (migración 330; si no llega, la base lo saca del chat) */
+  group_id?: string | null;
 }
 
 /** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
@@ -126,6 +143,12 @@ export interface Store {
   setGroupMembers(groupId: string, members: GroupMember[]): Promise<{ members: number; people_added: number }>;
   /** Marca el saludo del grupo (una sola vez) y dice con qué saludar */
   groupHello(groupId: string): Promise<HelloResult>;
+  /** Mister Luks está en un grupo: el grupo, su presencia, su gente y el saludo, en una sola transacción */
+  groupDetected(sessionId: string, jid: string, name: string | null, participants: number | null, members: GroupMember[]): Promise<DetectedResult>;
+  /** Al mandar el saludo o la guía de un grupo sin cuenta: crea el código del link /g/ (null si ya tiene cuenta) */
+  groupLinkMint(outboxId: string): Promise<string | null>;
+  /** Los grupos conectados desde la web que todavía no tienen a su gente, de estas sesiones */
+  groupsPendingMembers(connectionIds: string[]): Promise<PendingMembers[]>;
   /** Esta sesión ya no está en el grupo (las demás siguen) */
   groupLeft(sessionId: string, jid: string): Promise<void>;
   /** Alguien le escribió por privado a Mister Luks */
@@ -240,6 +263,25 @@ export class SupabaseStore implements Store {
 
   groupHello(groupId: string) {
     return this.#rpc<HelloResult>('connector_group_hello', { p_group_id: groupId });
+  }
+
+  groupDetected(sessionId: string, jid: string, name: string | null, participants: number | null, members: GroupMember[]) {
+    return this.#rpc<DetectedResult>('connector_group_detected', {
+      p_connection_id: sessionId,
+      p_jid: jid,
+      p_name: name,
+      p_participants: participants,
+      p_members: members,
+    });
+  }
+
+  groupLinkMint(outboxId: string) {
+    return this.#rpc<string | null>('connector_group_link_mint', { p_outbox_id: outboxId });
+  }
+
+  async groupsPendingMembers(connectionIds: string[]) {
+    if (!connectionIds.length) return [];
+    return (await this.#rpc<PendingMembers[] | null>('connector_groups_pending_members', { p_connection_ids: connectionIds })) ?? [];
   }
 
   async groupLeft(sessionId: string, jid: string) {

@@ -2970,6 +2970,13 @@ a.ed-cat:focus-visible {
   background: var(--naranja-suave);
   text-align: left;
 }
+.vf-unida {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--verde-suave);
+  text-align: left;
+}
 .vf-btns {
   display: flex;
   flex-wrap: wrap;
@@ -2984,6 +2991,131 @@ a.ed-cat:focus-visible {
   color: var(--tinta);
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* ---------- conectar un grupo de WhatsApp (/g/CÓDIGO, /grupos) ---------- */
+.gr-cabeza {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.gr-cabeza__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.gr-nombre {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.gr-gente,
+.gr-seccion {
+  display: grid;
+  gap: var(--space-3);
+}
+.gr-seccion h2 {
+  margin: 0;
+}
+.gr-lista,
+.gr-filas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.gr-persona {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 6px 12px 6px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.gr-persona__nombre {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gr-aviso {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--naranja-suave);
+}
+.gr-ok {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--verde-suave);
+  color: var(--verde);
+  font-weight: 700;
+}
+.gr-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--borde);
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+  color: var(--tinta);
+  text-decoration: none;
+}
+a.gr-fila:hover {
+  border-color: var(--tinta);
+}
+a.gr-fila:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.gr-fila--quieta {
+  opacity: 0.7;
+}
+.gr-fila__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.gr-fila__txt b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gr-fila__accion {
+  flex: none;
+  font-weight: 800;
+  color: var(--morado);
+  white-space: nowrap;
+}
+.gr-buscar {
+  font: inherit;
+  width: 100%;
+  padding: 10px 16px;
+  border: 2px solid var(--borde);
+  border-radius: var(--radius-pill);
+  background: var(--superficie);
+  color: var(--tinta);
+}
+.gr-buscar:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.ap-inv__lottie {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
 }
 
 /* ======================================================================

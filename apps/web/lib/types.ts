@@ -98,6 +98,47 @@ export interface VerificacionWhatsapp {
   other?: boolean;
 }
 
+/** public.preview_group(p_token, p_group_id) (migración 330): un grupo de WhatsApp para crearle la cuenta */
+export interface GrupoVista {
+  status: 'ok' | 'used' | 'expired' | 'invalid';
+  /** Cómo llegó: con el link /g/ de Mister Luks, porque su número verificado está en el grupo o desde su WhatsApp vinculado */
+  via?: 'link' | 'detectado' | 'mi_whatsapp';
+  group_id?: string;
+  name?: string | null;
+  /** Mister Luks está en el grupo (escribe ahí) */
+  mister_luks?: boolean;
+  member_count?: number;
+  /** Nombre de WhatsApp y últimos 4 números; me: es un número mío verificado; user: ya usa Luks */
+  members?: { name: string; last4: string; me: boolean; user: boolean }[];
+  /** Uno de mis números verificados (o mi WhatsApp vinculado) está en el grupo */
+  in_group?: boolean;
+  /** Ya tiene cuenta: cuál y si estoy en ella (si no estoy, sin su id) */
+  linked?: { account_id: string | null; account_name: string; member: boolean } | null;
+  /** Las cuentas que administro, para conectarle el grupo */
+  accounts?: { id: string; name: string; type: AccountType }[];
+}
+
+/** public.my_detected_groups(): grupos de Mister Luks sin cuenta donde está mi número verificado */
+export interface GrupoDetectado {
+  group_id: string;
+  name: string | null;
+  member_count: number;
+  /** Primeros nombres de algunos del grupo (sin el mío) */
+  names: string[];
+}
+
+/** public.my_whatsapp_groups(): los grupos de mi WhatsApp vinculado (solo el nombre) */
+export interface GrupoMio {
+  group_id: string;
+  name: string | null;
+  /** Conectado a una cuenta mía */
+  account_id: string | null;
+  account_name: string | null;
+  /** Conectado a una cuenta en la que no estoy */
+  linked_elsewhere: boolean;
+  mister_luks: boolean;
+}
+
 /** public.account_dashboard(p_account_id, p_month) */
 export interface Dashboard {
   account: { id: string; name: string; type: AccountType; status: AccountStatus; starts_on: string | null; ends_on: string | null };

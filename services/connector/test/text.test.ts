@@ -6,6 +6,7 @@ import {
   formatCOP,
   formatReplies,
   idiomaDeNumero,
+  LINK_GRUPO,
   listaNombres,
   looksLikeExpense,
   MISTER,
@@ -13,6 +14,7 @@ import {
   type PendingReply,
   parseInviteLink,
   parseLinkCommand,
+  sinLineaDelLink,
 } from '../src/text.js';
 
 describe('«lucas CÓDIGO»', () => {
@@ -174,19 +176,35 @@ describe('lo que le escriben a Mister Luks', () => {
 });
 
 describe('los saludos de Mister Luks', () => {
-  it('nombra a quienes ya usan Luks, en singular y en plural', () => {
+  it('nombra a quienes ya usan Luks, en singular y en plural, con el link para crear la cuenta', () => {
     expect(listaNombres(['Vale', 'Santi', 'Mafe'], 'es')).toBe('Vale, Santi y Mafe');
     expect(listaNombres(['Vale', 'Sam'], 'en')).toBe('Vale and Sam');
     const uno = MISTER.saludoGrupo('es', null, ['Christian']);
-    expect(uno).toContain('Veo que Christian ya usa Luks 🙌 Christian, crea la cuenta del grupo en mrluks.com y escribe aquí');
+    expect(uno).toContain(`Veo que Christian ya usa Luks 🙌 Christian, la cuenta de este grupo te espera en la app 👉 ${LINK_GRUPO}`);
     const dos = MISTER.saludoGrupo('es', null, ['Christian', 'Vale']);
-    expect(dos).toContain('Veo que Christian y Vale ya usan Luks 🙌 Alguno de ustedes, cree la cuenta del grupo');
-    expect(MISTER.saludoGrupo('en', null, ['Sam'])).toContain('I see Sam already uses Luks 🙌 Sam, create');
+    expect(dos).toContain(`Veo que Christian y Vale ya usan Luks 🙌 Alguno de ustedes, cree la cuenta del grupo en la app 👉 ${LINK_GRUPO}`);
+    expect(MISTER.saludoGrupo('en', null, ['Sam'])).toContain('I see Sam already uses Luks 🙌 Sam, this group’s account is waiting for you');
     expect(MISTER.saludoGrupo('es', 'Paseo', ['Vale', 'Santi'])).toContain('En la cuenta ya están Vale y Santi 🙌');
+    // Con cuenta no hay link que crear
+    expect(MISTER.saludoGrupo('es', 'Paseo')).not.toContain(LINK_GRUPO);
   });
 
-  it('sin nadie que use Luks, pide que una sola persona cree la cuenta', () => {
-    expect(MISTER.saludoGrupo('es', null)).toContain('*una sola persona* crea la cuenta en mrluks.com');
+  it('sin nadie conocido: quien ya tiene cuenta (con Gmail) escribe «luks soy yo»; si no, una sola persona la crea', () => {
+    const es = MISTER.saludoGrupo('es', null);
+    expect(es).toContain('Todavía no reconozco ningún número de este grupo en Luks');
+    expect(es).toContain('¿Ya tienes cuenta (por ejemplo, entraste con Gmail)? Escribe *luks soy yo*');
+    expect(es).toContain('*Una sola persona* crea la cuenta aquí');
+    expect(es).toContain(`👉 ${LINK_GRUPO}`);
+    const en = MISTER.saludoGrupo('en', null);
+    expect(en).toContain('Type *luks it’s me* here');
+    // Lo que se le pide escribir es justo lo que Mister Luks entiende
+    expect(esSoyYo('luks soy yo')).toBe(true);
+    expect(esSoyYo('luks it’s me')).toBe(true);
+  });
+
+  it('si el grupo ya tiene cuenta cuando se manda, la línea del link se quita', () => {
+    expect(sinLineaDelLink(MISTER.guiaGrupo('es'))).toBe('📘 Aquí tienes la guía de Mister Luks. La completa está en mrluks.com/guia 😉');
+    expect(sinLineaDelLink(`Hola\n\nCrea la cuenta 👉 ${LINK_GRUPO}\n\nChao`)).toBe('Hola\n\nChao');
   });
 
   it('lo que escribe Mister Luks no se anota como gasto, aunque traiga montos de ejemplo', () => {

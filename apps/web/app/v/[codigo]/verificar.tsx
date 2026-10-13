@@ -14,6 +14,8 @@ import { createClient } from '@/utils/supabase/client';
 interface Resultado {
   accounts: number;
   taken_in: string[];
+  /** Donde estaba dos veces (con su usuario y con su WhatsApp) y quedó una sola persona (migración 320) */
+  merged_in?: string[];
   last4: string;
 }
 
@@ -70,6 +72,13 @@ export function Verificar({ codigo, vista, correo }: { codigo: string; vista: Ve
               })
             : t('Mister Luks ya te reconoce en los grupos. Cuando entres a una cuenta, lo que mandes desde ese número queda a tu nombre.')}
         </p>
+        {(r.merged_in?.length ?? 0) > 0 && (
+          <p className="lu-small vf-unida">
+            {t('En {cuentas} estabas dos veces (con tu usuario y con tu WhatsApp): ya quedaste una sola persona, con todo lo tuyo.', {
+              cuentas: r.merged_in?.join(', ') ?? '',
+            })}
+          </p>
+        )}
         {r.taken_in.length > 0 && (
           <p className="lu-small vf-aviso">
             {t('En {cuentas} ese número ya es de otra persona: pídele a quien administra que lo arregle en «Conectar WhatsApp».', {

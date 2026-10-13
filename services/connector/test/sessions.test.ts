@@ -155,6 +155,21 @@ describe('gestor de sesiones', () => {
     expect(alertas).toEqual([]);
   });
 
+  it('lee la gente de los grupos conectados desde la web con una sesión que está ahí (y reintenta si WhatsApp no contesta)', async () => {
+    store.rows = [fila({ id: 'p1', kind: 'personal', owner_id: 'u1' })];
+    await manager.sync();
+    const mio = creados.get('p1');
+    await mio?.handlers.onState({ status: 'connected', jid: 'x', lid: null, phone: '573001234567' });
+    store.pendientes = [{ group_id: 'g-9', jid: '120363777000111222@g.us', connection_id: 'p1' }];
+
+    // WhatsApp todavía no contesta quién está: queda para la próxima vuelta
+    expect(await manager.syncPendingMembers()).toBe(0);
+    mio?.integrantes.set('120363777000111222@g.us', [{ id: '573005550001', phone: '573005550001', lid: null, name: 'Pipe', admin: false }]);
+    expect(await manager.syncPendingMembers()).toBe(1);
+    expect(store.members.get('g-9')).toHaveLength(1);
+    expect(await manager.syncPendingMembers()).toBe(0);
+  });
+
   it('si piden el código mientras se mostraba el QR, la sesión arranca otra vez con el número', async () => {
     store.rows = [fila({ id: 'p1', kind: 'personal', owner_id: 'u1' })];
     await manager.sync();

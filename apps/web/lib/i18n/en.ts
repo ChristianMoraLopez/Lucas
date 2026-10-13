@@ -1633,5 +1633,79 @@ export const EN: Record<string, string> = {
   'Ese link ya venció (dura 30 minutos). Escríbele otra vez «luks soy yo» a Mister Luks':
     'That link has expired (it lasts 30 minutes). Text Mister Luks “luks soy yo” again',
 
+  // ---------- Fase 5: grupos de WhatsApp sin código ----------
+  'Luks lee los grupos que conectes desde «Tus grupos de WhatsApp» (o con «luks» y el código). Nunca escribe desde tu número.':
+    'Luks reads the groups you connect from “Your WhatsApp groups” (or with “luks” and the code). It never writes from your number.',
+  'Ver tus grupos de WhatsApp': 'See your WhatsApp groups',
+  'Este grupo ya tiene cuenta': 'This group already has an account',
+  'Ir a la cuenta': 'Go to the account',
+  'Para entrar, escribe «luks soy yo» en el grupo y abre el link que te manda Mister Luks. Así quedas como tu persona del grupo.':
+    'To join, type “luks it’s me” in the group and open the link Mister Luks sends you. That way you’re the same person you are in the group.',
+  'Escribirle «luks soy yo»': 'Send “luks it’s me”',
+  'Puede que se haya cortado al copiarlo. Escriban «ayuda» en el grupo y Mister Luks manda uno nuevo.':
+    'It may have been cut off when copied. Type “help” in the group and Mister Luks sends a new one.',
+  'Dura dos semanas. Escriban «ayuda» en el grupo y Mister Luks manda uno nuevo.':
+    'It lasts two weeks. Type “help” in the group and Mister Luks sends a new one.',
+  'No encontramos ese grupo': 'We couldn’t find that group',
+  'Puede que ya no estés en él, o que tu WhatsApp ya no esté vinculado.': 'You may no longer be in it, or your WhatsApp may no longer be linked.',
+  'Tus grupos de WhatsApp': 'Your WhatsApp groups',
+  'Elige un grupo para crearle su cuenta o conectarlo a una tuya. Sin códigos: la gente del grupo queda en la cuenta.':
+    'Pick a group to create its account or connect it to one of yours. No codes: the people in the group end up in the account.',
+  'Con Mister Luks': 'With Mister Luks',
+  'Crear la cuenta': 'Create the account',
+  'Desde tu WhatsApp': 'From your WhatsApp',
+  'Trayendo tus grupos…': 'Getting your groups…',
+  'Todavía no vemos grupos en tu WhatsApp. Si acabas de vincularlo, llegan en unos segundos.':
+    'We don’t see any groups in your WhatsApp yet. If you just linked it, they’ll show up in a few seconds.',
+  'Buscar un grupo': 'Search for a group',
+  'Conectado a «{cuenta}»': 'Connected to “{cuenta}”',
+  Ver: 'View',
+  'Ya es de una cuenta en la que no estás': 'It already belongs to an account you’re not in',
+  'Sin cuenta · Mister Luks está ahí': 'No account · Mister Luks is there',
+  'Sin cuenta': 'No account',
+  'Ningún grupo se llama así.': 'No group by that name.',
+  'En {cuentas} estabas dos veces (con tu usuario y con tu WhatsApp): ya quedaste una sola persona, con todo lo tuyo.':
+    'In {cuentas} you were there twice (with your user and with your WhatsApp): now you’re a single person, with everything that’s yours.',
+  'Elige la cuenta': 'Pick the account',
+  'Grupo de WhatsApp': 'WhatsApp group',
+  'desde tu WhatsApp vinculado': 'from your linked WhatsApp',
+  'Mister Luks está en el grupo': 'Mister Luks is in the group',
+  'Este grupo ya está conectado a «{cuenta}».': 'This group is already connected to “{cuenta}”.',
+  'Este grupo ya tiene cuenta: «{cuenta}».': 'This group already has an account: “{cuenta}”.',
+  'Tu número está en el grupo: entras como tu persona de ahí.': 'Your number is in the group: you join as the person you are there.',
+  'Entrar a la cuenta': 'Join the account',
+  'Quiénes están en el grupo': 'Who’s in the group',
+  'Usa Luks': 'Uses Luks',
+  'Cada uno queda como persona de la cuenta. Los que ya usan Luks la ven de una vez.':
+    'Each one becomes a person in the account. Those who already use Luks see it right away.',
+  'Cada uno queda como persona de la cuenta. Nadie más tiene que registrarse.': 'Each one becomes a person in the account. Nobody else has to sign up.',
+  'Apenas lo conectes, Luks lee quiénes están en el grupo y cada uno queda como persona de la cuenta.':
+    'As soon as you connect it, Luks reads who’s in the group and each one becomes a person in the account.',
+  '✓ Tu número está en el grupo: en la cuenta quedas como tu persona de ahí, no dos veces.':
+    '✓ Your number is in the group: in the account you’re the person you are there, not twice.',
+  '¿Estás en el grupo?': 'Are you in the group?',
+  'Para que no quedes dos veces (con tu usuario y con tu WhatsApp), escribe «luks soy yo» en el grupo o por privado a Mister Luks y abre el link que te llega. Puedes hacerlo antes o después de crear la cuenta.':
+    'So you don’t end up twice (with your user and with your WhatsApp), type “luks it’s me” in the group or privately to Mister Luks and open the link you get. You can do it before or after creating the account.',
+  'Qué hacer con el grupo': 'What to do with the group',
+  'Crear una cuenta nueva': 'Create a new account',
+  'Conectarlo a una mía': 'Connect it to one of mine',
+  'Nombre de la cuenta': 'Account name',
+  'Luks anota lo que se escriba en el grupo desde que lo conectes. Lo de antes, más adelante con el chat exportado.':
+    'Luks logs what’s written in the group from the moment you connect it. Older messages, later on with the exported chat.',
+  Cuenta: 'Account',
+  'Conectar el grupo': 'Connect the group',
+  'Mister Luks lo cuenta en el grupo.': 'Mister Luks will announce it in the group.',
+  'Nuevo grupo detectado': 'New group detected',
+  'Nuevo grupo detectado: {grupo}': 'New group detected: {grupo}',
+  'Mister Luks está ahí': 'Mister Luks is there',
+
+  // ---------- Fase 5: errores de la base al conectar grupos ----------
+  'Ese grupo no existe o el link no sirve': 'That group doesn’t exist or the link doesn’t work',
+  'Este link ya no sirve (dura dos semanas). Escriban «ayuda» en el grupo y Mister Luks manda uno nuevo':
+    'This link no longer works (it lasts two weeks). Type “help” in the group and Mister Luks sends a new one',
+  'Solo quienes administran esa cuenta pueden conectarle un grupo': 'Only the account’s admins can connect a group to it',
+  'Esa cuenta está cerrada: ya no se le conectan grupos': 'That account is closed: no more groups can be connected to it',
+  'Este grupo ya está conectado a otra cuenta de Luks': 'This group is already connected to another Luks account',
+
   // ⟨más⟩
 };
