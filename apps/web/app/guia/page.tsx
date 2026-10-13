@@ -166,7 +166,7 @@ async function GuiaCompleta({ t }: { t: T }) {
                 'Un contacto más del grupo, pero que lleva las cuentas. Lee las fotos de recibos, los PDFs y los mensajes con montos, y los vuelve gastos en mrluks.com, divididos entre el grupo.',
               )}
             </p>
-            <p>{t('Solo escribe para confirmar lo que anotó y para responder cuando le preguntan. Nadie más tiene que instalar nada.')}</p>
+            <p>{t('Anota en silencio: no llena el grupo de mensajes y solo escribe cuando le preguntan. Nadie más tiene que instalar nada.')}</p>
           </Paso>
 
           <Paso n={2} id="agregar" titulo={t('Agrégalo al grupo')}>
@@ -205,11 +205,12 @@ async function GuiaCompleta({ t }: { t: T }) {
               t={t}
               mensajes={[
                 { de: 'Mafe', texto: t('taxi al aeropuerto 45 lucas, la pagó Andrés') },
-                { de: MISTER_LUKS.nombre, texto: t('✅ Anotado: Taxi · $45.000 · pagó Andrés.') },
                 { de: 'Santi', texto: t('pizza 60 mil, entre Vale y Caro') },
-                { de: MISTER_LUKS.nombre, texto: t('✅ Anotado: Pizza · $60.000 · entre 2.') },
               ]}
             />
+            <p className="ml-nota">
+              {t('Mister Luks no responde cada gasto: lo ven anotado en mrluks.com. Si un grupo quiere que confirme, un admin lo prende en Conectar WhatsApp.')}
+            </p>
           </Paso>
 
           <Paso n={4} id="preguntar" titulo={t('Pregúntenle')} pronto={pronto('preguntar')}>
@@ -228,14 +229,17 @@ async function GuiaCompleta({ t }: { t: T }) {
             </ul>
           </Paso>
 
-          <Paso n={5} id="corregir" titulo={t('Corrijan respondiendo su mensaje')} pronto={pronto('corregir')}>
+          <Paso n={5} id="corregir" titulo={t('Corrijan respondiendo el mensaje del gasto')} pronto={pronto('corregir')}>
             <ul className="ml-lista">
               <li>
-                {rico(t('Mantén presionada la confirmación de Mister Luks, toca Responder y escribe {a}, {b} o {c}.'), {
-                  a: cita(t('lo pagó Andrés')),
-                  b: cita(t('entre Vale y Caro')),
-                  c: cita(t('borrar')),
-                })}
+                {rico(
+                  t('Mantén presionado el mensaje del gasto (la foto, el PDF o el texto), toca Responder, menciona a Mister Luks y escribe {a}, {b} o {c}.'),
+                  {
+                    a: cita(t('lo pagó Andrés')),
+                    b: cita(t('entre Vale y Caro')),
+                    c: cita(t('borrar')),
+                  },
+                )}
               </li>
               <li>{t('Para borrar te pide un «sí». Puede corregir quien mandó el recibo o un admin de la cuenta.')}</li>
               <li>{t('Todo también se corrige en mrluks.com.')}</li>
@@ -263,7 +267,7 @@ async function GuiaCompleta({ t }: { t: T }) {
               <li>{t('Nada de fotos de «ver una vez»: Mister Luks no las puede abrir.')}</li>
               <li>{t('Fotos nítidas, derechas y con el total a la vista.')}</li>
               <li>{t('PDF de máximo 6 MB.')}</li>
-              <li>{t('Si en el grupo solo los admins envían mensajes, Mister Luks lee igual, pero para confirmar tiene que ser admin.')}</li>
+              <li>{t('Si en el grupo solo los admins envían mensajes, Mister Luks lee igual, pero para responder tiene que ser admin.')}</li>
             </ul>
           </Paso>
 
@@ -305,7 +309,7 @@ function GuiaCorta({ t }: { t: T }) {
     },
     { id: 'anotar', titulo: t('Manden los gastos'), texto: t('Fotos, PDFs o «taxi 45 lucas». «la pagó Andrés» · «entre Vale y Caro».') },
     { id: 'preguntar', titulo: t('Pregúntenle'), texto: t('@Mister Luks cuánto llevamos · quién le debe a quién · cuánto debo.') },
-    { id: 'corregir', titulo: t('Corrijan'), texto: t('Respondan su mensaje: «lo pagó Andrés» o «borrar».') },
+    { id: 'corregir', titulo: t('Corrijan'), texto: t('Respondan el mensaje del gasto: «lo pagó Andrés» o «borrar».') },
     { id: 'desde-cuando', titulo: t('Lo de antes'), texto: t('Exporten el chat y mándenle el .zip.') },
     { id: 'consejos', titulo: t('Consejos'), texto: t('Nada de «ver una vez». Fotos nítidas. PDF de máximo 6 MB.') },
     { id: 'privacidad', titulo: t('Privacidad'), texto: t('La charla del grupo no se guarda: solo los gastos.') },

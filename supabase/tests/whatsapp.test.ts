@@ -293,10 +293,30 @@ describe('«¿Quién es este número?»', () => {
 });
 
 describe('confirmaciones en el grupo', () => {
-  it('cuenta lo que procesó el worker una vez, y nada si el grupo las apagó', async () => {
+  it('vienen apagadas: Mister Luks no confirma cada gasto', async () => {
     await as(db, null, async (tx) => {
       await comoConnector(tx);
       await enlazar(tx);
+      await tx.exec('reset role');
+      expect(
+        await one(
+          tx,
+          'select l.confirm_in_group from public.account_group_links l join public.whatsapp_groups g on g.id = l.group_id where g.wa_group_jid = $1',
+          [GRUPO_NUEVO],
+        ),
+      ).toEqual({ confirm_in_group: false });
+    });
+  });
+
+  it('si un admin las prende, cuenta lo que procesó el worker una vez, y nada si las vuelve a apagar', async () => {
+    await as(db, null, async (tx) => {
+      await comoConnector(tx);
+      await enlazar(tx);
+      await tx.exec('reset role');
+      const g = await one<{ id: string }>(tx, 'select id from public.whatsapp_groups where wa_group_jid = $1', [GRUPO_NUEVO]);
+      await impersonate(tx, U.valeria);
+      await tx.query('select public.set_group_confirmations($1, true)', [g.id]);
+      await comoConnector(tx);
       const a = await ingerir(tx, { id: 'WA-R1', from: MAFE_WA });
       const b = await ingerir(tx, { id: 'WA-R2', from: MAFE_WA });
       await tx.exec('reset role');
@@ -318,9 +338,7 @@ describe('confirmaciones en el grupo', () => {
       await tx.query('select public.connector_mark_replied($1)', [[a.message_id]]);
       expect(await delGrupo()).toHaveLength(1);
 
-      // Un admin apaga las confirmaciones de ese grupo
-      await tx.exec('reset role');
-      const g = await one<{ id: string }>(tx, 'select id from public.whatsapp_groups where wa_group_jid = $1', [GRUPO_NUEVO]);
+      // Las vuelve a apagar
       await impersonate(tx, U.valeria);
       await tx.query('select public.set_group_confirmations($1, false)', [g.id]);
       await comoConnector(tx);

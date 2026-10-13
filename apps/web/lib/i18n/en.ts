@@ -1451,8 +1451,8 @@ export const EN: Record<string, string> = {
   '¿Qué es Mister Luks?': 'What is Mister Luks?',
   'Un contacto más del grupo, pero que lleva las cuentas. Lee las fotos de recibos, los PDFs y los mensajes con montos, y los vuelve gastos en mrluks.com, divididos entre el grupo.':
     'One more contact in the group, except he keeps the books. He reads receipt photos, PDFs and messages with amounts, and turns them into expenses on mrluks.com, split among the group.',
-  'Solo escribe para confirmar lo que anotó y para responder cuando le preguntan. Nadie más tiene que instalar nada.':
-    'He only writes to confirm what he logged and to answer when you ask. Nobody else has to install anything.',
+  'Anota en silencio: no llena el grupo de mensajes y solo escribe cuando le preguntan. Nadie más tiene que instalar nada.':
+    'He logs quietly: he doesn’t flood the group and only writes when you ask him. Nobody else has to install anything.',
   'Agrégalo al grupo': 'Add him to the group',
   'Guarda el número como contacto y agrégalo al grupo como a cualquiera.': 'Save the number as a contact and add him to the group like anyone else.',
   '¿No te deja agregarlo? Mándale por privado el link del grupo ({ruta}) y entra solo.':
@@ -1475,9 +1475,9 @@ export const EN: Record<string, string> = {
   '¿No es entre todos? {a}.': 'Not for everyone? {a}.',
   'entre Vale y Caro': 'between Vale and Caro',
   'taxi al aeropuerto 45 lucas, la pagó Andrés': 'airport taxi $45, Andrés paid',
-  '✅ Anotado: Taxi · $45.000 · pagó Andrés.': '✅ Logged: Taxi · $45.00 · paid by Andrés.',
   'pizza 60 mil, entre Vale y Caro': 'pizza $60, between Vale and Caro',
-  '✅ Anotado: Pizza · $60.000 · entre 2.': '✅ Logged: Pizza · $60.00 · split 2 ways.',
+  'Mister Luks no responde cada gasto: lo ven anotado en mrluks.com. Si un grupo quiere que confirme, un admin lo prende en Conectar WhatsApp.':
+    'Mister Luks doesn’t reply to every expense: you see it logged on mrluks.com. If a group wants confirmations, an admin turns them on in Connect WhatsApp.',
   Pregúntenle: 'Ask him',
   'Escribe @ y elige a Mister Luks: {a}, {b} o {c}.': 'Type @ and pick Mister Luks: {a}, {b} or {c}.',
   '@Mister Luks cuánto llevamos': '@Mister Luks how much so far',
@@ -1488,9 +1488,9 @@ export const EN: Record<string, string> = {
   'Para cambiarlo: {a} o {b}.': 'To change it: {a} or {b}.',
   '@Mister Luks mándame al privado': '@Mister Luks send it in private',
   '@Mister Luks dímelo aquí': '@Mister Luks tell me here',
-  'Corrijan respondiendo su mensaje': 'Fix things by replying to him',
-  'Mantén presionada la confirmación de Mister Luks, toca Responder y escribe {a}, {b} o {c}.':
-    "Press and hold Mister Luks's confirmation, tap Reply and type {a}, {b} or {c}.",
+  'Corrijan respondiendo el mensaje del gasto': 'Fix things by replying to the expense message',
+  'Mantén presionado el mensaje del gasto (la foto, el PDF o el texto), toca Responder, menciona a Mister Luks y escribe {a}, {b} o {c}.':
+    'Press and hold the expense message (the photo, PDF or text), tap Reply, mention Mister Luks and type {a}, {b} or {c}.',
   'lo pagó Andrés': 'Andrés paid',
   borrar: 'delete',
   'Para borrar te pide un «sí». Puede corregir quien mandó el recibo o un admin de la cuenta.':
@@ -1512,8 +1512,8 @@ export const EN: Record<string, string> = {
   'Nada de fotos de «ver una vez»: Mister Luks no las puede abrir.': 'No “view once” photos: Mister Luks can’t open them.',
   'Fotos nítidas, derechas y con el total a la vista.': 'Sharp, straight photos with the total in view.',
   'PDF de máximo 6 MB.': 'PDFs up to 6 MB.',
-  'Si en el grupo solo los admins envían mensajes, Mister Luks lee igual, pero para confirmar tiene que ser admin.':
-    'If only admins can send messages in the group, Mister Luks still reads it, but he has to be an admin to confirm.',
+  'Si en el grupo solo los admins envían mensajes, Mister Luks lee igual, pero para responder tiene que ser admin.':
+    'If only admins can send messages in the group, Mister Luks still reads it, but he has to be an admin to reply.',
   Privacidad: 'Privacy',
   'Mister Luks solo guarda lo que parece un gasto: fotos, PDFs y mensajes con montos. La charla del grupo no sale de WhatsApp.':
     'Mister Luks only keeps what looks like an expense: photos, PDFs and messages with amounts. The group chatter never leaves WhatsApp.',
@@ -1532,7 +1532,7 @@ export const EN: Record<string, string> = {
   'Fotos, PDFs o «taxi 45 lucas». «la pagó Andrés» · «entre Vale y Caro».': 'Photos, PDFs or “taxi $45”. “Andrés paid” · “between Vale and Caro”.',
   '@Mister Luks cuánto llevamos · quién le debe a quién · cuánto debo.': '@Mister Luks how much so far · who owes whom · how much do I owe.',
   Corrijan: 'Fix things',
-  'Respondan su mensaje: «lo pagó Andrés» o «borrar».': 'Reply to his message: “Andrés paid” or “delete”.',
+  'Respondan el mensaje del gasto: «lo pagó Andrés» o «borrar».': 'Reply to the expense message: “Andrés paid” or “delete”.',
   'Lo de antes': 'Older messages',
   'Exporten el chat y mándenle el .zip.': 'Export the chat and send him the .zip.',
   'Nada de «ver una vez». Fotos nítidas. PDF de máximo 6 MB.': 'No “view once”. Sharp photos. PDFs up to 6 MB.',
