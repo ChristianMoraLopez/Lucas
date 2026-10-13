@@ -6,7 +6,7 @@ import { RateLimiter } from '../src/replies.js';
 import { LINK_GRUPO, MISTER, MSG } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
-const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
+const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxChatBytes: 50 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
 const GUIA = 'https://mrluks.com/guia';
 const PRIVADO = '573016667788@s.whatsapp.net';
 
@@ -354,5 +354,98 @@ describe('«luks soy yo»', () => {
     const mio = new FakeConnector(personal);
     expect(await ing.onMessage(personal, mio, m({ text: 'luks soy yo' }))).toBe('charla');
     expect(bandeja()).toEqual([]);
+  });
+});
+
+describe('¿desde cuándo anoto?', () => {
+  it('al enlazar con el código, Mister Luks pregunta', async () => {
+    await ing.onGroupJoined(contador, wa, grupo());
+    store.outbox = [];
+    await ing.onMessage(contador, wa, m({ text: 'luks PASEO-7K2Q' }));
+    expect(bandeja()[0].body).toContain('¿Desde cuándo anoto? Respondan *1* para *desde ahora* o *2* para *todo el chat*');
+  });
+
+  it('un «2» la responde; otro «1» suelto ya no la cambia, pero «luks desde ya» sí', async () => {
+    await enlazado();
+    expect(await ing.onMessage(contador, wa, m({ text: '2' }))).toBe('desde_cuando');
+    expect(store.desdeCuando.get(GRUPO)).toEqual({ modo: 'todo', quien: 'Mafe' });
+    expect(await ing.onMessage(contador, wa, m({ text: '1' }))).toBe('ignorado:desde_cuando');
+    expect(await ing.onMessage(contador, wa, m({ text: 'Luks, desde ya!' }))).toBe('desde_cuando');
+    expect(store.desdeCuando.get(GRUPO)?.modo).toBe('desde_ya');
+    // Con la mención a Mister Luks (su número) también
+    ing.setMisterLuks(['573337627471']);
+    expect(await ing.onMessage(contador, wa, m({ text: '@573337627471 lee todo' }))).toBe('desde_cuando');
+    // Una sesión personal no lo atiende
+    const mio = new FakeConnector(personal);
+    expect(await ing.onMessage(personal, mio, m({ text: 'luks desde ya', fromMe: true }))).toBe('charla');
+  });
+});
+
+describe('el chat exportado', () => {
+  const zip = Buffer.from('PK\u0003\u0004 chat');
+  const chat = (over: Partial<NonNullable<IncomingMessage['media']>> = {}) =>
+    m({
+      messageId: 'W-ZIP',
+      text: null,
+      media: {
+        kind: 'chat',
+        mimeType: 'application/zip',
+        fileName: 'Chat de WhatsApp con Paseo.zip',
+        sizeBytes: zip.length,
+        download: async () => zip,
+        ...over,
+      },
+    });
+
+  it('en un grupo enlazado: al bucket de importaciones, a la cola, y Mister Luks avisa (una vez)', async () => {
+    await enlazado();
+    expect(await ing.onMessage(contador, wa, chat())).toBe('chat_importado');
+    expect([...store.importados.keys()]).toEqual([`${PASEO}/whatsapp/2026-10/W-ZIP.zip`]);
+    expect(store.importaciones).toEqual([{ jid: GRUPO, path: `${PASEO}/whatsapp/2026-10/W-ZIP.zip`, fileName: 'Chat de WhatsApp con Paseo.zip' }]);
+    expect(bandeja().map((o) => o.body)).toEqual([MISTER.importar.recibido('es')]);
+    // El mismo mensaje leído por otra sesión del grupo: no se importa ni se avisa otra vez
+    const mio = new FakeConnector(personal);
+    expect(await ing.onMessage(personal, mio, chat())).toBe('chat_importado');
+    expect(store.importaciones).toHaveLength(1);
+    expect(bandeja()).toHaveLength(1);
+  });
+
+  it('en un grupo sin cuenta no se importa: Mister Luks explica qué falta', async () => {
+    await ing.onGroupJoined(contador, wa, grupo());
+    store.outbox = [];
+    expect(await ing.onMessage(contador, wa, chat())).toBe('ignorado:grupo_sin_enlazar');
+    expect(bandeja().map((o) => o.body)).toEqual([MISTER.importar.sinCuenta('es')]);
+    expect(store.importados.size).toBe(0);
+  });
+
+  it('un archivo demasiado pesado no se baja', async () => {
+    await enlazado();
+    let bajado = false;
+    const pesado = chat({
+      sizeBytes: 80 * 1024 * 1024,
+      download: async () => {
+        bajado = true;
+        return zip;
+      },
+    });
+    expect(await ing.onMessage(contador, wa, pesado)).toBe('chat_muy_pesado');
+    expect(bajado).toBe(false);
+    expect(bandeja().map((o) => o.body)).toEqual([MISTER.importar.muyPesado('es')]);
+  });
+
+  it('por privado: si se sabe de qué grupo es, se importa; si no, explica cómo mandarlo', async () => {
+    store.gruposDelPrivado = ['Paseo'];
+    const porPrivado = (fileName: string) =>
+      privado({
+        messageId: `W-${fileName}`,
+        text: null,
+        media: { kind: 'chat', mimeType: 'application/zip', fileName, sizeBytes: zip.length, download: async () => zip },
+      });
+    expect(await ing.onMessage(contador, wa, porPrivado('Chat de WhatsApp con Paseo.zip'))).toBe('chat_importado');
+    expect(store.importaciones[0]).toMatchObject({ jid: null, chatName: 'Paseo' });
+    expect(bandeja(PRIVADO).map((o) => o.body)).toContain(MISTER.importar.privadoRecibido('es', 'Paseo'));
+
+    expect(await ing.onMessage(contador, wa, porPrivado('WhatsApp Chat with Otro.zip'))).toBe('ignorado:sin_grupo');
+    expect(bandeja(PRIVADO).map((o) => o.body)).toContain(MISTER.importar.sinGrupo('es'));
   });
 });

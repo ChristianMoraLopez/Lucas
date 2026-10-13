@@ -39,8 +39,10 @@ export function looksLikeExpense(text: string | null | undefined): boolean {
 const FIRMA_LUKS =
   /esto se hizo en mrluks\.com|made with mrluks\.com|cuentas hechas con luks|hecho con luks|(?:mrluks\.com|\.vercel\.app)\/r\/[A-Za-z0-9_-]{20,64}/i;
 const RESPUESTA_LUKS = /^\s*\W{0,4}\s*(?:anotad[oa]s?|recibido|ya estaba anotado|logged|received|already logged)[\s:].*·\s*(?:\$|bs\s?)\d/is;
-// Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo
-const SALUDO_LUKS = /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)/i;
+// Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo; y
+// los avisos de quién decidió desde cuándo anotar y del chat importado traen fechas y cantidades
+const SALUDO_LUKS =
+  /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat/i;
 
 export function esMensajeDeLuks(text: string | null | undefined): boolean {
   if (!text) return false;
@@ -63,6 +65,33 @@ export function esPedidoDeAyuda(text: string | null | undefined): boolean {
 /** «luks soy yo» (o «mister luks soy yo», «luks it's me»): quiere asociar su número a su cuenta de Luks */
 export function esSoyYo(text: string | null | undefined): boolean {
   return /^\s*(?:@\S+\s+)*(?:(?:mr\.?\s*|mister\s+)?luks[\s,:]+)?(?:soy\s+yo|it[’']?s\s+me|this\s+is\s+me)\s*[.!¡]*\s*$/i.test(text ?? '');
+}
+
+/**
+ * «luks desde ya», «@Mister Luks lee todo», «mister luks todo el chat», «luks from now on»,
+ * «luks read the whole chat»: cambia desde cuándo anota. Le tienen que hablar a Luks (su
+ * nombre, o la mención con su número: `misterLuks` son su número y su «lid:…»).
+ */
+export function parseHistoria(text: string | null | undefined, misterLuks: ReadonlySet<string> = new Set()): 'desde_ya' | 'todo' | null {
+  const m = (text ?? '').match(
+    /^\s*((?:@\S+\s+)*)((?:mr\.?\s*|mister\s+)?luks[\s,:]+)?(desde\s+(?:ya|ahora|hoy)|from\s+now(?:\s+on)?|lee\s+todo(?:\s+el\s+chat)?|todo\s+el\s+chat|read\s+(?:it\s+)?all|(?:read\s+)?the\s+whole\s+chat)\s*[.!¡]*\s*$/i,
+  );
+  if (!m) return null;
+  const aLuks = Boolean(m[2]) || [...m[1].matchAll(/@(\S+)/g)].some(([, id]) => misterLuks.has(id) || misterLuks.has(`lid:${id}`));
+  if (!aLuks) return null;
+  return /desde|from/i.test(m[3]) ? 'desde_ya' : 'todo';
+}
+
+/** «1» o «2» a secas (o 1️⃣ / 2️⃣): la respuesta a la pregunta, si sigue abierta */
+export function respuestaNumerada(text: string | null | undefined): 'desde_ya' | 'todo' | null {
+  const m = (text ?? '').match(/^\s*(1|2)\uFE0F?\u20E3?\s*[.!)]*\s*$/);
+  return m ? (m[1] === '1' ? 'desde_ya' : 'todo') : null;
+}
+
+/** «Chat de WhatsApp con Paseo.zip», «WhatsApp Chat with Paseo.txt», «WhatsApp Chat - Paseo.zip» → «Paseo» */
+export function nombreDelChat(fileName: string | null | undefined): string | null {
+  const m = (fileName ?? '').match(/^(?:chat de whatsapp con|chat de whatsapp -|whatsapp chat with|whatsapp chat -)\s+(.+?)\.(?:zip|txt)$/i);
+  return m ? m[1].trim() : null;
 }
 
 /** El idioma de alguien por su número: +1 (Estados Unidos, Canadá) en inglés; el resto, español */
@@ -151,12 +180,18 @@ export function formatReplies(items: PendingReply[]): string {
   return `✅ Anotados ${items.length}:\n${lineas.join('\n')}${cola}`;
 }
 
+/** La pregunta al enlazar el grupo (igual en conectar_grupo, migración 340) */
+export const PREGUNTA_DESDE_CUANDO = {
+  es: '🗓️ ¿Desde cuándo anoto? Respondan *1* para *desde ahora* o *2* para *todo el chat* (me lo mandan exportado).',
+  en: '🗓️ Since when do I log? Reply *1* for *from now on* or *2* for *the whole chat* (you send it to me exported).',
+} as const;
+
 // Antes de enlazar el grupo no se sabe el idioma de la cuenta: español y, debajo, inglés
 export const MSG = {
   linked: (account: string, members?: number, idioma: Idioma = 'es') =>
     idioma === 'en'
-      ? `🎉 Done! This group is now connected to “${account}”${members ? ` and its ${members} members are already in the account 🙌` : ''}.\n\nSend receipt photos, PDFs or messages with the amount (for example “airport taxi $45”) and I’ll log them ✅`
-      : `🎉 ¡Listo! Este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta 🙌` : ''}.\n\nManden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto ✅`,
+      ? `🎉 Done! This group is now connected to “${account}”${members ? ` and its ${members} members are already in the account 🙌` : ''}.\n\nSend receipt photos, PDFs or messages with the amount (for example “airport taxi $45”) and I’ll log them ✅\n\n${PREGUNTA_DESDE_CUANDO.en}`
+      : `🎉 ¡Listo! Este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta 🙌` : ''}.\n\nManden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto ✅\n\n${PREGUNTA_DESDE_CUANDO.es}`,
   alreadyLinked: (account: string, idioma: Idioma = 'es') =>
     idioma === 'en' ? `😉 This group is already connected to “${account}”.` : `😉 Este grupo ya está conectado a «${account}».`,
   badCode:
@@ -276,6 +311,29 @@ export const MISTER = {
       idioma === 'en'
         ? `✅ This WhatsApp is already verified in your Luks account${nombre ? `, ${nombre}` : ''}. Nothing else to do 🙌`
         : `✅ Este WhatsApp ya está verificado en tu cuenta de Luks${nombre ? `, ${nombre}` : ''}. No hace falta nada más 🙌`,
+  },
+  /** El chat exportado («Exportar chat»): lo recibió, de qué grupo es, o por qué no */
+  importar: {
+    recibido: (idioma: Idioma) =>
+      idioma === 'en'
+        ? '📥 Got the exported chat. I’ll read it and tell you how many expenses it had 😉'
+        : '📥 Recibí el chat exportado. Lo leo y les cuento cuántos gastos tenía 😉',
+    privadoRecibido: (idioma: Idioma, grupo: string) =>
+      idioma === 'en'
+        ? `📥 Got the chat from “${grupo}”. I’ll read it and tell everyone in the group how many expenses it had 😉`
+        : `📥 Recibí el chat de «${grupo}». Lo leo y cuento en el grupo cuántos gastos tenía 😉`,
+    sinGrupo: (idioma: Idioma) =>
+      idioma === 'en'
+        ? '🤔 I can’t tell which group that chat is from. Send it to me in the group, or upload it at mrluks.com (Connect WhatsApp).'
+        : '🤔 No sé de qué grupo es ese chat. Mándamelo en el grupo, o súbelo en mrluks.com (Conectar WhatsApp).',
+    sinCuenta: (idioma: Idioma) =>
+      idioma === 'en'
+        ? '🤔 This group doesn’t have a Luks account yet: create it first and then send me the chat.'
+        : '🤔 Este grupo todavía no tiene cuenta en Luks: primero créenla y después me mandan el chat.',
+    muyPesado: (idioma: Idioma) =>
+      idioma === 'en'
+        ? '😅 That file is too heavy for me. Export it without media (Export chat → Without media) or upload it at mrluks.com.'
+        : '😅 Ese archivo es muy pesado para mí. Expórtenlo sin archivos (Exportar chat → Sin archivos) o súbanlo en mrluks.com.',
   },
   /** Respuestas por privado a un link de grupo */
   unirse: {

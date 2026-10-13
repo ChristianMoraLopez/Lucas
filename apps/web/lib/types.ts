@@ -139,6 +139,40 @@ export interface GrupoMio {
   mister_luks: boolean;
 }
 
+/** public.account_history(p_account_id) (migración 340): desde cuándo anota cada grupo y sus chats importados */
+export interface HistoriaCuenta {
+  is_admin: boolean;
+  groups: {
+    group_id: string;
+    name: string | null;
+    /** 'pendiente': se preguntó y nadie ha respondido (anota desde que se conectó) */
+    history: 'pendiente' | 'desde_ya' | 'todo';
+    history_by: string | null;
+    history_at: string | null;
+    ingest_from: string;
+    mister_luks: boolean;
+  }[];
+  imports: ImportacionChat[];
+}
+
+export interface ImportacionChat {
+  id: string;
+  group_name: string | null;
+  source: 'web' | 'whatsapp';
+  file_name: string | null;
+  requested_name: string | null;
+  status: 'queued' | 'processing' | 'done' | 'failed' | 'undone';
+  stats: { inserted?: number; messages?: number; before?: number; photos?: number; pdfs?: number; truncated?: number };
+  error: string | null;
+  before: string;
+  created_at: string;
+  finished_at: string | null;
+  undone_at: string | null;
+  /** Los mensajes que trajo y los gastos que ya salieron de ellos */
+  messages: number;
+  expenses: number;
+}
+
 /** public.account_dashboard(p_account_id, p_month) */
 export interface Dashboard {
   account: { id: string; name: string; type: AccountType; status: AccountStatus; starts_on: string | null; ends_on: string | null };

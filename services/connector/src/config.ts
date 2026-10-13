@@ -26,6 +26,7 @@ export interface Config {
   };
   media: {
     maxDownloadBytes: number;
+    maxChatBytes: number;
     /** Límite del bucket «evidencias» */
     maxUploadBytes: number;
     maxSide: number;
@@ -97,6 +98,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     media: {
       maxDownloadBytes: int(env, 'MEDIA_MAX_DOWNLOAD_MB', 25) * 1024 * 1024,
+      // El chat exportado: hasta el límite del bucket «importaciones»
+      maxChatBytes: int(env, 'IMPORT_MAX_MB', 50) * 1024 * 1024,
       maxUploadBytes: int(env, 'MEDIA_MAX_UPLOAD_MB', 6) * 1024 * 1024,
       maxSide: int(env, 'IMAGE_MAX_SIDE', 1600),
       jpegQuality: int(env, 'IMAGE_QUALITY', 80),

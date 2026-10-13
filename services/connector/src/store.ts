@@ -5,8 +5,8 @@ import type { PendingReply } from './text.js';
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
    Son RPC de 00000000000080_whatsapp_connector.sql y las que le siguieron
    (la 290: presencia, chats privados y la bandeja de salida; la 310: «luks soy
-   yo» y el link de verificación; la 330: grupos detectados y el link /g/),
-   solo service role. */
+   yo» y el link de verificación; la 330: grupos detectados y el link /g/;
+   la 340: desde cuándo anotar y el chat exportado), solo service role. */
 
 export interface SessionRow {
   id: string;
@@ -45,6 +45,14 @@ export interface DetectedResult extends GroupResult {
   hello: HelloResult;
 }
 
+/** «¿Desde cuándo anoto?» (migración 340): desde ahora o todo el chat (que le manden el exportado) */
+export type DesdeCuando = 'desde_ya' | 'todo';
+
+/** connector_request_import(_private): el chat exportado quedó en la cola del worker (o por qué no) */
+export type ImportResult =
+  | { ok: true; already: boolean; import_id: string | null; group_name?: string; language?: 'es' | 'en' | null }
+  | { ok: false; reason: 'grupo_sin_enlazar' | 'sin_grupo' | 'varios'; groups?: string[] };
+
 /** Un grupo conectado desde la web que todavía no tiene a su gente (connector_groups_pending_members) */
 export interface PendingMembers {
   group_id: string;
@@ -55,7 +63,7 @@ export interface PendingMembers {
 /** Un mensaje para la bandeja de salida de Mister Luks (whatsapp_outbox) */
 export interface OutboxItem {
   chat_jid: string;
-  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link' | 'verify' | 'soy_yo';
+  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link' | 'verify' | 'soy_yo' | 'import';
   body?: string | null;
   image_url?: string | null;
   document_url?: string | null;
@@ -149,6 +157,22 @@ export interface Store {
   groupLinkMint(outboxId: string): Promise<string | null>;
   /** Los grupos conectados desde la web que todavía no tienen a su gente, de estas sesiones */
   groupsPendingMembers(connectionIds: string[]): Promise<PendingMembers[]>;
+  /** Alguien del grupo dijo desde cuándo anotar; Mister Luks anuncia quién (lo encola la base) */
+  historyAnswer(jid: string, mode: DesdeCuando, name: string | null, onlyPending: boolean): Promise<{ changed: boolean; reason?: string }>;
+  /** El chat exportado, al bucket «importaciones» */
+  uploadImport(path: string, body: Buffer, contentType: string): Promise<void>;
+  /** Lo mandaron en un grupo enlazado: queda en la cola del worker (una vez por mensaje) */
+  requestImport(jid: string, path: string, fileName: string | null, waMessageId: string, senderName: string | null): Promise<ImportResult>;
+  /** Lo mandaron por privado: de cuál de sus grupos es (por quién lo manda y el nombre del archivo) */
+  requestImportPrivate(
+    path: string,
+    fileName: string | null,
+    waMessageId: string,
+    phone: string | null,
+    lid: string | null,
+    senderName: string | null,
+    chatName: string | null,
+  ): Promise<ImportResult>;
   /** Esta sesión ya no está en el grupo (las demás siguen) */
   groupLeft(sessionId: string, jid: string): Promise<void>;
   /** Alguien le escribió por privado a Mister Luks */
@@ -180,6 +204,7 @@ export class StoreError extends Error {
 }
 
 export const EVIDENCE_BUCKET = 'evidencias';
+export const IMPORT_BUCKET = 'importaciones';
 
 export class SupabaseStore implements Store {
   readonly #db: SupabaseClient;
@@ -282,6 +307,50 @@ export class SupabaseStore implements Store {
   async groupsPendingMembers(connectionIds: string[]) {
     if (!connectionIds.length) return [];
     return (await this.#rpc<PendingMembers[] | null>('connector_groups_pending_members', { p_connection_ids: connectionIds })) ?? [];
+  }
+
+  historyAnswer(jid: string, mode: DesdeCuando, name: string | null, onlyPending: boolean) {
+    return this.#rpc<{ changed: boolean; reason?: string }>('connector_history_answer', {
+      p_jid: jid,
+      p_mode: mode,
+      p_name: name,
+      p_only_pending: onlyPending,
+    });
+  }
+
+  async uploadImport(path: string, body: Buffer, contentType: string) {
+    const { error } = await this.#db.storage.from(IMPORT_BUCKET).upload(path, body, { contentType, upsert: true });
+    if (error) throw new StoreError('storage.upload', error.message);
+  }
+
+  requestImport(jid: string, path: string, fileName: string | null, waMessageId: string, senderName: string | null) {
+    return this.#rpc<ImportResult>('connector_request_import', {
+      p_jid: jid,
+      p_path: path,
+      p_file_name: fileName,
+      p_wa_message_id: waMessageId,
+      p_sender_name: senderName,
+    });
+  }
+
+  requestImportPrivate(
+    path: string,
+    fileName: string | null,
+    waMessageId: string,
+    phone: string | null,
+    lid: string | null,
+    senderName: string | null,
+    chatName: string | null,
+  ) {
+    return this.#rpc<ImportResult>('connector_request_import_private', {
+      p_path: path,
+      p_file_name: fileName,
+      p_wa_message_id: waMessageId,
+      p_sender_phone: phone,
+      p_sender_lid: lid,
+      p_sender_name: senderName,
+      p_chat_name: chatName,
+    });
   }
 
   async groupLeft(sessionId: string, jid: string) {

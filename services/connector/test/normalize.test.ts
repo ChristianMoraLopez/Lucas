@@ -75,6 +75,20 @@ describe('mensajes de Baileys → IncomingMessage', () => {
     expect(word).toBeNull();
   });
 
+  it('el chat exportado (.zip o .txt) se reconoce para importarlo', () => {
+    const doc = (mimetype: string, fileName: string) =>
+      normalizeMessage(
+        msg({ message: { documentMessage: { mimetype, fileName, fileLength: { toNumber: () => 9_000 } } } as unknown as WAMessage['message'] }),
+        's1',
+        ME,
+        bajar,
+      );
+    expect(doc('application/zip', 'Chat de WhatsApp con Paseo.zip')?.media).toMatchObject({ kind: 'chat', mimeType: 'application/zip', sizeBytes: 9_000 });
+    expect(doc('application/octet-stream', 'WhatsApp Chat - Paseo.zip')?.media).toMatchObject({ kind: 'chat', mimeType: 'application/zip' });
+    expect(doc('text/plain', 'WhatsApp Chat with Trip.txt')?.media).toMatchObject({ kind: 'chat', mimeType: 'text/plain' });
+    expect(doc('application/vnd.ms-excel', 'cuentas.xls')).toBeNull();
+  });
+
   it('el pie de un documento con texto también cuenta', () => {
     const m = normalizeMessage(
       msg({

@@ -1558,7 +1558,6 @@ export const EN: Record<string, string> = {
   'Solo los grupos donde lo agregues.': 'Only the groups you add him to.',
   '¿Responde en el grupo?': 'Does he reply in the group?',
   'Sí: confirma cada gasto («Anotado: …»).': 'Yes: he confirms each expense (“Logged: …”).',
-  'Lee desde que lo agregan. Lo anterior, con el chat exportado (pronto).': 'He reads from when he’s added. Older messages, with the exported chat (soon).',
   'Ideal si': 'Best when',
   'El grupo acepta a alguien más.': 'The group can take one more person.',
   'Si WhatsApp bloquea a Mister Luks, deja de leer todos sus grupos hasta que vuelva. Lo anotado no se pierde.':
@@ -1571,8 +1570,6 @@ export const EN: Record<string, string> = {
   'Escaneas un QR o escribes un código de 8 letras, como en WhatsApp Web.': 'Scan a QR code or type an 8-letter code, like WhatsApp Web.',
   'Tus grupos, pero solo guarda los que conectes a una cuenta.': 'Your groups, but he only keeps the ones you connect to an account.',
   'No. Luks nunca escribe desde tu número: lo anotado lo ves en la app.': 'No. Luks never writes from your number: you see what’s logged in the app.',
-  'Lee desde que conectas el grupo. Lo anterior, con el chat exportado o pidiéndole una parte a WhatsApp (pronto).':
-    'He reads from when you connect the group. Older messages, with the exported chat or by asking WhatsApp for part of it (soon).',
   'El grupo no deja agregar a nadie, o no quieren a alguien más en el grupo.': "The group won't let you add anyone, or you don't want one more member.",
   'No es una conexión oficial de WhatsApp: podría restringir tu cuenta.': 'It’s not an official WhatsApp connection: WhatsApp could restrict your account.',
   'Luks deja de leer los grupos desde tu número. Si un grupo solo estaba conectado así, hay que agregar a Mister Luks o vincular otro WhatsApp.':
@@ -1690,8 +1687,6 @@ export const EN: Record<string, string> = {
   'Crear una cuenta nueva': 'Create a new account',
   'Conectarlo a una mía': 'Connect it to one of mine',
   'Nombre de la cuenta': 'Account name',
-  'Luks anota lo que se escriba en el grupo desde que lo conectes. Lo de antes, más adelante con el chat exportado.':
-    'Luks logs what’s written in the group from the moment you connect it. Older messages, later on with the exported chat.',
   Cuenta: 'Account',
   'Conectar el grupo': 'Connect the group',
   'Mister Luks lo cuenta en el grupo.': 'Mister Luks will announce it in the group.',
@@ -1706,6 +1701,67 @@ export const EN: Record<string, string> = {
   'Solo quienes administran esa cuenta pueden conectarle un grupo': 'Only the account’s admins can connect a group to it',
   'Esa cuenta está cerrada: ya no se le conectan grupos': 'That account is closed: no more groups can be connected to it',
   'Este grupo ya está conectado a otra cuenta de Luks': 'This group is already connected to another Luks account',
+
+  // ---------- Fase 6: desde cuándo anota Luks y chats importados ----------
+  'Ese archivo pesa más de {mb} MB. Expórtalo sin archivos (Exportar chat → Sin archivos) y súbelo otra vez.':
+    'That file is over {mb} MB. Export it without media (Export chat → Without media) and upload it again.',
+  'Sube el .zip o el .txt que da «Exportar chat» de WhatsApp.': 'Upload the .zip or .txt that WhatsApp’s “Export chat” gives you.',
+  '¿Desde cuándo anota Luks?': 'Since when does Luks log?',
+  'Desde cuándo anota Luks en {grupo}': 'Since when Luks logs in {grupo}',
+  'Desde que se conectó': 'Since it was connected',
+  'Todo el chat': 'The whole chat',
+  'Nadie ha respondido todavía: Luks anota desde el {dia}.': 'Nobody has answered yet: Luks logs from {dia}.',
+  'Lo decidió {quien} el {dia}.': '{quien} decided it on {dia}.',
+  'Lo de antes del {dia} entra con el chat exportado: Luks no alcanza a ver lo que se escribió antes de llegar.':
+    'Anything before {dia} comes in with the exported chat: Luks can’t see what was written before it got there.',
+  'En el grupo de WhatsApp: Info del grupo → Más → Exportar chat → Incluir archivos.':
+    'In the WhatsApp group: Group info → More → Export chat → Include media.',
+  'Te queda un .zip (o un .txt): súbelo aquí. Hasta {mb} MB.': 'You get a .zip (or a .txt): upload it here. Up to {mb} MB.',
+  'También se lo pueden mandar a Mister Luks en el grupo o por privado.': 'You can also send it to Mister Luks in the group or privately.',
+  'Luks lee solo lo que parece gasto, y cada uno queda por revisar.': 'Luks only reads what looks like an expense, and each one is left to review.',
+  'Subir el chat exportado': 'Upload the exported chat',
+  'Chats importados': 'Imported chats',
+  'Chat exportado': 'Exported chat',
+  'desde la app': 'from the app',
+  '¿Deshacer esta importación?': 'Undo this import?',
+  'Se borran {gastos} y {mensajes} que trajo este chat. Lo que llegó en vivo al grupo no se toca.':
+    'This deletes the {gastos} and {mensajes} this chat brought in. What came into the group live is not touched.',
+  'En la cola: Luks lo lee en un momento.': 'Queued: Luks will read it in a moment.',
+  'Luks lo está leyendo…': 'Luks is reading it…',
+  'No se pudo leer.': 'It couldn’t be read.',
+  'Deshecha.': 'Undone.',
+  'No traía gastos de antes del {dia}.': 'It had no expenses from before {dia}.',
+  '{mensajes} de antes del {dia} · {gastos} ya en Luks': '{mensajes} from before {dia} · {gastos} already in Luks',
+  '🗓️ Mister Luks les pregunta en el grupo desde cuándo anota: desde ahora o todo el chat. Cualquiera responde, y lo cambian cuando quieran.':
+    '🗓️ Mister Luks asks the group since when to log: from now on or the whole chat. Anyone can answer, and you can change it any time.',
+  'Desde ahora': 'From now on',
+  'Luks no alcanza a ver lo que se escribió antes de conectarlo: después subes el chat exportado y él anota lo de antes.':
+    'Luks can’t see what was written before you connect it: afterwards you upload the exported chat and Luks logs what came before.',
+  'Luks anota lo que se escriba en el grupo desde que lo conectes. Lo cambias cuando quieras.':
+    'Luks logs what’s written in the group from the moment you connect it. You can change it any time.',
+  'Algunos de esos gastos ya están en una liquidación: reábranla antes de deshacer':
+    'Some of those expenses are already in a settlement: reopen it before undoing',
+  'Elige de qué grupo es el chat': 'Choose which group the chat is from',
+  'Elige desde ahora o todo el chat': 'Choose from now on or the whole chat',
+  'Esa importación no se está leyendo': 'That import isn’t being read',
+  'Esa importación ya se deshizo': 'That import was already undone',
+  'Ese archivo no es de esta cuenta': 'That file isn’t from this account',
+  'La cuenta está cerrada o liquidándose: reábranla antes de deshacer': 'The account is closed or being settled: reopen it before undoing',
+  'Luks todavía está leyendo ese chat: espera a que termine': 'Luks is still reading that chat: wait for it to finish',
+  'Primero conecta el grupo a la cuenta': 'First connect the group to the account',
+  'Solo quienes administran la cuenta deshacen una importación': 'Only account admins can undo an import',
+  'Solo quienes administran la cuenta importan el chat': 'Only account admins can import the chat',
+  'El archivo no es un chat de WhatsApp: expórtenlo con «Exportar chat»': 'The file isn’t a WhatsApp chat: export it with “Export chat”',
+  'El archivo está dañado o no es un .zip': 'The file is damaged or isn’t a .zip',
+  'No encontré el chat en el archivo: expórtenlo con «Exportar chat»': 'I couldn’t find the chat in the file: export it with “Export chat”',
+  'No encontré mensajes en el chat: expórtenlo con «Exportar chat»': 'I couldn’t find any messages in the chat: export it with “Export chat”',
+  'No pude leer el chat. Expórtenlo otra vez y vuelvan a mandarlo': 'I couldn’t read the chat. Export it again and send it again',
+
+  // ---------- Fase 6: lo de antes ----------
+  'Lee desde que lo agregan. Lo anterior, con el chat exportado: se lo mandan o lo suben aquí.':
+    'He reads from when he’s added. Anything earlier comes with the exported chat: send it to him or upload it here.',
+  'Lee desde que conectas el grupo. Lo anterior, con el chat exportado: lo subes aquí.':
+    'He reads from when you connect the group. Anything earlier comes with the exported chat: upload it here.',
 
   // ⟨más⟩
 };

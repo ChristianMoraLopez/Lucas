@@ -97,7 +97,7 @@ describe('gestor de sesiones', () => {
     alertas = [];
     const ing = new Ingestor(
       store,
-      { maxDownloadBytes: 1, maxUploadBytes: 1, maxSide: 1, jpegQuality: 80 },
+      { maxDownloadBytes: 1, maxChatBytes: 1, maxUploadBytes: 1, maxSide: 1, jpegQuality: 80 },
       { guiaUrl: 'https://mrluks.com/guia', joins: new RateLimiter({ minIntervalMs: 0, maxPerHourPerGroup: 99, maxPerHourTotal: 99 }) },
       silentLog,
     );

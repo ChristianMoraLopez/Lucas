@@ -149,6 +149,16 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
         media = { kind: 'pdf', mimeType: 'application/pdf', fileName: nombre, sizeBytes: numero(doc?.fileLength), download: () => download(raw) };
       } else if (mime.startsWith('image/')) {
         media = { kind: 'photo', mimeType: mime, fileName: nombre, sizeBytes: numero(doc?.fileLength), download: () => download(raw) };
+      } else if (/zip/.test(mime) || /\.zip$/i.test(nombre ?? '') || (mime === 'text/plain' && /\.txt$/i.test(nombre ?? ''))) {
+        // El chat exportado («Exportar chat»): se importa, no es un recibo
+        const zip = /zip/.test(mime) || /\.zip$/i.test(nombre ?? '');
+        media = {
+          kind: 'chat',
+          mimeType: zip ? 'application/zip' : 'text/plain',
+          fileName: nombre,
+          sizeBytes: numero(doc?.fileLength),
+          download: () => download(raw),
+        };
       } else {
         return null; // Word, Excel, audio…: no son recibos que Luks sepa leer
       }

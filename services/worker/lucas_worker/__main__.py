@@ -24,9 +24,10 @@ def _componentes(settings):
     from .classify.laya import load_laya
     from .extract.cascade import Extractor
     from .extract.ocr import OcrEngine
+    from .importar.importer import ChatImporter
     from .llm.ollama import OllamaClient
     from .pipeline import MessageProcessor
-    from .queue import Worker
+    from .queue import PorTipo, Worker
     from .supabase import Supabase
 
     db = Supabase(settings.supabase_url, settings.supabase_service_role_key.get_secret_value())
@@ -44,7 +45,12 @@ def _componentes(settings):
         else None
     )
     classifier = CategoryClassifier(load_laya(settings))
-    processor = MessageProcessor(db, extractor, classifier, settings, llm)
+    processor = PorTipo(
+        {
+            "process_message": MessageProcessor(db, extractor, classifier, settings, llm),
+            "import_chat": ChatImporter(db, settings),
+        }
+    )
     return Worker(db, processor, settings), ocr, llm, classifier
 
 

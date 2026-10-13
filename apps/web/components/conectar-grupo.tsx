@@ -57,13 +57,15 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
   const [moneda, setMoneda] = useState<string>(REGION[region].moneda);
   const [idioma, setIdioma] = useState<string>(t.idioma);
   const [cuenta, setCuenta] = useState(cuentas[0]?.id ?? '');
+  // Con Mister Luks lo preguntan en el grupo; sin él, lo decide quien conecta
+  const [desde, setDesde] = useState<'desde_ya' | 'todo'>('desde_ya');
   const [estado, setEstado] = useState<{ busy?: boolean; error?: string }>({});
 
   const miembros = vista.members ?? [];
   const conocidos = miembros.filter((m) => m.user && !m.me).length;
-  const ir = (id: string, e: { clientX: number; clientY: number; currentTarget: Element | null }) => {
+  const ir = (id: string, e: { clientX: number; clientY: number; currentTarget: Element | null }, destino = 'resumen') => {
     lanzarChispas(e);
-    router.push(`/c/${id}/resumen`);
+    router.push(`/c/${id}/${destino}`);
     router.refresh();
   };
 
@@ -95,7 +97,12 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
           })
         : await supabase.rpc('link_group_to_account', { p_group_id: vista.group_id, p_token: token, p_account_id: cuenta });
     if (error) return setEstado({ error: humanError(error) });
-    ir(data as string, chispas);
+    if (!vista.mister_luks) {
+      // Ya quedó conectado: si esto falla, se elige después en la pantalla de WhatsApp
+      await supabase.rpc('set_group_history', { p_group_id: vista.group_id, p_mode: desde });
+    }
+    // «Todo el chat»: allá se sube el chat exportado
+    ir(data as string, chispas, !vista.mister_luks && desde === 'todo' ? 'whatsapp#desde-cuando' : 'resumen');
   };
 
   // Ya tiene cuenta y no estoy: entro si mi número verificado está en el grupo
@@ -287,9 +294,6 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
                 </select>
               </Field>
             </div>
-            <span className="lu-small lu-muted nc-nota">
-              {t('Luks anota lo que se escriba en el grupo desde que lo conectes. Lo de antes, más adelante con el chat exportado.')}
-            </span>
           </>
         ) : (
           <Field label={t('Cuenta')} id="gr-cuenta">
@@ -301,6 +305,32 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
               ))}
             </select>
           </Field>
+        )}
+
+        {vista.mister_luks ? (
+          <span className="lu-small lu-muted nc-nota">
+            {t('🗓️ Mister Luks les pregunta en el grupo desde cuándo anota: desde ahora o todo el chat. Cualquiera responde, y lo cambian cuando quieran.')}
+          </span>
+        ) : (
+          <div className="lu-field">
+            <span className="lu-label" aria-hidden="true">
+              {t('¿Desde cuándo anota Luks?')}
+            </span>
+            <Segmento
+              label={t('¿Desde cuándo anota Luks?')}
+              value={desde}
+              onChange={setDesde}
+              opciones={[
+                { value: 'desde_ya', label: t('Desde ahora') },
+                { value: 'todo', label: t('Todo el chat') },
+              ]}
+            />
+            <span className="lu-small lu-muted nc-nota">
+              {desde === 'todo'
+                ? t('Luks no alcanza a ver lo que se escribió antes de conectarlo: después subes el chat exportado y él anota lo de antes.')
+                : t('Luks anota lo que se escriba en el grupo desde que lo conectes. Lo cambias cuando quieras.')}
+            </span>
+          </div>
         )}
 
         {estado.error && (

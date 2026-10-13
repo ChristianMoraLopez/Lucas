@@ -13,8 +13,11 @@ import {
   looksLikeExpense,
   MISTER,
   MSG,
+  nombreDelChat,
+  parseHistoria,
   parseInviteLink,
   parseLinkCommand,
+  respuestaNumerada,
 } from './text.js';
 
 /** Qué pasó con un mensaje (va a los logs; sirve para las pruebas) */
@@ -33,11 +36,16 @@ export type Outcome =
   | 'archivo_rechazado'
   | 'privado'
   | 'bienvenida'
+  | 'desde_cuando'
+  | 'chat_importado'
+  | 'chat_muy_pesado'
   | `link_grupo:${string}`
   | `ignorado:${string}`;
 
 export interface IngestLimits extends MediaLimits {
   maxDownloadBytes: number;
+  /** El chat exportado (.zip o .txt): hasta el límite del bucket «importaciones» */
+  maxChatBytes: number;
 }
 
 export interface MisterLuksOptions {
@@ -149,6 +157,20 @@ export class Ingestor {
     // «luks soy yo» en el grupo: solo lo atiende Mister Luks
     if (session.kind === 'contador' && !m.media && esSoyYo(m.text)) return this.#soyYo(session, m);
 
+    // El chat exportado: se importa (lo de antes de que Luks empezara a anotar)
+    if (m.media?.kind === 'chat') return this.#chatExportado(session, m);
+
+    // «¿Desde cuándo anoto?»: «1»/«2» si la pregunta sigue abierta, o «luks desde ya» / «luks lee todo» cuando sea
+    if (session.kind === 'contador' && !m.media) {
+      const orden = parseHistoria(m.text, this.#misterLuks);
+      const modo = orden ?? respuestaNumerada(m.text);
+      if (modo) {
+        const r = await this.store.historyAnswer(m.chatId, modo, m.sender.name, !orden);
+        this.log.info({ group: m.chatId, mode: modo, changed: r.changed, reason: r.reason }, '¿Desde cuándo anoto?');
+        return r.changed ? 'desde_cuando' : 'ignorado:desde_cuando';
+      }
+    }
+
     // «ayuda» en el grupo: la guía (y el link /g/ si no tiene cuenta), como mucho una vez por hora
     if (session.kind === 'contador' && !m.media && esPedidoDeAyuda(m.text)) {
       const idioma = idiomaDeNumero(m.sender.phone);
@@ -252,6 +274,8 @@ export class Ingestor {
     const primeraVez = nuevas.length > 0;
     if (soyYo) return soyYo;
 
+    if (m.media?.kind === 'chat') return this.#chatPrivado(m, idioma);
+
     const invitacion = parseInviteLink(m.text);
     if (invitacion) return this.#unirse(connector, m, invitacion, idioma);
 
@@ -299,6 +323,66 @@ export class Ingestor {
     await this.#encolar(items);
     this.log.info({ verified: r.verified, sender: maskWaId(m.sender.id) }, '«luks soy yo»');
     return 'soy_yo';
+  }
+
+  /** El .zip o .txt del chat, si no pesa demasiado; si pesa, Mister Luks lo explica (como mucho una vez por hora) */
+  async #bajarChat(m: IncomingMessage, responder: (body: string) => Promise<unknown>, idioma: Idioma) {
+    const media = m.media;
+    if (!media) return null;
+    if (media.sizeBytes && media.sizeBytes > this.limits.maxChatBytes) {
+      this.log.info({ msg_id: m.messageId, bytes: media.sizeBytes }, 'Chat exportado demasiado pesado: no se baja');
+      await responder(MISTER.importar.muyPesado(idioma));
+      return null;
+    }
+    const body = await media.download();
+    if (body.length > this.limits.maxChatBytes) {
+      await responder(MISTER.importar.muyPesado(idioma));
+      return null;
+    }
+    return { body, ext: media.mimeType === 'text/plain' ? 'txt' : 'zip', mimeType: media.mimeType };
+  }
+
+  /**
+   * Mandaron el chat exportado en el grupo: queda en el bucket de importaciones y en la
+   * cola del worker, que lee lo de antes de que Luks empezara a anotar. Lo leen las dos
+   * sesiones si están en el grupo (la base no lo importa dos veces); solo Mister Luks responde.
+   */
+  async #chatExportado(session: SessionInfo, m: IncomingMessage): Promise<Outcome> {
+    const idioma = idiomaDeNumero(m.sender.phone);
+    const responder = (body: string, clave = `import:${m.chatId}:${m.messageId}`) =>
+      session.kind === 'contador' ? this.#encolar([{ chat_jid: m.chatId, reason: 'import', body, dedupe_key: clave }]) : Promise.resolve([]);
+    const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt);
+    if (!check.account_id) {
+      await responder(MISTER.importar.sinCuenta(idioma), `import:${m.chatId}:sin_cuenta:${tramo(m.sentAt, 60)}`);
+      return `ignorado:${check.reason ?? 'sin_cuenta'}`;
+    }
+    const chat = await this.#bajarChat(m, responder, idioma);
+    if (!chat) return 'chat_muy_pesado';
+    const path = `${check.account_id}/whatsapp/${mes(m.sentAt)}/${nombreSeguro(m.messageId)}.${chat.ext}`;
+    await this.store.uploadImport(path, chat.body, chat.mimeType);
+    const r = await this.store.requestImport(m.chatId, path, m.media?.fileName ?? null, m.messageId, m.sender.name);
+    this.log.info({ group: m.chatId, ok: r.ok, already: r.ok ? r.already : undefined, sender: maskWaId(m.sender.id) }, 'Chat exportado');
+    if (!r.ok) return `ignorado:${r.reason}`;
+    if (!r.already) await responder(MISTER.importar.recibido(r.language ?? idioma));
+    return 'chat_importado';
+  }
+
+  /** Mandaron el chat exportado por privado: de cuál de sus grupos conectados es (si se sabe) */
+  async #chatPrivado(m: IncomingMessage, idioma: Idioma): Promise<Outcome> {
+    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'import', body, dedupe_key: `import:${m.chatId}:${m.messageId}` }]);
+    const chat = await this.#bajarChat(m, responder, idioma);
+    if (!chat) return 'chat_muy_pesado';
+    const path = `privado/${mes(m.sentAt)}/${nombreSeguro(m.messageId)}.${chat.ext}`;
+    await this.store.uploadImport(path, chat.body, chat.mimeType);
+    const fileName = m.media?.fileName ?? null;
+    const r = await this.store.requestImportPrivate(path, fileName, m.messageId, m.sender.phone, m.sender.lid ?? null, m.sender.name, nombreDelChat(fileName));
+    this.log.info({ ok: r.ok, reason: r.ok ? undefined : r.reason, sender: maskWaId(m.sender.id) }, 'Chat exportado por privado');
+    if (!r.ok) {
+      await responder(MISTER.importar.sinGrupo(idioma));
+      return `ignorado:${r.reason}`;
+    }
+    if (!r.already) await responder(MISTER.importar.privadoRecibido(r.language ?? idioma, r.group_name ?? ''));
+    return 'chat_importado';
   }
 
   /** Mandaron por privado el link de un grupo: Mister Luks entra (y lo cuenta por privado) */

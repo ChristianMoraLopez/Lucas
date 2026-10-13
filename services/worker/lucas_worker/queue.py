@@ -18,21 +18,39 @@ import time
 import traceback
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from .config import Settings
 from .errors import PermanentError
 from .observability import capture, job_scope
-from .pipeline import Job, MessageProcessor
+from .pipeline import Job
 from .supabase import Database
 
 log = logging.getLogger(__name__)
+
+
+class Procesador(Protocol):
+    def process(self, job: Job) -> str: ...
+
+
+class PorTipo:
+    """Cada tipo de trabajo con su procesador: 'process_message' (un mensaje) e 'import_chat' (un chat exportado)."""
+
+    def __init__(self, procesadores: dict[str, Procesador]):
+        self.procesadores = procesadores
+
+    def process(self, job: Job) -> str:
+        procesador = self.procesadores.get(job.type)
+        if procesador is None:
+            raise PermanentError(f"Tipo de trabajo desconocido: {job.type}")
+        return procesador.process(job)
 
 
 class Worker:
     def __init__(
         self,
         db: Database,
-        processor: MessageProcessor,
+        processor: Procesador,
         settings: Settings,
         sleep: Callable[[float], None] = time.sleep,
     ):

@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: SecretStr
     evidence_bucket: str = "evidencias"
+    # Los chats exportados que se importan (fase 6)
+    imports_bucket: str = "importaciones"
+    import_max_items: int = 600  # fotos, PDFs y mensajes con monto por chat; si hay más, los más recientes
 
     # Cola
     worker_id: str = Field(default_factory=lambda: f"{socket.gethostname()}-{os.getpid()}")

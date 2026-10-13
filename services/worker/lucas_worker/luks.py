@@ -25,7 +25,9 @@ _RESPUESTA = re.compile(
 # Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo
 _SALUDO = re.compile(
     r"(?:soy|i[’']m) \*?mister luks"
-    r"|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)",
+    r"|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)"
+    # Los avisos de la fase 6: quién decidió desde cuándo anotar y el chat importado
+    r"|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat",
     re.IGNORECASE,
 )
 # En una imagen el OCR no siempre lee bien la firma: basta la marca con algo de las cuentas

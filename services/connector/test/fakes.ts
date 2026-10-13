@@ -1,9 +1,11 @@
 import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, SessionInfo } from '../src/connector.js';
 import type {
+  DesdeCuando,
   DetectedResult,
   GroupResult,
   HelloResult,
+  ImportResult,
   IngestCheck,
   IngestInput,
   KeyItem,
@@ -120,6 +122,47 @@ export class FakeStore implements Store {
   pendientes: PendingMembers[] = [];
   async groupsPendingMembers(ids: string[]) {
     return this.pendientes.filter((p) => ids.includes(p.connection_id) && !this.members.has(p.group_id));
+  }
+  /** «¿Desde cuándo anoto?» por grupo: 'pendiente' hasta que alguien responde */
+  desdeCuando = new Map<string, { modo: DesdeCuando | 'pendiente'; quien: string | null }>();
+  async historyAnswer(jid: string, mode: DesdeCuando, name: string | null, onlyPending: boolean) {
+    const g = this.groups.get(jid);
+    if (!g?.account_id) return { changed: false, reason: 'grupo_sin_enlazar' };
+    const actual = this.desdeCuando.get(jid)?.modo ?? 'pendiente';
+    if (onlyPending && actual !== 'pendiente') return { changed: false, reason: 'ya_respondida' };
+    if (actual === mode) return { changed: false, reason: 'igual' };
+    this.desdeCuando.set(jid, { modo: mode, quien: name });
+    return { changed: true };
+  }
+  /** Lo que se subió al bucket de importaciones */
+  importados = new Map<string, { body: Buffer; contentType: string }>();
+  async uploadImport(path: string, body: Buffer, contentType: string) {
+    this.importados.set(path, { body, contentType });
+  }
+  /** Los chats exportados que quedaron en la cola: «grupo|mensaje» */
+  importaciones: { jid: string | null; path: string; fileName: string | null; chatName?: string | null }[] = [];
+  async requestImport(jid: string, path: string, fileName: string | null, waMessageId: string): Promise<ImportResult> {
+    const g = this.groups.get(jid);
+    if (!g?.account_id) return { ok: false, reason: 'grupo_sin_enlazar' };
+    const already = this.importaciones.some((i) => i.jid === jid && i.path === path);
+    if (!already) this.importaciones.push({ jid, path, fileName });
+    return { ok: true, already, import_id: already ? null : `imp-${waMessageId}`, language: 'es' };
+  }
+  /** Por privado: de qué grupo es (nombre del grupo → sí) */
+  gruposDelPrivado: string[] = [];
+  async requestImportPrivate(
+    path: string,
+    fileName: string | null,
+    waMessageId: string,
+    _p: string | null,
+    _l: string | null,
+    _n: string | null,
+    chatName: string | null,
+  ): Promise<ImportResult> {
+    const grupo = this.gruposDelPrivado.find((x) => !chatName || x.toLowerCase() === chatName.toLowerCase());
+    if (!grupo) return { ok: false, reason: 'sin_grupo', groups: [] };
+    this.importaciones.push({ jid: null, path, fileName, chatName });
+    return { ok: true, already: false, import_id: `imp-${waMessageId}`, group_name: grupo, language: 'es' };
   }
   /** Chats privados con Mister Luks */
   privados = new Set<string>();

@@ -3118,6 +3118,94 @@ a.gr-fila:focus-visible {
   height: 44px;
 }
 
+/* ---------- ¿Desde cuándo anota Luks? y chats importados (/c/…/whatsapp) ---------- */
+.dc {
+  justify-items: stretch;
+}
+.dc-grupo {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--borde);
+}
+.dc-grupo:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+.dc-grupo__nombre {
+  overflow-wrap: anywhere;
+}
+.dc-subir {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  width: 100%;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.dc-pasos {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: var(--space-1);
+}
+/* El input de archivo queda dentro del botón: invisible, pero se enfoca con el teclado */
+.dc-archivo {
+  position: relative;
+  cursor: pointer;
+}
+.dc-archivo input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.dc-archivo:focus-within {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.dc-archivo.is-busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+.dc-imports {
+  display: grid;
+  gap: var(--space-2);
+}
+.dc-imports ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.dc-import {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.dc-import__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.dc-import__txt b {
+  overflow-wrap: anywhere;
+}
+.dc-import--failed {
+  background: var(--naranja-suave);
+}
+.dc-import--undone {
+  opacity: 0.6;
+}
+
 /* ======================================================================
    Responsive: de celulares de 320 px a pantallas grandes. Lo de arriba es
    el diseño; esto evita que algo se salga o quede pegado al borde cuando

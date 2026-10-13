@@ -1,4 +1,4 @@
-"""Cliente mínimo de Supabase: RPC de PostgREST y descarga de Storage.
+"""Cliente mínimo de Supabase: RPC de PostgREST y Storage (bajar, y subir lo que trae un chat importado).
 
 Solo lo que el worker usa, con httpx y reintentos cortos. La llave es la
 secret / service role key: `apikey` siempre; `Authorization: Bearer` solo si
@@ -33,6 +33,8 @@ class Database(Protocol):
     def rpc(self, fn: str, params: dict[str, Any] | None = None) -> Any: ...
 
     def download(self, bucket: str, path: str) -> bytes: ...
+
+    def upload(self, bucket: str, path: str, data: bytes, content_type: str) -> None: ...
 
 
 class Supabase:
@@ -81,3 +83,16 @@ class Supabase:
         if r.status_code >= 400:
             raise SupabaseError(f"Storage respondió {r.status_code}", r.status_code)
         return r.content
+
+    def upload(self, bucket: str, path: str, data: bytes, content_type: str) -> None:
+        safe = "/".join(quote(part, safe="") for part in path.split("/"))
+        r = self._request(
+            "POST",
+            f"{self.url}/storage/v1/object/{quote(bucket, safe='')}/{safe}",
+            content=data,
+            headers={"content-type": content_type, "x-upsert": "true"},
+        )
+        if r.status_code >= 400:
+            raise SupabaseError(
+                f"Storage no recibió el archivo ({r.status_code})", r.status_code, retryable=r.status_code >= 500
+            )

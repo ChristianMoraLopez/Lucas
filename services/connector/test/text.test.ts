@@ -11,9 +11,13 @@ import {
   looksLikeExpense,
   MISTER,
   MSG,
+  nombreDelChat,
   type PendingReply,
+  PREGUNTA_DESDE_CUANDO,
+  parseHistoria,
   parseInviteLink,
   parseLinkCommand,
+  respuestaNumerada,
   sinLineaDelLink,
 } from '../src/text.js';
 
@@ -226,4 +230,43 @@ describe('«luks soy yo»', () => {
     expect(esSoyYo(t)).toBe(true),
   );
   it.each(['soy yo el que pagó el taxi', 'luks soy yo 45 lucas', 'yo soy', null])('«%s» no', (t) => expect(esSoyYo(t)).toBe(false));
+});
+
+describe('¿desde cuándo anoto?', () => {
+  const luks = new Set(['573337627471', 'lid:99990000']);
+  it.each([
+    ['luks desde ya', 'desde_ya'],
+    ['Mister Luks, desde ahora!', 'desde_ya'],
+    ['mrluks lee todo', 'todo'],
+    ['luks todo el chat', 'todo'],
+    ['@573337627471 desde ya', 'desde_ya'],
+    ['luks from now on', 'desde_ya'],
+    ['luks read the whole chat', 'todo'],
+  ])('«%s» → %s', (t, modo) => expect(parseHistoria(t, luks)).toBe(modo));
+
+  it.each(['desde ya', '@573001112233 desde ya', 'luks desde ya pago yo el taxi', 'lee todo'])('«%s» no es para Luks', (t) =>
+    expect(parseHistoria(t, luks)).toBeNull(),
+  );
+
+  it('«1» y «2» a secas responden la pregunta', () => {
+    expect(respuestaNumerada('1')).toBe('desde_ya');
+    expect(respuestaNumerada(' 2 ')).toBe('todo');
+    expect(respuestaNumerada('2️⃣')).toBe('todo');
+    expect(respuestaNumerada('12')).toBeNull();
+    expect(respuestaNumerada('2 cervezas')).toBeNull();
+  });
+
+  it('el nombre del grupo sale del archivo del chat exportado', () => {
+    expect(nombreDelChat('Chat de WhatsApp con Paseo Santa Marta.zip')).toBe('Paseo Santa Marta');
+    expect(nombreDelChat('WhatsApp Chat with Trip.txt')).toBe('Trip');
+    expect(nombreDelChat('WhatsApp Chat - Casa V&A.zip')).toBe('Casa V&A');
+    expect(nombreDelChat('fotos.zip')).toBeNull();
+  });
+
+  it('los avisos de quién decidió y del chat importado no se anotan como gasto', () => {
+    expect(esMensajeDeLuks('👍 Listo: Santi dijo que anote *desde ahora*. Lo de antes del 12 oct no lo toco.')).toBe(true);
+    expect(esMensajeDeLuks('📥 Leí el chat exportado: encontré 1200 gastos de antes del 12 oct.')).toBe(true);
+    expect(esMensajeDeLuks('📥 I read the exported chat: I found 3 expenses from before Oct 12.')).toBe(true);
+    expect(MSG.linked('Paseo', 8)).toContain(PREGUNTA_DESDE_CUANDO.es);
+  });
 });

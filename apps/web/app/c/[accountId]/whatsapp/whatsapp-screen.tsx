@@ -20,6 +20,7 @@ import { archivosGuia, chatHref, MISTER_LUKS, vcardHref } from '@/lib/mister-luk
 import { formatear } from '@/lib/telefono';
 import { type AccountPerson, type AccountType, type MyWhatsappLink, plural, type WhatsappOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
+import { DesdeCuando } from './desde-cuando';
 import { MonedaIdioma } from './moneda-idioma';
 
 type Grupo = WhatsappOverview['groups'][number];
@@ -336,6 +337,7 @@ export function WhatsappScreen({
         )}
         {d.is_admin && d.unknown_senders.length > 0 && <QuienEs accountId={accountId} remitentes={d.unknown_senders} onDone={refrescar} onError={setError} />}
         {d.groups.length > 0 && <Grupos grupos={d.groups} isAdmin={d.is_admin} onDone={refrescar} onError={setError} />}
+        {conectado && <DesdeCuando accountId={accountId} closed={closed} />}
         {conectado && <OtrosGrupos />}
         {d.is_admin && !closed && <MonedaIdioma accountId={accountId} {...ajustes} />}
       </aside>
@@ -660,7 +662,7 @@ function FormaMisterLuks({ telefono, conectado }: { telefono: string | null; con
         [t('Qué haces'), t('Lo agregas al grupo, o le mandas el link del grupo por privado.')],
         [t('Qué ve Luks'), t('Solo los grupos donde lo agregues.')],
         [t('¿Responde en el grupo?'), t('Sí: confirma cada gasto («Anotado: …»).')],
-        [t('Lo de antes'), t('Lee desde que lo agregan. Lo anterior, con el chat exportado (pronto).')],
+        [t('Lo de antes'), t('Lee desde que lo agregan. Lo anterior, con el chat exportado: se lo mandan o lo suben aquí.')],
         [t('Ideal si'), t('El grupo acepta a alguien más.')],
         [t('Ojo'), t('Si WhatsApp bloquea a Mister Luks, deja de leer todos sus grupos hasta que vuelva. Lo anotado no se pierde.')],
       ]}
@@ -762,7 +764,7 @@ export function FormaMiWhatsapp({ otrosLectores }: { otrosLectores: string[] }) 
         [t('Qué haces'), t('Escaneas un QR o escribes un código de 8 letras, como en WhatsApp Web.')],
         [t('Qué ve Luks'), t('Tus grupos, pero solo guarda los que conectes a una cuenta.')],
         [t('¿Responde en el grupo?'), t('No. Luks nunca escribe desde tu número: lo anotado lo ves en la app.')],
-        [t('Lo de antes'), t('Lee desde que conectas el grupo. Lo anterior, con el chat exportado o pidiéndole una parte a WhatsApp (pronto).')],
+        [t('Lo de antes'), t('Lee desde que conectas el grupo. Lo anterior, con el chat exportado: lo subes aquí.')],
         [t('Ideal si'), t('El grupo no deja agregar a nadie, o no quieren a alguien más en el grupo.')],
         [t('Ojo'), t('No es una conexión oficial de WhatsApp: podría restringir tu cuenta.')],
       ];

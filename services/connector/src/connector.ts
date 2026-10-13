@@ -21,7 +21,8 @@ export interface SessionInfo {
   pairingPhone: string | null;
 }
 
-export type MediaKind = 'photo' | 'pdf';
+/** 'chat': el .zip o .txt de «Exportar chat» (fase 6): no es un recibo, se importa */
+export type MediaKind = 'photo' | 'pdf' | 'chat';
 
 export interface IncomingMedia {
   kind: MediaKind;

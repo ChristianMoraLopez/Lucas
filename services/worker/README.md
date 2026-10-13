@@ -40,6 +40,7 @@ flowchart TD
 | Categoría | Memoria de comercios de la cuenta (exacta o con RapidFuzz, aguanta errores de OCR) → Laya → palabras clave → «Otros». | `classify/` |
 | Duplicados | Huella perceptual de 256 bits (misma foto recomprimida ≈ 4 bits de diferencia; recibos distintos > 90) y CUFE. Se revisan antes del OCR y otra vez al guardar, con un candado por cuenta. Mismo comercio, día y valor: no se descarta, pero va a revisión marcado. | `worker_save_expense` |
 | Decisión | Se confirma solo si la categoría salió de la memoria, hay pagador, total y todos los campos tienen ≥ 0,9. Lo demás va a **Revisar**. | `pipeline.py` |
+| Chat exportado | El trabajo `import_chat` (migración 340): baja el .zip o .txt de «Exportar chat» del bucket `importaciones`, lee los formatos de Android e iPhone en español e inglés (decide día/mes con todo el archivo), y de lo anterior a `ingest_from` deja los mensajes con monto, las fotos (a JPEG de 1600 px) y los PDFs. Cada uno queda en la cola como un mensaje más (`source = 'import'`), con prioridad más baja que lo que llega en vivo; importar dos veces el mismo chat no repite nada. Si hay más de `IMPORT_MAX_ITEMS` (600), los más recientes. | `importar/` |
 
 Nada del contenido de los recibos va a los logs ni a Sentry (sin variables locales, sin cuerpos): solo ids, etapas, tiempos y errores.
 
@@ -145,6 +146,7 @@ lucas_worker/
 ├── config.py           variables de entorno (pydantic-settings)
 ├── queue.py            ciclo de la cola, reintentos, señales, latido
 ├── pipeline.py         un mensaje de principio a fin
+├── importar/           el chat exportado: leerlo y mandarlo a la cola
 ├── extract/            reglas, números, QR DIAN, OpenCV, RapidOCR, pdfplumber y la cascada
 ├── llm/                esquema Pydantic, prompt y cliente de Ollama
 ├── validate.py         confianza por campo
