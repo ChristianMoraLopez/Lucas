@@ -1,5 +1,5 @@
 import pino from 'pino';
-import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, SessionInfo } from '../src/connector.js';
+import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
 import type {
   DesdeCuando,
   DetectedResult,
@@ -13,6 +13,7 @@ import type {
   OutboxItem,
   OutboxPending,
   PendingMembers,
+  QuestionData,
   QueueHealth,
   SessionRow,
   SoyYoResult,
@@ -235,11 +236,51 @@ export class FakeStore implements Store {
     if (actual) actual.account_id = cuenta.id;
     return { ok: true, already, account_id: cuenta.id, account_name: cuenta.name, group_id: g.group_id, members: this.members.get(g.group_id)?.length };
   }
-  async shouldIngest(jid: string, id: string): Promise<IngestCheck> {
+  async shouldIngest(jid: string, id: string, _sentAt?: Date, sender: string | null = null): Promise<IngestCheck> {
     const g = this.groups.get(jid);
     if (!g?.account_id) return { ingest: false, reason: 'grupo_sin_enlazar' };
     if (this.messages.has(`${jid}|${id}`)) return { ingest: false, reason: 'repetido', account_id: g.account_id };
+    if (sender && this.optouts.has(`${jid}|${sender}`)) return { ingest: false, reason: 'no_me_cuentes', account_id: g.account_id };
     return { ingest: true, account_id: g.account_id, group_id: g.group_id };
+  }
+  /** Los números de la cuenta que devuelve connector_question (los pone cada prueba) */
+  numeros: Omit<Extract<QuestionData, { ok: true }>, 'identity_id' | 'pref' | 'contador_en_grupo'> | null = null;
+  /** «privado» o «aquí» de cada quien (por su número) */
+  prefs = new Map<string, 'privado' | 'aqui'>();
+  /** La pregunta de cada quien que espera «privado» o «aquí» */
+  esperando = new Map<string, { jid: string; intent: 'mi_saldo' | 'mis_gastos' }>();
+  /** «grupo|número» de quienes dijeron «no me cuentes» */
+  optouts = new Set<string>();
+  /** Si Mister Luks existe (para responder por privado en un grupo que lee un WhatsApp vinculado) */
+  hayMisterLuks = true;
+  async question(jid: string, sender: Sender): Promise<QuestionData | null> {
+    if (!jid.endsWith('@g.us')) return null;
+    const base = { identity_id: `i-${sender.id}`, pref: this.prefs.get(sender.id ?? '') ?? null, contador_en_grupo: this.presentes.has(`${jid}|contador`) };
+    if (!this.groups.get(jid)?.account_id || !this.numeros) return { ...base, ok: false, reason: 'sin_cuenta' };
+    return { ...base, ...this.numeros, optout: this.optouts.has(`${jid}|${sender.id}`) };
+  }
+  async answerPref(jid: string, sender: Sender, mode: 'privado' | 'aqui', onlyPending: boolean) {
+    const id = sender.id ?? '';
+    const espera = this.esperando.get(id);
+    if (onlyPending && espera?.jid !== jid) return { changed: false };
+    this.prefs.set(id, mode);
+    this.esperando.delete(id);
+    return { changed: true, mode, pending_intent: espera?.jid === jid ? espera.intent : null };
+  }
+  async askAnswerPref(jid: string, identityId: string, intent: 'mi_saldo' | 'mis_gastos') {
+    this.esperando.set(identityId.replace(/^i-/, ''), { jid, intent });
+  }
+  async optout(jid: string, sender: Sender, on: boolean) {
+    const k = `${jid}|${sender.id}`;
+    const antes = this.optouts.has(k);
+    if (on) this.optouts.add(k);
+    else this.optouts.delete(k);
+    return { changed: antes !== on, account_name: this.numeros?.account.name, language: this.numeros?.account.language ?? null };
+  }
+  async openPrivateAnswer(jid: string) {
+    if (!this.hayMisterLuks) return false;
+    await this.privateChat('contador', jid);
+    return true;
   }
   async ingest(m: IngestInput): Promise<IngestCheck> {
     const check = await this.shouldIngest(m.jid, m.waMessageId);

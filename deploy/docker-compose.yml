@@ -73,6 +73,9 @@ services:
     image: luks-connector:latest
     restart: unless-stopped
     env_file: ../services/connector/.env
+    environment:
+      # Qwen solo clasifica las preguntas a Mister Luks que las reglas no entienden
+      OLLAMA_BASE_URL: http://ollama:11434
     stop_grace_period: 30s
     deploy:
       resources:

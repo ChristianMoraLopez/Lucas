@@ -1518,7 +1518,9 @@ export const EN: Record<string, string> = {
   'Mister Luks solo guarda lo que parece un gasto: fotos, PDFs y mensajes con montos. La charla del grupo no sale de WhatsApp.':
     'Mister Luks only keeps what looks like an expense: photos, PDFs and messages with amounts. The group chatter never leaves WhatsApp.',
   'Los gastos solo los ven las personas de la cuenta.': 'Only the people in the account see the expenses.',
-  '¿Prefieres que no te cuente? Escribe {a} y deja de anotar lo que tú mandes.': 'Rather not be counted? Type {a} and he stops logging what you send.',
+  '¿Prefieres que no te cuente? Escribe {a}: desde ahí deja de anotar lo que tú mandes (lo de antes queda igual). Para volver, {b}.':
+    'Rather not be counted? Type {a}: from then on he stops logging what you send (what’s already there stays the same). To come back, {b}.',
+  '@Mister Luks cuéntame': '@Mister Luks count me again',
   '@Mister Luks no me cuentes': '@Mister Luks don’t count me',
   'Puedes borrar tu usuario y tus datos cuando quieras, desde tu perfil en mrluks.com.':
     'You can delete your user and your data anytime from your profile on mrluks.com.',

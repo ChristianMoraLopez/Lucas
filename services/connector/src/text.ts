@@ -42,7 +42,7 @@ const RESPUESTA_LUKS = /^\s*\W{0,4}\s*(?:anotad[oa]s?|recibido|ya estaba anotado
 // Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo; y
 // los avisos de quién decidió desde cuándo anotar y del chat importado traen fechas y cantidades
 const SALUDO_LUKS =
-  /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat/i;
+  /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat|m[aá]s detalle en mrluks\.com|more detail at mrluks\.com/i;
 
 export function esMensajeDeLuks(text: string | null | undefined): boolean {
   if (!text) return false;
@@ -86,6 +86,93 @@ export function parseHistoria(text: string | null | undefined, misterLuks: Reado
 export function respuestaNumerada(text: string | null | undefined): 'desde_ya' | 'todo' | null {
   const m = (text ?? '').match(/^\s*(1|2)\uFE0F?\u20E3?\s*[.!)]*\s*$/);
   return m ? (m[1] === '1' ? 'desde_ya' : 'todo') : null;
+}
+
+/** Lo que le pueden pedir a Mister Luks (fase 7) */
+export type Intencion = 'total' | 'deudas' | 'mi_saldo' | 'mis_gastos' | 'privado' | 'aqui' | 'no_me_cuentes' | 'cuentame';
+export const INTENCIONES: readonly Intencion[] = ['total', 'deudas', 'mi_saldo', 'mis_gastos', 'privado', 'aqui', 'no_me_cuentes', 'cuentame'];
+/** Lo de cada quien: se manda por privado o en el grupo, como lo prefiera */
+export const PERSONALES: readonly Intencion[] = ['mi_saldo', 'mis_gastos'];
+
+/** Su nombre al principio: «luks», «Luks,», «mrluks», «mr. luks», «Mister Luks:» */
+const NOMBRE_LUKS = /^\s*@?(?:(?:mr\.?\s*|mister\s+)?luks|mrluks)(?![a-z0-9áéíóúñ])[\s,:;.!¡¿?-]*/i;
+
+/**
+ * Le hablan a Mister Luks: lo mencionan (@ con su número o su LID), el
+ * mensaje empieza con su nombre o responde un mensaje suyo. Devuelve lo que le
+ * dicen, sin las menciones ni su nombre, y si fue explícito (mención o cita: a
+ * un «luks…» que no entiende no le contesta, puede ser charla). `propios`: su
+ * número y su «lid:…».
+ */
+export function aMisterLuks(
+  m: { text: string | null; mentions?: string[]; quotedFrom?: string | null },
+  propios: ReadonlySet<string>,
+): { texto: string; explicito: boolean } | null {
+  const texto = m.text?.trim();
+  if (!texto) return null;
+  const esLuks = (u: string | null | undefined) => Boolean(u && (propios.has(u) || propios.has(`lid:${u}`)));
+  const explicito = (m.mentions ?? []).some(esLuks) || esLuks(m.quotedFrom);
+  const sinMenciones = texto.replace(/@(\d{6,30})\b/g, (todo, u: string) => (esLuks(u) ? '' : todo)).replace(/^(?:\s*@\S+)+\s*/, '');
+  const conNombre = NOMBRE_LUKS.test(sinMenciones);
+  if (!explicito && !conNombre) return null;
+  return { texto: sinMenciones.replace(NOMBRE_LUKS, '').trim(), explicito };
+}
+
+/** En minúsculas, sin tildes ni signos: así las reglas son más simples */
+const plano = (t: string) =>
+  t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, '')
+    .replace(/[¿?¡!.,;:«»"“”()]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// En orden: «no me cuentes» antes que «cuéntame»; lo de cada quien antes que lo del grupo
+const REGLAS: [Intencion, RegExp][] = [
+  [
+    'no_me_cuentes',
+    /\b(?:no me (?:cuentes|anotes|cuenten|incluyas)|dejame (?:por )?fuera|sacame de las cuentas|dont count me|leave me out|stop (?:counting|logging) me)\b/,
+  ],
+  ['cuentame', /\b(?:cuentame|vuelve a (?:contarme|anotarme)|anotame|count me (?:again|in|back)|start counting me)\b/],
+  [
+    'privado',
+    /^(?:(?:mandame|mandamelo|enviame|enviamelo|escribeme|dimelo|respondeme)(?: lo)? (?:al|por|en) privado|(?:al|por|en) privado|privado|send (?:it )?(?:to )?me (?:in )?private(?:ly)?|(?:in )?private(?:ly)?|dm me)$/,
+  ],
+  [
+    'aqui',
+    /^(?:(?:dimelo|respondeme|mandamelo|escribeme)(?: lo)? (?:aqui|aca|por aqui|en el grupo)|aqui|aca|por aqui|en el grupo|tell me here|(?:answer|reply) (?:me )?here|here|in the group)$/,
+  ],
+  [
+    'mi_saldo',
+    /\b(?:cuanto (?:debo|le debo|me deben|me toca(?: pagar| poner)?|tengo que (?:pagar|poner)|pago yo)|mi saldo|como voy|how much do i owe|what do i owe|my balance|how much am i owed|how much do (?:they|people) owe me)\b/,
+  ],
+  [
+    'mis_gastos',
+    /\b(?:mis gastos|que (?:he )?pague|lo que (?:he )?pague|que he pagado|cuanto (?:he )?pagado|cuanto he puesto|my expenses|what (?:have )?i paid|what did i pay)\b/,
+  ],
+  [
+    'deudas',
+    /\b(?:quien (?:le )?debe(?: a quien)?|quien le paga a quien|quienes deben|como (?:quedamos|van las cuentas|estan las cuentas)|las cuentas|who owes(?: whom| who)?|who pays (?:whom|who)|balances?|settle up)\b/,
+  ],
+  [
+    'total',
+    /\b(?:cuanto (?:llevamos|vamos|va|lleva|van|hemos gastado|se ha gastado|gastamos|es el total)|como vamos|el total|total|how much (?:have we spent|did we spend|so far|in total)|spent so far)\b/,
+  ],
+];
+
+/** «cuánto llevamos», «quién le debe a quién», «cuánto debo»… → qué quieren (reglas fijas, en español e inglés) */
+export function intencionDe(texto: string | null | undefined): Intencion | null {
+  const t = plano(texto ?? '');
+  if (!t) return null;
+  return REGLAS.find(([, re]) => re.test(t))?.[0] ?? null;
+}
+
+/** «privado» o «aquí» a secas: la respuesta a «¿te lo mando por privado o aquí?» */
+export function canalDe(texto: string | null | undefined): 'privado' | 'aqui' | null {
+  const i = intencionDe(texto);
+  return i === 'privado' || i === 'aqui' ? i : null;
 }
 
 /** «Chat de WhatsApp con Paseo.zip», «WhatsApp Chat with Paseo.txt», «WhatsApp Chat - Paseo.zip» → «Paseo» */

@@ -30,6 +30,8 @@ CUENTAS = (
         "👋 Hola, soy Mister Luks: llevo las cuentas del grupo. Manden «taxi 45 lucas» y yo los anoto.",
         "👋 Hi, I’m Mister Luks: I keep track of this group’s expenses. Send “taxi $45”.",
         "Listo: este grupo quedó conectado a «Paseo». Manden «taxi al aeropuerto 45 lucas».",
+        "🧾 En «Paseo» llevan $1.234.000 en 12 gastos.\n📊 Más detalle en mrluks.com",
+        "💸 Mafe → Vale: $50.000\n📊 More detail at mrluks.com",
     ],
 )
 def test_reconoce_lo_que_hizo_luks(texto: str) -> None:

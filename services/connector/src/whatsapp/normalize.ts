@@ -127,7 +127,8 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
 
   let text: string | null = null;
   let media: IncomingMedia | null = null;
-  switch (getContentType(content)) {
+  const tipo = getContentType(content);
+  switch (tipo) {
     case 'conversation':
       text = content.conversation ?? null;
       break;
@@ -171,6 +172,10 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
   const limpio = text?.trim() || null;
   if (!limpio && !media) return null;
 
+  // A quién le habla: las menciones y, si responde un mensaje, quién lo escribió
+  const ctx = tipo === 'extendedTextMessage' || tipo === 'imageMessage' || tipo === 'documentMessage' ? content[tipo]?.contextInfo : null;
+  const mentions = (ctx?.mentionedJid ?? []).map((j) => usuario(j)).filter((u): u is string => Boolean(u));
+
   const ts = numero(raw.messageTimestamp);
   return {
     sessionId,
@@ -183,5 +188,7 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
     text: limpio,
     media,
     fromMe: Boolean(raw.key.fromMe),
+    mentions,
+    quotedFrom: ctx?.quotedMessage ? usuario(ctx.participant) : null,
   };
 }

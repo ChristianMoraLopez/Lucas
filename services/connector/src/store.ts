@@ -1,12 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { GroupMember, SessionKind } from './connector.js';
-import type { PendingReply } from './text.js';
+import type { GroupMember, Sender, SessionKind } from './connector.js';
+import type { Idioma, Moneda, PendingReply } from './text.js';
 
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
    Son RPC de 00000000000080_whatsapp_connector.sql y las que le siguieron
    (la 290: presencia, chats privados y la bandeja de salida; la 310: «luks soy
    yo» y el link de verificación; la 330: grupos detectados y el link /g/;
-   la 340: desde cuándo anotar y el chat exportado), solo service role. */
+   la 340: desde cuándo anotar y el chat exportado; la 350: las preguntas a
+   Mister Luks y «no me cuentes»), solo service role. */
 
 export interface SessionRow {
   id: string;
@@ -63,7 +64,7 @@ export interface PendingMembers {
 /** Un mensaje para la bandeja de salida de Mister Luks (whatsapp_outbox) */
 export interface OutboxItem {
   chat_jid: string;
-  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link' | 'verify' | 'soy_yo' | 'import';
+  reason: 'welcome' | 'group_hello' | 'guide' | 'invite' | 'link' | 'verify' | 'soy_yo' | 'import' | 'answer';
   body?: string | null;
   image_url?: string | null;
   document_url?: string | null;
@@ -103,9 +104,48 @@ export type LinkResult =
     }
   | { ok: false; error: 'codigo_invalido' | 'otra_cuenta' | 'no_es_grupo' };
 
+/** Lo de quien pregunta: sus saldos salen de «people»; esto es lo que pagó en el período */
+export interface QuestionMe {
+  id: string;
+  name: string;
+  paid_total: number;
+  paid_count: number;
+  /** Los últimos 5 que pagó */
+  expenses: { merchant: string; total: number; date: string }[];
+}
+
+/**
+ * connector_question (migración 350): lo que hace falta para responder una
+ * pregunta. Los números salen de aquí (del período que muestra la app: el mes
+ * en un hogar, todo en un evento), nunca de Qwen.
+ */
+export type QuestionData = {
+  identity_id: string;
+  /** Cómo quiere recibir lo suyo; null si nunca lo dijo */
+  pref: 'privado' | 'aqui' | null;
+  /** Si Mister Luks está en el grupo (si no, lo lee solo un WhatsApp vinculado) */
+  contador_en_grupo: boolean;
+} & (
+  | { ok: false; reason: 'sin_cuenta' }
+  | {
+      ok: true;
+      account: { name: string; type: 'hogar' | 'evento'; status: string; currency: Moneda; language: Idioma | null; month: string | null };
+      optout: boolean;
+      total: number;
+      count: number;
+      pending: number;
+      /** Sin quién pagó o mal divididos: no entran en los saldos */
+      incomplete: number;
+      people: { id: string; name: string; paid: number; share: number; balance: number }[];
+      /** Si el período ya se liquidó, sus transferencias */
+      settlement: { from: string; to: string; from_id: string; to_id: string; amount: number; paid: boolean }[] | null;
+      me: QuestionMe | null;
+    }
+);
+
 export interface IngestCheck {
   ingest: boolean;
-  reason?: 'grupo_sin_enlazar' | 'cuenta_cerrada' | 'antes_del_enlace' | 'repetido' | 'vacio' | 'archivo_fuera_de_la_cuenta';
+  reason?: 'grupo_sin_enlazar' | 'cuenta_cerrada' | 'antes_del_enlace' | 'repetido' | 'vacio' | 'archivo_fuera_de_la_cuenta' | 'no_me_cuentes';
   account_id?: string;
   group_id?: string;
   message_id?: string;
@@ -186,7 +226,23 @@ export interface Store {
   /** Al mandar un mensaje de verificación: crea el código del link /v/ (solo se guarda su hash) */
   verifyMint(outboxId: string): Promise<string>;
   linkGroup(sessionId: string, jid: string, name: string | null, code: string, senderWaId: string | null): Promise<LinkResult>;
-  shouldIngest(jid: string, waMessageId: string, sentAt: Date): Promise<IngestCheck>;
+  /** ¿Se guarda? Con quién lo mandó, para respetar «no me cuentes» antes de bajar nada */
+  shouldIngest(jid: string, waMessageId: string, sentAt: Date, senderWaId?: string | null): Promise<IngestCheck>;
+  /** Una pregunta a Mister Luks: los números de la cuenta del grupo y lo de quien pregunta (null si no es un grupo) */
+  question(jid: string, sender: Sender): Promise<QuestionData | null>;
+  /** «privado» o «aquí»; con onlyPending, solo si había una pregunta suya esperando en ese grupo */
+  answerPref(
+    jid: string,
+    sender: Sender,
+    mode: 'privado' | 'aqui',
+    onlyPending: boolean,
+  ): Promise<{ changed: boolean; mode?: 'privado' | 'aqui'; pending_intent?: 'mi_saldo' | 'mis_gastos' | null }>;
+  /** Preguntó algo suyo sin decir cómo lo quiere: queda esperando «privado» o «aquí» */
+  askAnswerPref(jid: string, identityId: string, intent: 'mi_saldo' | 'mis_gastos'): Promise<void>;
+  /** «no me cuentes» (on) o «cuéntame» en la cuenta del grupo */
+  optout(jid: string, sender: Sender, on: boolean): Promise<{ changed: boolean; reason?: 'sin_cuenta'; account_name?: string; language?: Idioma | null }>;
+  /** Un grupo que lee solo un WhatsApp vinculado: Mister Luks abre el chat privado de quien preguntó (false si no hay Mister Luks) */
+  openPrivateAnswer(privateJid: string): Promise<boolean>;
   ingest(input: IngestInput): Promise<IngestCheck>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
@@ -392,8 +448,55 @@ export class SupabaseStore implements Store {
     return this.#rpc<LinkResult>('connector_link_group', { p_connection_id: sessionId, p_jid: jid, p_name: name, p_code: code, p_sender_wa_id: senderWaId });
   }
 
-  shouldIngest(jid: string, waMessageId: string, sentAt: Date) {
-    return this.#rpc<IngestCheck>('connector_should_ingest', { p_jid: jid, p_wa_message_id: waMessageId, p_sent_at: sentAt.toISOString() });
+  shouldIngest(jid: string, waMessageId: string, sentAt: Date, senderWaId: string | null = null) {
+    return this.#rpc<IngestCheck>('connector_should_ingest_sender', {
+      p_jid: jid,
+      p_wa_message_id: waMessageId,
+      p_sent_at: sentAt.toISOString(),
+      p_sender_wa_id: senderWaId,
+    });
+  }
+
+  async question(jid: string, sender: Sender) {
+    const r = await this.#rpc<QuestionData | { ok: false; reason: 'sin_grupo' }>('connector_question', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+    });
+    return 'identity_id' in r ? r : null;
+  }
+
+  answerPref(jid: string, sender: Sender, mode: 'privado' | 'aqui', onlyPending: boolean) {
+    return this.#rpc<{ changed: boolean; mode?: 'privado' | 'aqui'; pending_intent?: 'mi_saldo' | 'mis_gastos' | null }>('connector_answer_pref', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+      p_mode: mode,
+      p_only_pending: onlyPending,
+    });
+  }
+
+  async askAnswerPref(jid: string, identityId: string, intent: 'mi_saldo' | 'mis_gastos') {
+    await this.#rpc('connector_ask_answer_pref', { p_jid: jid, p_identity_id: identityId, p_intent: intent });
+  }
+
+  optout(jid: string, sender: Sender, on: boolean) {
+    return this.#rpc<{ changed: boolean; reason?: 'sin_cuenta'; account_name?: string; language?: Idioma | null }>('connector_optout', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+      p_on: on,
+    });
+  }
+
+  openPrivateAnswer(privateJid: string) {
+    return this.#rpc<boolean>('connector_open_private_answer', { p_jid: privateJid });
   }
 
   ingest(m: IngestInput) {

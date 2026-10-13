@@ -41,6 +41,8 @@ export interface Config {
     joinsPerHour: number;
     joinsPerHourPerSender: number;
   };
+  /** Qwen en Ollama (el del worker), solo para clasificar las preguntas que las reglas no entienden; null: sin Qwen */
+  ollama: { baseUrl: string; model: string; timeoutMs: number } | null;
   /** La cola está atascada si lo más viejo lleva más que esto (segundos) */
   queueStaleAfterS: number;
 }
@@ -111,5 +113,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       joinsPerHourPerSender: int(env, 'JOINS_MAX_PER_HOUR_SENDER', 2),
     },
     queueStaleAfterS: int(env, 'QUEUE_STALE_AFTER_S', 900),
+    ollama: env.OLLAMA_BASE_URL?.trim()
+      ? {
+          baseUrl: env.OLLAMA_BASE_URL.trim().replace(/\/+$/, ''),
+          model: env.OLLAMA_MODEL?.trim() || 'qwen2.5:7b',
+          timeoutMs: int(env, 'OLLAMA_TIMEOUT_S', 20) * 1000,
+        }
+      : null,
   };
 }
