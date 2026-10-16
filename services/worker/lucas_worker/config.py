@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     batch_size: int = 1  # Ollama en CPU atiende uno a la vez: más no acelera
     stale_after_minutes: int = 15
 
+    # Tasas de cambio para recibos en otra moneda (currency-api, sin llave)
+    fx_enabled: bool = True
+    fx_timeout_s: float = 10.0
+
     # Ollama
     llm_enabled: bool = True
     ollama_base_url: str = "http://ollama:11434"

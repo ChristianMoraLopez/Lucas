@@ -165,6 +165,18 @@ class Extractor:
             steps=steps,
         )
 
+    # -- otra moneda ---------------------------------------------------------
+
+    def releer(self, ex: Extraction, today: date) -> Extraction:
+        """Las pistas otra vez, en la moneda que se acaba de fijar (la del recibo). Sin OCR: el texto ya está."""
+        if ex.kind == "text":
+            ex.hints = analyze_message(ex.text, today)
+        else:
+            ex.hints = analyze_document(ex.text, today)
+            ex.caption_hints = analyze_message(ex.caption, today)
+        ex.steps.append("moneda")
+        return ex
+
     # -- mensajes ------------------------------------------------------------
 
     def text(self, body: str | None, today: date) -> Extraction:

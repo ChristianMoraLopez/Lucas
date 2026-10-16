@@ -9,15 +9,29 @@ export type Moneda = 'COP' | 'CLP' | 'BOB' | 'USD';
 export const MONEDAS: Moneda[] = ['COP', 'CLP', 'BOB', 'USD'];
 export const esMoneda = (v: unknown): v is Moneda => typeof v === 'string' && (MONEDAS as string[]).includes(v);
 
+/**
+ * La de un recibo de viaje (una boleta de Chile en una cuenta en pesos
+ * colombianos): las de las cuentas y unas más. El gasto queda en la moneda de
+ * la cuenta; del recibo se guarda la moneda, el monto y la tasa (migración 360).
+ */
+export type MonedaRecibo = Moneda | 'EUR' | 'PEN' | 'MXN' | 'ARS' | 'BRL';
+export const MONEDAS_RECIBO: MonedaRecibo[] = ['COP', 'CLP', 'BOB', 'USD', 'EUR', 'PEN', 'MXN', 'ARS', 'BRL'];
+export const esMonedaRecibo = (v: unknown): v is MonedaRecibo => typeof v === 'string' && (MONEDAS_RECIBO as string[]).includes(v);
+
 /** Cuántos decimales usa (y cuántos guarda la base) */
-export const DECIMALES: Record<Moneda, 0 | 2> = { COP: 0, CLP: 0, BOB: 2, USD: 2 };
-const SIMBOLO: Record<Moneda, string> = { COP: '$', CLP: '$', BOB: 'Bs ', USD: '$' };
+export const DECIMALES: Record<MonedaRecibo, 0 | 2> = { COP: 0, CLP: 0, BOB: 2, USD: 2, EUR: 2, PEN: 2, MXN: 2, ARS: 2, BRL: 2 };
+const SIMBOLO: Record<MonedaRecibo, string> = { COP: '$', CLP: '$', BOB: 'Bs ', USD: '$', EUR: '€', PEN: 'S/ ', MXN: '$', ARS: '$', BRL: 'R$ ' };
 /** Para elegirla (el texto pasa por t) */
-export const NOMBRE_MONEDA: Record<Moneda, string> = {
+export const NOMBRE_MONEDA: Record<MonedaRecibo, string> = {
   COP: 'Pesos colombianos',
   CLP: 'Pesos chilenos',
   BOB: 'Bolivianos',
   USD: 'Dólares',
+  EUR: 'Euros',
+  PEN: 'Soles peruanos',
+  MXN: 'Pesos mexicanos',
+  ARS: 'Pesos argentinos',
+  BRL: 'Reales brasileños',
 };
 
 function miles(n: number, idioma: Idioma) {
@@ -28,7 +42,7 @@ function miles(n: number, idioma: Idioma) {
  * 84300 → «$84.300» (en inglés «$84,300»); en dólares 1250 (centavos) → «$12,50»
  * («$12.50» en inglés); en bolivianos «Bs 12,50».
  */
-export function dinero(n: number, moneda: Moneda = 'COP', idioma: Idioma = 'es', { sign = false }: { sign?: boolean } = {}) {
+export function dinero(n: number, moneda: MonedaRecibo = 'COP', idioma: Idioma = 'es', { sign = false }: { sign?: boolean } = {}) {
   const v = Math.round(Number(n) || 0);
   const d = DECIMALES[moneda];
   const abs = Math.abs(v);
@@ -65,7 +79,28 @@ export function deCampo(texto: string) {
 }
 
 /** Cuánto es en la unidad grande (para mostrar en gráficas o redondear) */
-export const unidades = (n: number, moneda: Moneda) => n / 10 ** DECIMALES[moneda];
+export const unidades = (n: number, moneda: MonedaRecibo) => n / 10 ** DECIMALES[moneda];
+
+/** Con el código, para que no se confunda con la de la cuenta: «$3.790 CLP», «€12,50 EUR» */
+export const conCodigo = (n: number, moneda: MonedaRecibo, idioma: Idioma = 'es') => `${dinero(n, moneda, idioma)} ${moneda}`;
+
+/**
+ * Un monto del recibo (unidad chica de `de`) a la unidad chica de `a`, con la
+ * tasa (cuánto vale una unidad de `de` en `a`). Redondea la mitad hacia arriba,
+ * como el worker (lucas_worker/cambio.py).
+ */
+export function convertir(monto: number, de: MonedaRecibo, a: MonedaRecibo, tasa: number) {
+  const exacto = (monto / 10 ** DECIMALES[de]) * tasa * 10 ** DECIMALES[a];
+  return Math.floor(exacto + 0.5 + 1e-9);
+}
+
+/** El mismo número escrito en otra moneda (sin convertir): 25.990 COP → 25.990 CLP; $12 → US$12,00 */
+export function reexpresar(monto: number, de: MonedaRecibo, a: MonedaRecibo) {
+  return Math.round(monto * 10 ** (DECIMALES[a] - DECIMALES[de]));
+}
+
+/** La tasa que queda si el total en la moneda de la cuenta se escribió a mano (lo que cobró el banco) */
+export const tasaDe = (original: number, de: MonedaRecibo, total: number, a: MonedaRecibo) => unidades(total, a) / unidades(original, de);
 
 /** Para etiquetas cortas (las barras de los meses): «1,25M», «340K», «$85» */
 export function abreviado(n: number, moneda: Moneda = 'COP', idioma: Idioma = 'es') {

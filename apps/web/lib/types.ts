@@ -327,6 +327,16 @@ export interface ReviewExpense {
   } | null;
   /** 'items' = dividido por consumo (quién pidió qué); se respeta al revisar */
   split_method?: 'equal' | 'percent' | 'exact' | 'items';
+  /**
+   * Un recibo en otra moneda (migración 360): cuál, cuánto decía (en su unidad
+   * chica) y a qué tasa se pasó a la moneda de la cuenta. total_cop ya está en
+   * la moneda de la cuenta.
+   */
+  original_currency?: string | null;
+  original_total?: number | null;
+  fx_rate?: number | string | null;
+  fx_date?: string | null;
+  fx_source?: string | null;
   expense_splits: { person_id: string; amount_cop: number; fixed?: boolean }[];
   /** Los ítems que leyó Luks de la factura (para invitar a dividir por consumo) */
   expense_items?: { id: string }[];

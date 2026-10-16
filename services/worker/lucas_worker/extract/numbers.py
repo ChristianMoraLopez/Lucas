@@ -18,11 +18,18 @@ from dataclasses import dataclass
 # ---------------------------------------------------------------------------
 
 _CENTAVOS: ContextVar[bool] = ContextVar("centavos", default=False)
-MONEDAS_CON_CENTAVOS = frozenset({"USD", "BOB"})
+# Las de las cuentas (COP, CLP, BOB, USD) y las de recibos de viaje, que se convierten
+MONEDAS = ("COP", "CLP", "BOB", "USD", "EUR", "PEN", "MXN", "ARS", "BRL")
+MONEDAS_CON_CENTAVOS = frozenset(MONEDAS) - {"COP", "CLP"}
+
+
+def decimales(currency: str) -> int:
+    """Cuántos decimales guarda la base para esta moneda: 0 en pesos colombianos y chilenos, 2 en las demás."""
+    return 2 if currency.upper() in MONEDAS_CON_CENTAVOS else 0
 
 
 def fijar_moneda(currency: str | None) -> None:
-    """Desde aquí, los montos se leen en la moneda de esta cuenta."""
+    """Desde aquí, los montos se leen en esta moneda (la de la cuenta o la del recibo)."""
     _CENTAVOS.set((currency or "COP").upper() in MONEDAS_CON_CENTAVOS)
 
 

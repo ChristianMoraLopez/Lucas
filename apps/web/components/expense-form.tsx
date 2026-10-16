@@ -1,15 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
 import { nombreCategoria } from '@/components/lucas-core';
 import { Button, Chip, Field } from '@/components/lucas-ui';
 import { useDinero } from '@/components/moneda';
-import { formatDateCO } from '@/lib/dates';
+import { formatDateCO, formatDay } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
+import { convertir, DECIMALES, deCampo, dinero, esMonedaRecibo, MONEDAS_RECIBO, type MonedaRecibo, NOMBRE_MONEDA, reexpresar, tasaDe } from '@/lib/moneda';
 import { notifyAccountChanged } from '@/lib/realtime';
 import { type AccountCategory, type AccountPerson, asTone, type FieldKey, plural, type ReviewExpense } from '@/lib/types';
 import { NuevaCategoria } from './new-category';
@@ -17,6 +18,17 @@ import { NuevaCategoria } from './new-category';
 const NUEVA = '__nueva';
 
 import { createClient } from '@/utils/supabase/client';
+
+/** La tasa de cambio de un recibo de viaje: cuánto vale una unidad de `de` en la moneda de la cuenta */
+interface Tasa {
+  de: MonedaRecibo;
+  rate: number;
+  date: string;
+  source: string;
+}
+
+/** 4.1712 → «4,171»; 3912.4 → «3.912»; 0.000256 → «0,000256» */
+const verTasa = (n: number, idioma: string) => new Intl.NumberFormat(idioma === 'en' ? 'en-US' : 'es-CO', { maximumSignificantDigits: 4 }).format(n);
 
 /** Lo que se muestra en la tarjeta de «Quedó registrado» */
 export interface SavedExpense {
@@ -61,7 +73,7 @@ export function ExpenseForm({
   onCategoriesChanged?: () => void;
 }) {
   const t = useT();
-  const cop = useDinero().fmt;
+  const { fmt: cop, moneda: cuenta } = useDinero();
   const [supabase] = useState(() => createClient());
   // Las que se crean aquí mismo se suman mientras la lista se vuelve a pedir
   const [nuevas, setNuevas] = useState<AccountCategory[]>([]);
@@ -75,6 +87,25 @@ export function ExpenseForm({
   const [merchant, setMerchant] = useState(expense.merchant);
   const [date, setDate] = useState(expense.expense_date);
   const [total, setTotal] = useState(expense.total_cop);
+
+  // Un recibo de viaje: en qué moneda está, cuánto dice y a qué tasa queda en la moneda de la cuenta
+  const monedaGuardada: MonedaRecibo = esMonedaRecibo(expense.original_currency) ? expense.original_currency : cuenta;
+  const tasaGuardada: Tasa | null =
+    monedaGuardada !== cuenta && expense.fx_rate
+      ? { de: monedaGuardada, rate: Number(expense.fx_rate), date: expense.fx_date ?? expense.expense_date, source: expense.fx_source ?? 'currency-api' }
+      : null;
+  const [moneda, setMoneda] = useState<MonedaRecibo>(monedaGuardada);
+  const [original, setOriginal] = useState(expense.original_total ?? 0);
+  const [tasa, setTasa] = useState<Tasa | null>(tasaGuardada);
+  const [buscandoTasa, setBuscandoTasa] = useState(false);
+  const [sinTasa, setSinTasa] = useState(false);
+  // El total en la moneda de la cuenta escrito a mano (lo que de verdad cobró el banco): la tasa ya no lo cambia
+  const [totalAMano, setTotalAMano] = useState(
+    () =>
+      tasaGuardada != null && !!expense.original_total && convertir(expense.original_total, monedaGuardada, cuenta, tasaGuardada.rate) !== expense.total_cop,
+  );
+  const extranjera = moneda !== cuenta;
+  const tasaVigente = tasa && tasa.de === moneda ? tasa : null;
   const [categoryId, setCategoryId] = useState(expense.category_id ?? '');
   const [payerId, setPayerId] = useState(expense.payer_person_id ?? '');
   const [split, setSplit] = useState<string[]>(() => {
@@ -102,6 +133,50 @@ export function ExpenseForm({
   // Si lo que se ve es lo que ya guardó alguien, se le atribuye; si lo está cambiando uno, «Tu corrección»
   const savedBy = (field: FieldKey, saved: unknown, now: unknown) => (changed[field] && saved === now ? corrector : undefined);
 
+  // La tasa del día del recibo, cuando cambia la moneda o la fecha (la que ya trae el gasto se respeta)
+  const pedida = useRef(tasaGuardada ? `${monedaGuardada}|${expense.expense_date}` : '');
+  useEffect(() => {
+    if (!extranjera) return;
+    const clave = `${moneda}|${date}`;
+    if (clave === pedida.current) return;
+    pedida.current = clave;
+    let vigente = true;
+    setBuscandoTasa(true);
+    setSinTasa(false);
+    fetch(`/api/tasa?de=${moneda}&a=${cuenta}&dia=${date}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((x: { rate: number; date: string; source: string }) => {
+        if (vigente) setTasa({ de: moneda, rate: x.rate, date: x.date, source: x.source });
+      })
+      .catch(() => {
+        if (vigente) setSinTasa(true);
+      })
+      .finally(() => {
+        if (vigente) setBuscandoTasa(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [moneda, date, extranjera, cuenta]);
+
+  // Con la tasa, el total en la moneda de la cuenta sale solo (salvo que lo hayan escrito a mano)
+  useEffect(() => {
+    if (extranjera && tasaVigente && !totalAMano && original > 0) setTotal(convertir(original, moneda, cuenta, tasaVigente.rate));
+  }, [extranjera, tasaVigente, totalAMano, original, moneda, cuenta]);
+
+  const cambiarMoneda = (nueva: MonedaRecibo) => {
+    if (nueva === moneda) return;
+    if (nueva === cuenta) {
+      // Era de la cuenta: lo que dice el recibo es el total
+      if (original > 0) setTotal(reexpresar(original, moneda, cuenta));
+    } else {
+      // El número que leyó Luks es el del recibo, en la otra moneda
+      setOriginal(extranjera ? reexpresar(original, moneda, nueva) : reexpresar(total, cuenta, nueva));
+    }
+    setTotalAMano(false);
+    setMoneda(nueva);
+  };
+
   const each = split.length ? Math.floor(total / split.length) : 0;
   const dividirHref = `/c/${accountId}/gastos/${expense.id}/dividir${mode === 'review' ? '?volver=revisar' : ''}`;
   const toggle = (id: string) =>
@@ -114,8 +189,30 @@ export function ExpenseForm({
     if (!canEdit || busy) return;
     if (!porConsumo && !split.length) return setError(t('Elige al menos una persona para dividir el gasto'));
     if (!payerId) return setError(t('Elige quién pagó'));
+    if (extranjera && original <= 0) return setError(t('Escribe cuánto dice el recibo'));
+    if (extranjera && total <= 0) return setError(t('Escribe el total en {moneda}', { moneda: cuenta }));
     setBusy(true);
     setError(null);
+    // La moneda del recibo primero: cambia el total, los ítems y las partes juntos
+    const rate = extranjera ? (tasaVigente?.rate ?? tasaDe(original, moneda, total, cuenta)) : null;
+    const cambioMoneda =
+      moneda !== monedaGuardada ||
+      (extranjera && (original !== (expense.original_total ?? 0) || total !== expense.total_cop || rate !== (tasaGuardada?.rate ?? null)));
+    if (cambioMoneda) {
+      const { error: errMoneda } = await supabase.rpc('set_expense_currency', {
+        p_expense_id: expense.id,
+        p_currency: extranjera ? moneda : null,
+        p_original_total: extranjera ? original : null,
+        p_rate: rate,
+        p_rate_date: extranjera ? (tasaVigente?.date ?? date) : null,
+        p_total_cop: total,
+        p_rate_source: extranjera ? (tasaVigente?.source ?? 'manual') : null,
+      });
+      if (errMoneda) {
+        setBusy(false);
+        return setError(humanError(errMoneda));
+      }
+    }
     const { error } = await supabase.rpc('review_expense', {
       p_expense_id: expense.id,
       p_merchant: merchant,
@@ -187,18 +284,67 @@ export function ExpenseForm({
             <input id="rv-fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </Field>
           <Field
-            label={t('Total')}
+            label={extranjera ? t('Total en {moneda}', { moneda: cuenta }) : t('Total')}
             id="rv-total"
             num
             inputMode="numeric"
             value={cop(total)}
-            onChange={(v) => setTotal(Number(v.replace(/\D/g, '')) || 0)}
+            onChange={(v) => {
+              setTotal(deCampo(v));
+              if (extranjera) setTotalAMano(true);
+            }}
             confidence={conf.total}
             original={ai.total_cop != null ? cop(ai.total_cop) : undefined}
             corrected={changed.total}
             correctedBy={savedBy('total', expense.total_cop, total)}
           />
         </div>
+        <div className="rv-2">
+          <Field label={t('Moneda del recibo')} id="rv-moneda">
+            <select id="rv-moneda" value={moneda} onChange={(e) => cambiarMoneda(e.target.value as MonedaRecibo)}>
+              {[cuenta, ...MONEDAS_RECIBO.filter((m) => m !== cuenta)].map((m) => (
+                <option key={m} value={m}>
+                  {t(NOMBRE_MONEDA[m])} ({m}){m === cuenta ? ` · ${t('la de la cuenta')}` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {extranjera && (
+            <Field
+              label={t('Lo que dice el recibo')}
+              id="rv-original"
+              num
+              inputMode={DECIMALES[moneda] ? 'decimal' : 'numeric'}
+              value={`${dinero(original, moneda, t.idioma)} ${moneda}`}
+              onChange={(v) => setOriginal(deCampo(v))}
+            />
+          )}
+        </div>
+        {extranjera && (
+          <p className="rv-tasa lu-small" aria-live="polite">
+            {buscandoTasa
+              ? t('Buscando la tasa de cambio…')
+              : tasaVigente
+                ? t('1 {de} = {valor} {a} · tasa del {dia}', {
+                    de: moneda,
+                    valor: verTasa(tasaVigente.rate, t.idioma),
+                    a: cuenta,
+                    dia: formatDay(tasaVigente.date, undefined, t.idioma),
+                  })
+                : sinTasa
+                  ? t('No pudimos traer la tasa de cambio: escribe el total en {moneda} (lo que te cobró el banco).', { moneda: cuenta })
+                  : null}
+            {totalAMano && tasaVigente && !buscandoTasa && (
+              <>
+                {' · '}
+                {t('el total es el que escribiste')}{' '}
+                <button type="button" className="st-undo" onClick={() => setTotalAMano(false)}>
+                  {t('Usar la tasa')}
+                </button>
+              </>
+            )}
+          </p>
+        )}
         <div className="rv-2">
           <Field
             label={t('Categoría')}
@@ -321,7 +467,7 @@ export function ExpenseForm({
 
       {canEdit ? (
         <div className="rv-actions">
-          <Button type="submit" disabled={busy} kbd="Enter">
+          <Button type="submit" disabled={busy || (extranjera && buscandoTasa)} kbd="Enter">
             {busy ? t('Guardando…') : pending ? t('Confirmar gasto') : t('Guardar cambios')}
           </Button>
           <Button variant="ghost" onClick={() => setDeleting(true)} disabled={busy}>

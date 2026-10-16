@@ -3,7 +3,9 @@
 contexto (cuenta, personas, categorías, memoria)
 → evidencia de Storage → huella de la foto → ¿duplicada?
 → extracción en cascada → ¿CUFE repetido?
+→ ¿otra moneda? (un recibo de viaje: se lee en la suya)
 → Ollama (JSON validado) → validación y confianza por campo
+→ a la moneda de la cuenta, con la tasa del día del recibo
 → pagador y división según el mensaje
 → categoría: memoria → Laya → palabras clave
 → worker_save_expense (vuelve a revisar duplicados con candado por cuenta)
@@ -17,6 +19,7 @@ from datetime import UTC, date, datetime, timedelta, timezone
 from typing import Any
 
 from . import __version__
+from .cambio import Cambio, CambioNoDisponible, convertir
 from .classify.categories import fallback_description
 from .classify.classifier import Category, CategoryClassifier
 from .classify.memory import MemoryEntry, match_memory
@@ -24,6 +27,7 @@ from .classify.question import ClassifyInput
 from .config import Settings
 from .errors import LlmUnavailable, PermanentError
 from .extract.cascade import Extraction, Extractor
+from .extract.moneda import detectar_moneda
 from .extract.numbers import fijar_moneda
 from .llm.ollama import LlmError, ReceiptLlm
 from .llm.schema import ReceiptExtraction
@@ -31,7 +35,7 @@ from .luks import es_imagen_de_luks, es_mensaje_de_luks
 from .observability import stage
 from .payer import Person, resolve_payer, resolve_split
 from .supabase import Database
-from .validate import AccountWindow, reconcile
+from .validate import AccountWindow, Draft, reconcile
 
 log = logging.getLogger(__name__)
 
@@ -85,12 +89,14 @@ class MessageProcessor:
         classifier: CategoryClassifier,
         settings: Settings,
         llm: ReceiptLlm | None = None,
+        cambio: Cambio | None = None,
     ):
         self.db = db
         self.extractor = extractor
         self.classifier = classifier
         self.settings = settings
         self.llm = llm
+        self.cambio = cambio
 
     # -- duplicados ------------------------------------------------------------
 
@@ -113,7 +119,9 @@ class MessageProcessor:
 
     # -- LLM -------------------------------------------------------------------
 
-    def _llm(self, ex: Extraction, today: date, people: list[Person], job: Job) -> ReceiptExtraction | None:
+    def _llm(
+        self, ex: Extraction, today: date, people: list[Person], job: Job, currency: str
+    ) -> ReceiptExtraction | None:
         if self.llm is None:
             return None
         try:
@@ -127,6 +135,7 @@ class MessageProcessor:
                     total_candidates=ex.hints.total_candidates,
                     message_amount=ex.hints.amount if ex.kind == "text" else ex.caption_hints.amount,
                     people=[p.display_name for p in people],
+                    currency=currency,
                 )
         except LlmUnavailable:
             if not job.last_attempt:
@@ -138,6 +147,49 @@ class MessageProcessor:
         except LlmError as e:
             log.warning("El LLM no dio un JSON válido; se sigue con reglas: %s", e, extra={"job_id": job.id})
             return None
+
+    # -- otra moneda -------------------------------------------------------------
+
+    def _convertir(self, draft: Draft, moneda: str, cuenta: str, today: date, job: Job) -> dict[str, Any]:
+        """
+        Los montos del recibo (en `moneda`) a la moneda de la cuenta, con la tasa
+        del día del recibo: total, subtotal, impuestos, propina e ítems (así se
+        divide por consumo en la moneda de la cuenta). Devuelve lo que se guarda
+        del recibo original.
+        """
+        original = draft.total_cop or None
+        info: dict[str, Any] = {"original_currency": moneda, "original_total": original}
+        tasa = None
+        if self.cambio is not None:
+            try:
+                with stage("cambio"):
+                    tasa = self.cambio.tasa(moneda, cuenta, draft.expense_date, today)
+            except CambioNoDisponible:
+                if not job.last_attempt:
+                    raise  # se reintenta más tarde, con backoff
+                log.warning("Sin tasa de %s a %s en el último intento: queda por revisar", moneda, cuenta)
+        if tasa is None:
+            # Sin tasa no hay total: queda por revisar con el monto del recibo (la app lo convierte)
+            draft.total_cop = 0
+            draft.subtotal_cop = draft.tax_cop = draft.tip_cop = None
+            for i in draft.items:
+                i.unit_price_cop = i.total_cop = None
+            draft.confidence["total"] = 0.0
+            draft.notes.append(f"Sin tasa de {moneda} a {cuenta}: revisa el total")
+            return info
+
+        def a_la_cuenta(v: int | None) -> int | None:
+            return convertir(v, moneda, cuenta, tasa.valor) if v else v
+
+        draft.total_cop = a_la_cuenta(draft.total_cop) or 0
+        draft.subtotal_cop = a_la_cuenta(draft.subtotal_cop)
+        draft.tax_cop = a_la_cuenta(draft.tax_cop)
+        draft.tip_cop = a_la_cuenta(draft.tip_cop)
+        for i in draft.items:
+            i.unit_price_cop = a_la_cuenta(i.unit_price_cop)
+            i.total_cop = a_la_cuenta(i.total_cop)
+        info.update(fx_rate=format(tasa.valor, "f"), fx_date=tasa.dia.isoformat(), fx_source=tasa.fuente)
+        return info
 
     # -- el trabajo ------------------------------------------------------------
 
@@ -207,19 +259,39 @@ class MessageProcessor:
             self._marcar(job.message_id, "duplicate", dup, ex.stored_text)
             return f"duplicado (CUFE) de {dup}"
 
-        # 2. LLM y validación
-        llm = self._llm(ex, today, people, job)
-        draft = reconcile(ex, llm, today=today, received=received, account=window, explicit=msg.get("source") == "web")
+        # 2. ¿Otra moneda? Un recibo de Chile en una cuenta en pesos colombianos se
+        # lee en pesos chilenos (las pistas otra vez, sin OCR) y se convierte al final
+        cuenta = (acc.get("currency") or "COP").upper()
+        deteccion = detectar_moneda(
+            documento=ex.text if kind != "text" else None,
+            mensaje=ex.text if kind == "text" else caption,
+            cuenta=cuenta,
+            qr_dian=ex.qr is not None,
+        )
+        moneda = deteccion.moneda if deteccion else cuenta
+        if moneda != cuenta:
+            fijar_moneda(moneda)
+            self.extractor.releer(ex, today)
+
+        # 3. LLM y validación
+        try:
+            llm = self._llm(ex, today, people, job, moneda)
+            draft = reconcile(
+                ex, llm, today=today, received=received, account=window, explicit=msg.get("source") == "web"
+            )
+        finally:
+            fijar_moneda(cuenta)
         if draft.not_expense:
             self._marcar(job.message_id, "not_expense", text=ex.stored_text)
             return "no es un gasto"
+        conversion = self._convertir(draft, moneda, cuenta, today, job) if moneda != cuenta else {}
 
-        # 3. Pagador y división
+        # 4. Pagador y división
         texto_persona = ex.text if kind == "text" else caption
         payer = resolve_payer(texto_persona, people, ctx.get("sender_person_id"), llm.payer_name if llm else None)
         split = resolve_split(texto_persona, people)
 
-        # 4. Categoría
+        # 5. Categoría
         with stage("clasificacion"):
             decision = self.classifier.classify(
                 ClassifyInput(
@@ -277,6 +349,11 @@ class MessageProcessor:
             if ex.qr
             else None,
             "llm_model": getattr(self.llm, "model", None) if llm else None,
+            # Un recibo en otra moneda: cuál, por qué se supo, cuánto decía y a qué tasa
+            "currency": moneda if conversion else None,
+            "currency_reason": deteccion.razon if deteccion else None,
+            "original_total": conversion.get("original_total"),
+            "fx_rate": conversion.get("fx_rate"),
             "notes": draft.notes or None,
             "worker": __version__,
         }
@@ -298,6 +375,7 @@ class MessageProcessor:
             "image_hash": ex.image_hash,
             "memory_id": decision.memory_id,
             "extracted_text": ex.stored_text,
+            **conversion,
         }
         with stage("guardar"):
             res = self.db.rpc(

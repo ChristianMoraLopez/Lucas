@@ -20,6 +20,7 @@ log = logging.getLogger("lucas_worker")
 
 
 def _componentes(settings):
+    from .cambio import Cambio
     from .classify.classifier import CategoryClassifier
     from .classify.laya import load_laya
     from .extract.cascade import Extractor
@@ -45,9 +46,10 @@ def _componentes(settings):
         else None
     )
     classifier = CategoryClassifier(load_laya(settings))
+    cambio = Cambio(timeout=settings.fx_timeout_s) if settings.fx_enabled else None
     processor = PorTipo(
         {
-            "process_message": MessageProcessor(db, extractor, classifier, settings, llm),
+            "process_message": MessageProcessor(db, extractor, classifier, settings, llm, cambio),
             "import_chat": ChatImporter(db, settings),
         }
     )

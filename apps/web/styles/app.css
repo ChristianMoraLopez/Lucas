@@ -1123,6 +1123,11 @@ iframe {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
+/* Un recibo de viaje: a qué tasa quedó en la moneda de la cuenta */
+.rv-tasa {
+  margin: -4px 0 0;
+  color: var(--tinta-2);
+}
 .rv-note {
   justify-self: start;
   font-size: 13px;

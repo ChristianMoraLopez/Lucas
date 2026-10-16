@@ -5,7 +5,7 @@ import { nombreCategoria, type Tone } from '@/components/lucas-core';
 import { Amount, Avatar, CategoryTag, LottieSlot } from '@/components/lucas-ui';
 import { formatRecent, monthName, todayInBogota } from '@/lib/dates';
 import { getT } from '@/lib/i18n/server';
-import { dinero, esMoneda } from '@/lib/moneda';
+import { conCodigo, dinero, esMoneda, esMonedaRecibo } from '@/lib/moneda';
 import { normalizarBusqueda, uuidOrNull } from '@/lib/search';
 import { asTone, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
@@ -24,6 +24,9 @@ interface Row {
   people: { display_name: string; tone: string; claimed_by: string | null } | null;
   messages: { kind: 'photo' | 'pdf' | 'text' } | null;
   expense_splits: { person_id: string }[];
+  /** Un recibo de viaje (migración 360): lo que decía, en su moneda */
+  original_currency: string | null;
+  original_total: number | null;
 }
 
 export default async function GastosPage({ params, searchParams }: PageProps<'/c/[accountId]/gastos'>) {
@@ -54,7 +57,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   let query = supabase
     .from('expenses')
     .select(
-      'id, merchant, expense_date, created_at, total_cop, status, corrected_by, category_id, categories(name, letter, tone), people!expenses_payer_person_id_fkey(display_name, tone, claimed_by), messages(kind), expense_splits(person_id)',
+      'id, merchant, expense_date, created_at, total_cop, status, corrected_by, category_id, categories(name, letter, tone), people!expenses_payer_person_id_fkey(display_name, tone, claimed_by), messages(kind), expense_splits(person_id), original_currency, original_total',
     )
     .eq('account_id', accountId)
     .order('expense_date', { ascending: false })
@@ -247,6 +250,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
                       )}
                       {r.expense_splits.length ? ` · ÷ ${r.expense_splits.length}` : ''}
                       {r.messages?.kind === 'pdf' ? ' · PDF' : ''}
+                      {r.original_total && esMonedaRecibo(r.original_currency) ? ` · ${conCodigo(r.original_total, r.original_currency, t.idioma)}` : ''}
                       {r.corrected_by && <span className="gs-fix">{t('corregido')}</span>}
                       {r.status === 'pending_review' && (
                         <Link href={`/c/${accountId}/revisar?gasto=${r.id}`} className="ap-pend">

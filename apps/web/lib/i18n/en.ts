@@ -1765,5 +1765,27 @@ export const EN: Record<string, string> = {
   'Lee desde que conectas el grupo. Lo anterior, con el chat exportado: lo subes aquí.':
     'He reads from when you connect the group. Anything earlier comes with the exported chat: upload it here.',
 
+  // ---------- Recibos en otra moneda ----------
+  'Escribe cuánto dice el recibo': 'Enter the amount on the receipt',
+  'Escribe el total en {moneda}': 'Enter the total in {moneda}',
+  'Total en {moneda}': 'Total in {moneda}',
+  'Moneda del recibo': 'Receipt currency',
+  'la de la cuenta': 'the account’s',
+  'Lo que dice el recibo': 'Amount on the receipt',
+  'Buscando la tasa de cambio…': 'Looking up the exchange rate…',
+  '1 {de} = {valor} {a} · tasa del {dia}': '1 {de} = {valor} {a} · rate from {dia}',
+  'No pudimos traer la tasa de cambio: escribe el total en {moneda} (lo que te cobró el banco).':
+    'We couldn’t get the exchange rate: enter the total in {moneda} (what your bank charged you).',
+  'el total es el que escribiste': 'the total is the one you entered',
+  'Usar la tasa': 'Use the rate',
+  Euros: 'Euros',
+  'Soles peruanos': 'Peruvian soles',
+  'Pesos mexicanos': 'Mexican pesos',
+  'Pesos argentinos': 'Argentine pesos',
+  'Reales brasileños': 'Brazilian reais',
+  'Solo quienes administran la cuenta corrigen gastos': 'Only account admins can correct expenses',
+  'Falta la tasa de cambio': 'The exchange rate is missing',
+  'Revisa la fecha de la tasa de cambio': 'Check the exchange rate date',
+
   // ⟨más⟩
 };

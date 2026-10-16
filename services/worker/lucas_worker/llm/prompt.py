@@ -9,7 +9,7 @@ from ..extract.qr_dian import DianQr
 
 # Cuentas en dólares o bolivianos: los montos van en centavos (los campos se siguen llamando *_cop)
 _CENTAVOS = (
-    "IMPORTANT: this account is not in Colombian pesos. Ignore the peso rules above. Every amount field "
+    "IMPORTANT: these amounts are not Colombian pesos. Ignore the peso rules above. Every amount field "
     "(total_cop, unit_price_cop, subtotal_cop, tax_cop, tip_cop…) is in CENTS as an integer: '$12.50' = 1250, "
     "'1,234.56' = 123456, '45' = 4500. Dates may be month/day/year when the receipt is from the United States."
 )
@@ -42,6 +42,31 @@ Rules:
 - Never invent values. Unknown fields are null. Output JSON only."""
 
 
+# Un recibo en otra moneda que la de la cuenta (un viaje): se lee tal cual, sin convertir
+_NOMBRE_MONEDA = {
+    "COP": "Colombian pesos",
+    "CLP": "Chilean pesos",
+    "BOB": "Bolivian bolivianos",
+    "USD": "US dollars",
+    "EUR": "euros",
+    "PEN": "Peruvian soles",
+    "MXN": "Mexican pesos",
+    "ARS": "Argentine pesos",
+    "BRL": "Brazilian reais",
+}
+
+
+def _nota_moneda(currency: str) -> str:
+    nombre = _NOMBRE_MONEDA.get(currency, currency)
+    nota = (
+        f"IMPORTANT: this document is in {nombre} ({currency}). Read every amount in {currency} exactly as "
+        "printed and never convert it to another currency (the app converts it later)."
+    )
+    if not con_centavos():
+        nota += f" Like Colombian pesos, {currency} has no decimals: '.' separates thousands ('$15.990' = 15990)."
+    return nota
+
+
 def _recorte(texto: str, limite: int) -> str:
     texto = texto.strip()
     if len(texto) <= limite:
@@ -61,9 +86,12 @@ def build_user_prompt(
     total_candidates: list[int] | None = None,
     message_amount: int | None = None,
     people: list[str] | None = None,
+    currency: str | None = None,
     max_chars: int = 6000,
 ) -> str:
     partes = [f"today: {today.isoformat()}", f"source: {kind}"]
+    if currency and currency != "COP":
+        partes.append(_nota_moneda(currency))
     if con_centavos():
         partes.append(_CENTAVOS)
     if people:
