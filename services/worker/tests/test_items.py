@@ -98,6 +98,29 @@ QUITAGRASA SPRAY C/GATILLO TAN
 TOTAL COP 42000.00
 MASTERCARD C0P 42000.00"""
 
+BOLETA_CHILE = """SOC RISTORANTE LE DUE TORRI LIMITADA
+81.300.500-K
+BOLETAELECTRONICA: 254764
+FECHA DE EMISION: 16-10-2026 HORA: 22:27:39
+GARZON Alexis Vasquez
+PEDIDO:30114
+DESCRIPCION CANT PRECIO VAL.OR
+Coca Cola Zero 3 2.990 8970
+LimonMentJeng 2 4.690 9.380
+Limonada Tradicional 1 4.690 4.690
+SPA Napolitana 1 11.950 11.950
+SPA Carbonara Panna 1 17.950 17.950
+RAV Napolitana 1 17.800 17.800
+RAV Alfredo 1 17.950 17.950
+Filete Grill 1 19.850 19.850
+Paslas Sin Mariscos 1 9.950 9.950
+12 Spaguetti
+12 SPA Carbonara
+Puyehue sin gas 1 3.690 3.690
+TOTAL $ 122.180
+SA-CREDITO S 122.180
+El IVA de esta boleta es $ 19.508"""
+
 NU_EXTRANJERO = """nU
 Comprobante de
 transacción
@@ -172,6 +195,23 @@ def test_codigo_de_barras_en_medio_y_cantidad_con_arroba():
 
 def test_lo_que_va_despues_del_monto_es_el_codigo_del_iva():
     assert _tabla(HOMECENTER, 56_900) == [("Trapero Microfibra A", 1, 56_900, 56_900)]
+
+
+def test_boleta_chilena_con_la_cantidad_en_la_misma_linea():
+    # «Coca Cola Zero 3 2.990 8970»: son tres, aunque el total venga sin puntos
+    assert _tabla(BOLETA_CHILE, 122_180) == [
+        ("Coca Cola Zero", 3, 2_990, 8_970),
+        ("LimonMentJeng", 2, 4_690, 9_380),
+        ("Limonada Tradicional", 1, 4_690, 4_690),
+        ("SPA Napolitana", 1, 11_950, 11_950),
+        ("SPA Carbonara Panna", 1, 17_950, 17_950),
+        ("RAV Napolitana", 1, 17_800, 17_800),
+        ("RAV Alfredo", 1, 17_950, 17_950),
+        ("Filete Grill", 1, 19_850, 19_850),
+        ("Paslas Sin Mariscos", 1, 9_950, 9_950),
+        ("Puyehue sin gas", 1, 3_690, 3_690),
+    ]
+    assert sum(t for *_, t in _tabla(BOLETA_CHILE, 122_180)) == 122_180
 
 
 def test_un_comprobante_de_banco_no_tiene_items():

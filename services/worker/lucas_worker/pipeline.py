@@ -181,6 +181,7 @@ class MessageProcessor:
         def a_la_cuenta(v: int | None) -> int | None:
             return convertir(v, moneda, cuenta, tasa.valor) if v else v
 
+        cuadraban = bool(draft.items) and sum(i.total_cop or 0 for i in draft.items) == draft.total_cop
         draft.total_cop = a_la_cuenta(draft.total_cop) or 0
         draft.subtotal_cop = a_la_cuenta(draft.subtotal_cop)
         draft.tax_cop = a_la_cuenta(draft.tax_cop)
@@ -188,6 +189,10 @@ class MessageProcessor:
         for i in draft.items:
             i.unit_price_cop = a_la_cuenta(i.unit_price_cop)
             i.total_cop = a_la_cuenta(i.total_cop)
+        # Si los ítems daban justo el total, lo siguen dando (lo que se pierde al redondear va al más caro)
+        if cuadraban and (diferencia := draft.total_cop - sum(i.total_cop or 0 for i in draft.items)):
+            mayor = max(draft.items, key=lambda i: i.total_cop or 0)
+            mayor.total_cop = (mayor.total_cop or 0) + diferencia
         info.update(fx_rate=format(tasa.valor, "f"), fx_date=tasa.dia.isoformat(), fx_source=tasa.fuente)
         return info
 

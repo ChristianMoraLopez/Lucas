@@ -10,7 +10,7 @@ import { useT } from '@/components/idioma';
 import { Avatar, Button, Chip, LottieSlot } from '@/components/lucas-ui';
 import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
-import { dividirPorConsumo, separable, separarUnidades } from '@/lib/consumo';
+import { dividirPorConsumo, leerPorcentaje, propinaDe, separable, separarUnidades, unidadesDe } from '@/lib/consumo';
 import { formatWhen } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { notifyAccountChanged } from '@/lib/realtime';
@@ -28,8 +28,18 @@ interface Gasto {
   created_at: string;
   source: 'whatsapp' | 'web' | 'import';
   messages: { kind: MessageKind; text_body: string | null; file_name: string | null; received_at: string; sender_person_id: string | null } | null;
+  tip_percent: number | null;
+  tip_cop: number;
   expense_splits: { person_id: string; amount_cop: number; fixed: boolean }[];
-  expense_items: { id: string; name: string; quantity: number | null; total_cop: number; created_at: string; expense_item_people: { person_id: string }[] }[];
+  expense_items: {
+    id: string;
+    name: string;
+    quantity: number | null;
+    total_cop: number;
+    extra: boolean;
+    created_at: string;
+    expense_item_people: { person_id: string; units: number }[];
+  }[];
 }
 
 /** Un ítem mientras se edita (key estable para React; id si ya estaba guardado) */
@@ -40,11 +50,23 @@ interface Item {
   quantity: number;
   total: number;
   people: string[];
+  /** Cuántas consumió cada uno (si el ítem trae varias) */
+  units: Record<string, number>;
+  /** No estaba en la factura: suma al total */
+  extra: boolean;
 }
+
+/** Propina aparte: los porcentajes de siempre u otro */
+const PROPINAS = ['0', '5', '10', '15', 'otro'] as const;
+type Propina = (typeof PROPINAS)[number];
 
 let siguiente = 0;
 const nuevaKey = () => `nuevo-${++siguiente}`;
 const pesos = (v: string) => Number(v.replace(/\D/g, '')) || 0;
+const sinUnidades = (units: Record<string, number>, id: string) => {
+  const { [id]: _, ...resto } = units;
+  return resto;
+};
 
 /**
  * Dividir un gasto por consumo: con la factura a la vista, quién estaba, quién
@@ -62,7 +84,7 @@ export function DividirScreen({ accountId, expenseId, myRole, atras }: { account
         supabase
           .from('expenses')
           .select(
-            'id, merchant, total_cop, payer_person_id, status, split_method, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id), expense_splits(person_id, amount_cop, fixed), expense_items(id, name, quantity, total_cop, created_at, expense_item_people(person_id))',
+            'id, merchant, total_cop, tip_percent, tip_cop, payer_person_id, status, split_method, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id), expense_splits(person_id, amount_cop, fixed), expense_items(id, name, quantity, total_cop, extra, created_at, expense_item_people(person_id, units))',
           )
           .eq('id', expenseId)
           .eq('account_id', accountId)
@@ -125,7 +147,8 @@ function Editor({
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const queryClient = useQueryClient();
-  const total = gasto.total_cop;
+  // Lo de la factura: el total sin la propina ni los extras que ya se le habían sumado
+  const factura = gasto.total_cop - (gasto.tip_cop ?? 0) - gasto.expense_items.filter((i) => i.extra).reduce((s, i) => s + i.total_cop, 0);
 
   // Quiénes estaban: los de la división que tiene (y los de sus ítems); si no tiene, todos
   const [personas, setPersonas] = useState<string[]>(() => {
@@ -143,7 +166,17 @@ function Editor({
       quantity: Number(i.quantity) || 1,
       total: i.total_cop,
       people: i.expense_item_people.map((x) => x.person_id),
+      units: Object.fromEntries(i.expense_item_people.filter((x) => Number(x.units) !== 1).map((x) => [x.person_id, Number(x.units)])),
+      extra: Boolean(i.extra),
     })),
+  );
+  // La propina que se dejó aparte (no venía en la factura)
+  const pctGuardado = gasto.tip_percent != null ? Number(gasto.tip_percent) : null;
+  const [propina, setPropina] = useState<Propina>(() =>
+    !pctGuardado ? '0' : (PROPINAS as readonly string[]).includes(String(pctGuardado)) ? (String(pctGuardado) as Propina) : 'otro',
+  );
+  const [otraPropina, setOtraPropina] = useState(() =>
+    pctGuardado && propina === 'otro' ? String(pctGuardado).replace('.', t.idioma === 'en' ? '.' : ',') : '',
   );
   // Lo que alguien fijó a mano (solo si ya estaba dividido por consumo)
   const [fijos, setFijos] = useState<Record<string, number>>(() =>
@@ -162,10 +195,14 @@ function Editor({
   const orden = people.map((p) => p.id).filter((id) => personas.includes(id));
   const persona = (id: string) => people.find((p) => p.id === id);
   const nombre = (id: string) => persona(id)?.display_name ?? t('Alguien');
+  const extras = items.filter((i) => i.extra).reduce((s, i) => s + i.total, 0);
+  const porcentaje = propina === 'otro' ? leerPorcentaje(otraPropina) : Number(propina);
+  const tip = propinaDe(factura + extras, porcentaje);
+  const total = factura + extras + tip;
   const d = dividirPorConsumo({
     total,
     personas: orden,
-    items: items.map((i) => ({ total: i.total, people: i.people })),
+    items: items.map((i) => ({ total: i.total, people: i.people, units: i.units })),
     fijos: Object.fromEntries(Object.entries(fijos).filter(([p]) => orden.includes(p))),
   });
   const quien = elegida && orden.includes(elegida) ? elegida : (orden[0] ?? null);
@@ -173,16 +210,23 @@ function Editor({
   const conPersona = (id: string, esta: boolean) => {
     setPersonas((ps) => (esta ? [...ps.filter((p) => p !== id), id] : ps.filter((p) => p !== id)));
     if (!esta) {
-      setItems((its) => its.map((i) => ({ ...i, people: i.people.filter((p) => p !== id) })));
+      setItems((its) => its.map((i) => ({ ...i, people: i.people.filter((p) => p !== id), units: sinUnidades(i.units, id) })));
       setFijos(({ [id]: _, ...resto }) => resto);
     }
   };
   const cambiarItem = (key: string, cambio: Partial<Item>) => setItems((its) => its.map((i) => (i.key === key ? { ...i, ...cambio } : i)));
   const quienPidio = (it: Item, id: string | null) => {
-    if (id === null) return cambiarItem(it.key, { people: [] }); // entre todos
+    if (id === null) return cambiarItem(it.key, { people: [], units: {} }); // entre todos
     const tiene = it.people.includes(id);
-    cambiarItem(it.key, { people: tiene ? it.people.filter((p) => p !== id) : [...it.people, id] });
+    cambiarItem(it.key, tiene ? { people: it.people.filter((p) => p !== id), units: sinUnidades(it.units, id) } : { people: [...it.people, id] });
   };
+  // «Coca-Cola × 3»: la cantidad cambia el total (el precio de cada una se queda)
+  const cambiarCantidad = (it: Item, cantidad: number) => {
+    const n = Math.min(99, Math.max(1, cantidad));
+    cambiarItem(it.key, { quantity: n, total: it.total > 0 ? Math.round((it.total / it.quantity) * n) : it.total });
+  };
+  const cambiarUnidades = (it: Item, id: string, n: number) =>
+    cambiarItem(it.key, { units: n <= 1 ? sinUnidades(it.units, id) : { ...it.units, [id]: Math.min(99, n) } });
   // «Hamburguesa × 3» → tres renglones de una; si ya había tres personas marcadas, una para cada una
   const separar = (it: Item) => {
     const partes = separarUnidades(it.total, it.quantity);
@@ -198,6 +242,8 @@ function Editor({
               quantity: 1,
               total,
               people: marcadas.length === partes.length ? [marcadas[k]] : [],
+              units: {},
+              extra: x.extra,
             })),
       ),
     );
@@ -227,13 +273,26 @@ function Editor({
     if (!payer) return setError(t('Elige quién pagó la cuenta'));
     setBusy(true);
     setError(null);
-    const { error } = await supabase.rpc('split_by_items', {
+    const { error } = await supabase.rpc('split_by_consumption', {
       p_expense_id: gasto.id,
       p_payer_person_id: payer,
       p_items: items
         .filter((i) => i.name.trim())
-        .map((i) => ({ id: i.id, name: i.name.trim(), quantity: i.quantity, total_cop: i.total, people: i.people.filter((p) => orden.includes(p)) })),
+        .map((i) => {
+          const people = i.people.filter((p) => orden.includes(p));
+          return {
+            id: i.id,
+            name: i.name.trim(),
+            quantity: i.quantity,
+            total_cop: i.total,
+            people,
+            units: Object.fromEntries(people.filter((p) => unidadesDe(i, p) !== 1).map((p) => [p, unidadesDe(i, p)])),
+            extra: i.extra,
+          };
+        }),
       p_shares: orden.map((p) => ({ person_id: p, amount_cop: d.partes[p], fixed: fijos[p] != null })),
+      p_tip_percent: tip > 0 ? porcentaje : null,
+      p_tip_cop: tip,
     });
     if (error) {
       setBusy(false);
@@ -252,7 +311,9 @@ function Editor({
   };
 
   const remitente = persona(gasto.messages?.sender_person_id ?? gasto.payer_person_id ?? '');
-  const sumaItems = d.items;
+  // Los ítems de la factura contra lo que dice la factura (los extras van aparte)
+  const sumaItems = d.items - extras;
+  const faltan = factura - sumaItems;
   const sumaPartes = orden.reduce((s, p) => s + (d.partes[p] ?? 0), 0);
   const avatar = (id: string, size: 'xs' | 'sm' = 'xs') => <Avatar name={nombre(id)} tone={asTone(persona(id)?.tone, nombre(id))} size={size} />;
 
@@ -265,8 +326,26 @@ function Editor({
           {gasto.merchant}
         </h1>
         <p className="lu-small lu-muted" style={{ margin: 0 }}>
-          {t('Total de la factura')} <b className="lu-num">{cop(total)}</b>.{' '}
-          {t('Marquen quién pidió qué: la propina se reparte según lo que consumió cada uno y quien quiera poner más, pone más.')}
+          {t('Total de la factura')} <b className="lu-num">{cop(factura)}</b>
+          {extras > 0 && (
+            <>
+              {' '}
+              + {t('extras')} <b className="lu-num">{cop(extras)}</b>
+            </>
+          )}
+          {tip > 0 && (
+            <>
+              {' '}
+              + {t('propina')} <b className="lu-num">{cop(tip)}</b>
+            </>
+          )}
+          {(extras > 0 || tip > 0) && (
+            <>
+              {' '}
+              = <b className="lu-num">{cop(total)}</b>
+            </>
+          )}
+          . {t('Marquen quién pidió qué: la propina se reparte según lo que consumió cada uno y quien quiera poner más, pone más.')}
         </p>
       </header>
 
@@ -386,7 +465,7 @@ function Editor({
                         const marcado = it.people.includes(quien);
                         const otros = it.people.filter((p) => p !== quien && orden.includes(p));
                         return (
-                          <li key={it.key} style={{ '--i': i } as React.CSSProperties}>
+                          <li key={it.key} className="dv-pick__li" style={{ '--i': i } as React.CSSProperties}>
                             <button type="button" className="dv-pick" aria-pressed={marcado} onClick={() => quienPidio(it, quien)}>
                               <span className="dv-pick__check" aria-hidden="true">
                                 {marcado ? '✓' : ''}
@@ -404,6 +483,15 @@ function Editor({
                                 )}
                               </span>
                             </button>
+                            {marcado && it.quantity > 1 && (
+                              <Contador
+                                label={t('¿Cuántas de {item} fueron de {nombre}?', { item: it.name || t('Ítem {n}', { n: i + 1 }), nombre: nombre(quien) })}
+                                prefijo={t('¿Cuántas?')}
+                                value={unidadesDe(it, quien)}
+                                max={99}
+                                onChange={(n) => cambiarUnidades(it, quien, n)}
+                              />
+                            )}
                           </li>
                         );
                       })}
@@ -449,14 +537,24 @@ function Editor({
                             ×
                           </button>
                         </div>
-                        {separable(it.quantity) && (
-                          <div className="dv-item__cant">
-                            <span className="lu-small lu-muted">{t('{n} unidades · {monto} c/u', { n: it.quantity, monto: cop(it.total / it.quantity) })}</span>
+                        <div className="dv-item__cant">
+                          <Contador
+                            label={t('Cantidad de {nombre}', { nombre: it.name || t('Ítem {n}', { n: i + 1 }) })}
+                            prefijo={t('Cantidad')}
+                            value={it.quantity}
+                            max={99}
+                            onChange={(n) => cambiarCantidad(it, n)}
+                          />
+                          {it.quantity > 1 && it.total > 0 && (
+                            <span className="lu-small lu-muted">{t('{monto} c/u', { monto: cop(it.total / it.quantity) })}</span>
+                          )}
+                          {it.extra && <span className="dv-extra">{t('Extra: suma al total')}</span>}
+                          {separable(it.quantity) && (
                             <button type="button" className="st-undo" onClick={() => separar(it)}>
                               {t('Separar en {n}: una por persona', { n: it.quantity })}
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                         <div className="dv-item__who">
                           <button type="button" className="dv-todos" aria-pressed={it.people.length === 0} onClick={() => quienPidio(it, null)}>
                             {t('Todos')}
@@ -475,46 +573,112 @@ function Editor({
                             </button>
                           ))}
                         </div>
+                        {it.quantity > 1 && it.people.filter((p) => orden.includes(p)).length > 1 && (
+                          <Unidades
+                            item={it}
+                            personas={it.people.filter((p) => orden.includes(p))}
+                            nombre={nombre}
+                            avatar={avatar}
+                            onChange={(id, n) => cambiarUnidades(it, id, n)}
+                          />
+                        )}
                         {it.total > 0 && orden.length > 0 && (
                           <span className="dv-item__each lu-small lu-muted">
                             {it.people.length === 0
                               ? t('Entre todos · {monto} c/u', { monto: cop(it.total / n) })
                               : n === 1
                                 ? t('Solo {nombre}', { nombre: nombre(it.people.find((p) => orden.includes(p)) ?? '') })
-                                : t('{monto} c/u', { monto: cop(it.total / n) })}
+                                : Object.keys(it.units).some((p) => orden.includes(p))
+                                  ? t('Según cuántas pidió cada uno')
+                                  : t('{monto} c/u', { monto: cop(it.total / n) })}
                           </span>
                         )}
                       </li>
                     );
                   })}
                 </ul>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setItems((its) => [...its, { key: nuevaKey(), id: null, name: '', quantity: 1, total: 0, people: [] }])}
-                >
-                  {t('+ Agregar ítem')}
-                </Button>
+                <div className="dv-add-items">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      setItems((its) => [...its, { key: nuevaKey(), id: null, name: '', quantity: 1, total: 0, people: [], units: {}, extra: false }])
+                    }
+                  >
+                    {t('+ Agregar ítem')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setItems((its) => [...its, { key: nuevaKey(), id: null, name: '', quantity: 1, total: 0, people: [], units: {}, extra: true }])
+                    }
+                  >
+                    {t('+ Extra que no está en la factura')}
+                  </Button>
+                </div>
               </>
             )}
             {items.length > 0 && (
-              <p className={`dv-cuadre${d.extra < 0 ? ' is-mal' : ''}`} role="status">
-                {d.extra === 0
+              <p className={`dv-cuadre${faltan < 0 ? ' is-mal' : ''}`} role="status">
+                {faltan === 0
                   ? t('Los ítems suman {monto}: justo el total.', { monto: cop(sumaItems) })
-                  : d.extra > 0
+                  : faltan > 0
                     ? t('Los ítems suman {monto}. Los {extra} que faltan (propina, servicio…) se reparten según lo que consumió cada uno.', {
                         monto: cop(sumaItems),
-                        extra: cop(d.extra),
+                        extra: cop(faltan),
                       })
-                    : t('Los ítems suman {monto} más que el total. Revisen los precios; si fue un descuento, se reparte igual.', { monto: cop(-d.extra) })}
+                    : t('Los ítems suman {monto} más que la factura. Revisen los precios y las cantidades; si fue un descuento, se reparte igual.', {
+                        monto: cop(-faltan),
+                      })}
               </p>
             )}
           </section>
 
-          {/* 3. Cuánto pone cada uno */}
+          {/* 3. La propina que se dejó aparte */}
           <section className="dv-step" aria-labelledby="dv-3">
             <h2 id="dv-3" className="dv-step__t">
-              <span className="dv-n">3</span> {t('¿Cuánto pone cada uno?')}
+              <span className="dv-n">3</span> {t('¿Dejaron propina aparte?')}
+            </h2>
+            <p className="lu-small lu-muted" style={{ margin: 0 }}>
+              {t('Si la propina no venía en la cuenta (en Chile se deja aparte), súmenla: se reparte según lo que consumió cada uno.')}
+            </p>
+            <div className="dv-propina" role="radiogroup" aria-label={t('Propina aparte')}>
+              {PROPINAS.map((p) => (
+                <button key={p} type="button" role="radio" aria-checked={propina === p} className="dv-todos" onClick={() => setPropina(p)}>
+                  {p === '0' ? t('No') : p === 'otro' ? t('Otro %') : `${p} %`}
+                </button>
+              ))}
+              {propina === 'otro' && (
+                <span className="dv-propina__otro">
+                  <input
+                    className="dv-input dv-propina__input lu-num"
+                    inputMode="decimal"
+                    aria-label={t('Porcentaje de propina')}
+                    value={otraPropina}
+                    onChange={(e) => setOtraPropina(e.target.value)}
+                    placeholder="7,5"
+                    autoComplete="off"
+                  />
+                  %
+                </span>
+              )}
+            </div>
+            {tip > 0 && (
+              <p className="dv-cuadre" role="status">
+                {t('Propina de {pct} %: {monto}. El total queda en {total}.', {
+                  pct: String(porcentaje).replace('.', t.idioma === 'en' ? '.' : ','),
+                  monto: cop(tip),
+                  total: cop(total),
+                })}
+              </p>
+            )}
+          </section>
+
+          {/* 4. Cuánto pone cada uno */}
+          <section className="dv-step" aria-labelledby="dv-4">
+            <h2 id="dv-4" className="dv-step__t">
+              <span className="dv-n">4</span> {t('¿Cuánto pone cada uno?')}
             </h2>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               {t('Si alguien quiere poner más (o menos), cambien su monto: el resto se reparte entre los demás.')}
@@ -535,7 +699,7 @@ function Editor({
                             : dif > 0
                               ? t('pone {monto} más de lo que consumió', { monto: cop(Math.abs(dif)) })
                               : t('pone {monto} menos de lo que consumió', { monto: cop(Math.abs(dif)) })
-                          : sumaItems > 0
+                          : d.items > 0
                             ? t('consumió {monto}', { monto: cop(d.consumo[id] ?? 0) })
                             : t('partes iguales')}
                       </span>
@@ -585,6 +749,86 @@ function Editor({
           )}
         </fieldset>
       </div>
+    </div>
+  );
+}
+
+/** − n + : la cantidad de un ítem o cuántas consumió alguien */
+function Contador({ label, prefijo, value, max, onChange }: { label: string; prefijo: string; value: number; max: number; onChange: (n: number) => void }) {
+  const t = useT();
+  const entero = Number.isInteger(value);
+  return (
+    <span className="dv-cont" role="group" aria-label={label}>
+      {prefijo && <span className="dv-cont__p lu-small lu-muted">{prefijo}</span>}
+      <button
+        type="button"
+        className="dv-cont__b"
+        aria-label={t('Una menos')}
+        disabled={value <= 1}
+        onClick={() => onChange(entero ? value - 1 : Math.floor(value))}
+      >
+        −
+      </button>
+      <output className="dv-cont__n lu-num" aria-live="polite">
+        {value}
+      </output>
+      <button
+        type="button"
+        className="dv-cont__b"
+        aria-label={t('Una más')}
+        disabled={value >= max}
+        onClick={() => onChange(entero ? value + 1 : Math.ceil(value))}
+      >
+        +
+      </button>
+    </span>
+  );
+}
+
+/** «¿Cuántas cada uno?»: de 3 Coca-Colas, Ana 2 y Juan 1 */
+function Unidades({
+  item,
+  personas,
+  nombre,
+  avatar,
+  onChange,
+}: {
+  item: Item;
+  personas: string[];
+  nombre: (id: string) => string;
+  avatar: (id: string) => React.ReactNode;
+  onChange: (id: string, n: number) => void;
+}) {
+  const t = useT();
+  const marcadas = personas.reduce((s, p) => s + unidadesDe(item, p), 0);
+  const falta = item.quantity - marcadas;
+  return (
+    <div className="dv-unid">
+      <span className="lu-small">
+        {t('¿Cuántas cada uno?')}{' '}
+        <span className={`lu-muted${falta < 0 ? ' dv-unid__mal' : ''}`}>
+          {falta === 0
+            ? t('las {n} repartidas', { n: item.quantity })
+            : falta > 0
+              ? t('van {m} de {n}', { m: marcadas, n: item.quantity })
+              : t('marcaron {m} y son {n}', { m: marcadas, n: item.quantity })}
+        </span>
+      </span>
+      <ul className="dv-unid__l">
+        {personas.map((p) => (
+          <li key={p} className="dv-unid__p">
+            {avatar(p)}
+            <span className="dv-unid__n">{nombre(p)}</span>
+            <Contador
+              label={t('¿Cuántas de {item} fueron de {nombre}?', { item: item.name || t('el ítem'), nombre: nombre(p) })}
+              prefijo=""
+              value={unidadesDe(item, p)}
+              max={99}
+              onChange={(n) => onChange(p, n)}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

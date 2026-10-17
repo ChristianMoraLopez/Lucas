@@ -19,7 +19,9 @@ import { createClient } from '@/utils/supabase/client';
 type Detalle = Omit<ReviewExpense, 'expense_items'> & {
   corrected_at: string | null;
   cufe: string | null;
-  expense_items: { id: string; name: string; quantity: number | null; total_cop: number }[];
+  expense_items: { id: string; name: string; quantity: number | null; total_cop: number; extra: boolean }[];
+  tip_percent: number | null;
+  tip_cop: number;
   messages: (NonNullable<ReviewExpense['messages']> & { uploaded_by: string | null }) | null;
 };
 
@@ -42,7 +44,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
         supabase
           .from('expenses')
           .select(
-            'id, merchant, expense_date, total_cop, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, corrected_at, cufe, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id, uploaded_by), split_method, original_currency, original_total, fx_rate, fx_date, fx_source, expense_splits(person_id, amount_cop, fixed), expense_items(id, name, quantity, total_cop)',
+            'id, merchant, expense_date, total_cop, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, corrected_at, cufe, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id, uploaded_by), split_method, original_currency, original_total, fx_rate, fx_date, fx_source, tip_percent, tip_cop, expense_splits(person_id, amount_cop, fixed), expense_items(id, name, quantity, total_cop, extra)',
           )
           .eq('id', expenseId)
           .eq('account_id', accountId)
@@ -151,7 +153,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
               </div>
             )}
           </dl>
-          {expense.expense_items.length > 0 && (
+          {(expense.expense_items.length > 0 || expense.tip_cop > 0) && (
             <section aria-label={t('Ítems del recibo')}>
               <h2 className="lu-label" style={{ margin: '0 0 6px' }}>
                 {t('Ítems')}
@@ -162,10 +164,21 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
                     <span>
                       {it.quantity && Number(it.quantity) !== 1 ? `${Number(it.quantity)} × ` : ''}
                       {it.name}
+                      {it.extra && <span className="lu-muted"> · {t('extra')}</span>}
                     </span>
                     <span className="lu-num">{$.fmt(it.total_cop)}</span>
                   </li>
                 ))}
+                {expense.tip_cop > 0 && (
+                  <li>
+                    <span>
+                      {expense.tip_percent != null
+                        ? t('Propina aparte ({pct} %)', { pct: String(Number(expense.tip_percent)).replace('.', t.idioma === 'en' ? '.' : ',') })
+                        : t('Propina aparte')}
+                    </span>
+                    <span className="lu-num">{$.fmt(expense.tip_cop)}</span>
+                  </li>
+                )}
               </ul>
             </section>
           )}

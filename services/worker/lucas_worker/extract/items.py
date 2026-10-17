@@ -15,6 +15,9 @@ Los recibos colombianos imprimen los ítems de muchas formas:
     2.000/ PAN SUPER HAMBURGUESA        (cantidad con tres decimales)
     X6UND $17,400.0
 
+    Coca Cola Zero 3 2.990 8970         (boletas chilenas: nombre, cantidad,
+                                         unitario y total, a veces sin puntos)
+
 Se recorre de arriba hacia abajo hasta la primera línea de TOTAL: cada línea
 con plata cierra un ítem con el nombre que venía en las líneas anteriores (o
 en la misma). Solo cuentan como plata los números con forma de plata
@@ -42,6 +45,9 @@ _PLATA_CENTAVOS = re.compile(
 )
 # «2 x», «2 ×», «1 X», «1@» al empezar la línea de valores
 _POR = re.compile(r"^\s*(\d{1,3})\s*[x×X*@]\s*")
+# Nombre, cantidad, unitario y total en la misma línea: «Coca Cola Zero 3 2.990 8970»
+# (el total puede venir sin puntos; vale si cantidad × unitario da el total)
+_FILA = re.compile(r"\s(\d{1,3})\s+(\$?\s?\d[\d.,]*\d)\s+(\$?\s?\d[\d.,]*\d)\s*$")
 # Cantidad con tres decimales al empezar el nombre: «2.000/ PAN…», «1.000 SALSA…»
 _CANTIDAD_DECIMAL = re.compile(r"^\s*(\d{1,3})[.,]000\b")
 # Donde terminan los ítems
@@ -94,6 +100,21 @@ def _montos(linea: str) -> list[tuple[int, int, int]]:
     return out
 
 
+def _fila(linea: str) -> ItemLeido | None:
+    """«Coca Cola Zero 3 2.990 8970»: el ítem completo si la cuenta da."""
+    m = _FILA.search(linea)
+    if not m:
+        return None
+    cantidad, unitario, total = int(m.group(1)), _plata(m.group(2)), _plata(m.group(3))
+    nombre = _letras(linea[: m.start()])
+    if not cantidad or not unitario or not total or total < 50 or not re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}", nombre):
+        return None
+    # Con centavos el unitario puede venir redondeado
+    if abs(cantidad * unitario - total) > cantidad:
+        return None
+    return ItemLeido(_bonito(nombre), float(cantidad), unitario, total)
+
+
 def _es_titulo(linea: str) -> bool:
     palabras = re.findall(r"[a-z]+", strip_accents(linea).lower())
     return len(palabras) >= 2 and sum(p in _TITULOS for p in palabras) >= 2 and not _montos(linea)
@@ -129,6 +150,13 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
         if _FIN.search(strip_accents(linea)):
             if items:
                 break
+            nombre = []
+            continue
+        # «Coca Cola Zero 3 2.990 8970»: todo en la línea. Lo de arriba sin
+        # plata eran notas de cocina («12 Spaguetti»), no parte del nombre
+        fila = _fila(linea)
+        if fila:
+            items.append(fila)
             nombre = []
             continue
         # «1.000/ ACEITE…»: ese 1.000 es la cantidad, no plata

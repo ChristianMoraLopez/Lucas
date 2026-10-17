@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dividirPorConsumo, repartir, separable, separarUnidades } from './consumo';
+import { dividirPorConsumo, leerPorcentaje, propinaDe, repartir, separable, separarUnidades, unidadesDe } from './consumo';
 
 const suma = (o: Record<string, number>) => Object.values(o).reduce((s, v) => s + v, 0);
 
@@ -114,6 +114,54 @@ describe('dividir por consumo', () => {
   it('repartir: el residuo a las fracciones más grandes', () => {
     expect(repartir(10, ['a', 'b', 'c'], { a: 1, b: 1, c: 1 })).toEqual({ a: 4, b: 3, c: 3 });
     expect(repartir(10, ['a', 'b'], { a: 0, b: 0 })).toEqual({ a: 5, b: 5 });
+  });
+});
+
+describe('unidades y propina aparte', () => {
+  it('3 Coca-Colas: Ana se tomó dos y Juan una', () => {
+    const d = dividirPorConsumo({
+      total: 9_000,
+      personas: ['ana', 'juan', 'pipe'],
+      items: [{ total: 9_000, people: ['ana', 'juan'], units: { ana: 2, juan: 1 } }],
+    });
+    expect(d.partes).toEqual({ ana: 6_000, juan: 3_000, pipe: 0 });
+  });
+
+  it('quien no marcó unidades cuenta una; entre todos no importan', () => {
+    expect(unidadesDe({ units: { ana: 2 } }, 'juan')).toBe(1);
+    expect(unidadesDe({ units: { ana: 0 } }, 'ana')).toBe(1);
+    const d = dividirPorConsumo({
+      total: 9_000,
+      personas: ['ana', 'juan', 'pipe'],
+      items: [{ total: 9_000, people: [], units: { ana: 5 } }],
+    });
+    expect(d.partes).toEqual({ ana: 3_000, juan: 3_000, pipe: 3_000 });
+  });
+
+  it('la propina del 5 % de una boleta chilena se reparte según lo que consumió cada uno', () => {
+    const factura = 122_180;
+    const propina = propinaDe(factura, 5);
+    expect(propina).toBe(6_109);
+    const d = dividirPorConsumo({
+      total: factura + propina,
+      personas: ['ana', 'juan'],
+      items: [
+        { total: 8_970, people: ['ana', 'juan'], units: { ana: 2, juan: 1 } },
+        { total: 113_210, people: ['juan'] },
+      ],
+    });
+    expect(suma(d.partes)).toBe(128_289);
+    // Ana: 5.980 de Coca-Cola + su 5 %
+    expect(d.partes.ana).toBe(6_279);
+  });
+
+  it('el porcentaje se escribe con coma o punto', () => {
+    expect(leerPorcentaje('7,5')).toBe(7.5);
+    expect(leerPorcentaje('10 %')).toBe(10);
+    expect(leerPorcentaje('250')).toBe(100);
+    expect(leerPorcentaje('')).toBeNull();
+    expect(propinaDe(1_000, null)).toBe(0);
+    expect(propinaDe(1_005, 10)).toBe(101);
   });
 });
 

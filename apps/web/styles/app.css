@@ -6709,3 +6709,149 @@ a.gr-fila:focus-visible {
     position: relative;
   }
 }
+
+/* ---------- Dividir por consumo: cantidades, unidades de cada uno, extras y propina ---------- */
+.dv-cont {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dv-cont__p {
+  margin-right: 2px;
+}
+.dv-cont__b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--borde);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease;
+}
+.dv-cont__b:active:not(:disabled) {
+  transform: scale(0.9);
+}
+.dv-cont__b:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.dv-cont__b:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.dv-cont__n {
+  min-width: 1.6em;
+  text-align: center;
+  font-family: var(--font-num);
+  font-weight: 800;
+  font-size: 16px;
+}
+.dv-pick__li {
+  display: grid;
+  gap: 6px;
+}
+.dv-pick__li > .dv-cont {
+  justify-self: end;
+  padding-right: 4px;
+}
+.dv-unid {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--superficie);
+}
+.dv-unid__mal {
+  color: var(--coral);
+  font-weight: 700;
+}
+.dv-unid__l {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.dv-unid__p {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.dv-unid__n {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+}
+.dv-extra {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--naranja-suave);
+  font-size: 12px;
+  font-weight: 700;
+}
+.dv-add-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dv-propina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.dv-propina .dv-todos[aria-checked="true"] {
+  color: var(--superficie);
+  background: var(--tinta);
+  border: 1.5px solid var(--tinta);
+}
+.dv-propina__otro {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+.dv-propina__input {
+  width: 5rem;
+  text-align: right;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-cont__b {
+    transition: none;
+  }
+}
+
+/* ---------- Liquidar: lo que ya se pagó (de una liquidación que se reabrió) ---------- */
+.st-pagos {
+  display: grid;
+  gap: 8px;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--verde-suave);
+}
+.st-pagos__l {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.st-pagos__p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 20px;
+}

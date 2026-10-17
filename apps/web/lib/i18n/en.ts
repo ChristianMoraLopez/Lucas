@@ -1792,5 +1792,54 @@ export const EN: Record<string, string> = {
     '“{cuenta}” is already settled: this account is for what comes next. What’s in “{cuenta}” stays there.',
   'No se pudo desconectar el grupo: solo quienes administran la cuenta pueden hacerlo.': 'The group couldn’t be disconnected: only account admins can do it.',
 
+  // ---------- Propina aparte, extras y unidades ----------
+  extras: 'extras',
+  propina: 'tip',
+  extra: 'extra',
+  '¿Cuántas de {item} fueron de {nombre}?': "How many {item} were {nombre}'s?",
+  '¿Cuántas?': 'How many?',
+  'Cantidad de {nombre}': 'Quantity of {nombre}',
+  Cantidad: 'Quantity',
+  'Extra: suma al total': 'Extra: adds to the total',
+  'Según cuántas pidió cada uno': 'By how many each one had',
+  '+ Extra que no está en la factura': '+ Extra not on the bill',
+  'Los ítems suman {monto} más que la factura. Revisen los precios y las cantidades; si fue un descuento, se reparte igual.':
+    "The items add up to {monto} more than the bill. Check the prices and quantities; if it was a discount, it's split the same way.",
+  '¿Dejaron propina aparte?': 'Did you leave a separate tip?',
+  'Si la propina no venía en la cuenta (en Chile se deja aparte), súmenla: se reparte según lo que consumió cada uno.':
+    "If the tip wasn't on the bill (in Chile it's left separately), add it here: it's split by what each person had.",
+  'Propina aparte': 'Separate tip',
+  No: 'No',
+  'Otro %': 'Other %',
+  'Porcentaje de propina': 'Tip percentage',
+  'Propina de {pct} %: {monto}. El total queda en {total}.': '{pct}% tip: {monto}. The total comes to {total}.',
+  'Una menos': 'One less',
+  'Una más': 'One more',
+  '¿Cuántas cada uno?': 'How many each?',
+  'las {n} repartidas': 'all {n} assigned',
+  'van {m} de {n}': '{m} of {n} assigned',
+  'marcaron {m} y son {n}': '{m} marked but there are {n}',
+  'Propina aparte ({pct} %)': 'Separate tip ({pct}%)',
+
+  // ---------- Reabrir el paseo ----------
+  'La cuenta ya no recibe gastos: está cerrada.': "This account no longer takes expenses: it's closed.",
+  'Lo que ya se pagó': 'Already paid',
+  '{de} le pagó a {para}': '{de} paid {para}',
+  'Ya cuenta en los saldos: las transferencias de arriba solo piden lo que falta.':
+    "It already counts in the balances: the transfers above only ask for what's left.",
+  'ya transfirió {monto}': 'already sent {monto}',
+  'ya recibió {monto}': 'already received {monto}',
+  'Los gastos del paseo quedan congelados. Si llega uno nuevo, el paseo se reabre solo.':
+    "The trip's expenses get frozen. If a new one comes in, the trip reopens on its own.",
+  'Si falta algo, se puede reabrir: lo que ya pagaron queda anotado.': "If something's missing, you can reopen it: what's already been paid stays logged.",
+  'Se borran las transferencias que falta pagar (las pagadas quedan anotadas) y los gastos se pueden volver a corregir. Después pueden liquidar de nuevo.':
+    'Unpaid transfers are deleted (paid ones stay logged) and expenses can be edited again. Then you can settle up again.',
+  'Al liquidar {que} sus gastos quedan congelados. Si después llega un gasto nuevo, el paseo se reabre solo y lo que ya pagaron queda anotado.':
+    "When you settle {que}, its expenses get frozen. If a new expense comes in later, the trip reopens on its own and what's already been paid stays logged.",
+  'Al liquidar {que} sus gastos quedan congelados. Si falta algo, se puede reabrir: lo que ya pagaron queda anotado.':
+    "When you settle {que}, its expenses get frozen. If something's missing, you can reopen it: what's already been paid stays logged.",
+  'Ya pueden cerrar el paseo (después no entran más gastos) o dejarlo así: si llega otro gasto, se reabre solo.':
+    'You can close the trip now (no more expenses after that) or leave it as is: if another expense comes in, it reopens on its own.',
+
   // ⟨más⟩
 };

@@ -6,6 +6,8 @@ export interface ItemConsumo {
   total: number;
   /** Quiénes lo consumieron; vacío = entre todos los que estaban */
   people: string[];
+  /** Cuántas unidades consumió cada uno («Ana 2 Coca-Colas, Juan 1»); quien no tiene, 1 */
+  units?: Record<string, number>;
 }
 
 export interface DivisionConsumo {
@@ -73,7 +75,10 @@ export function dividirPorConsumo({
     suma += valor;
     const quienes = it.people.filter((p) => estan.has(p));
     const entre = quienes.length ? quienes : personas;
-    for (const p of entre) consumo[p] += valor / entre.length;
+    // Entre quienes lo pidieron, según cuántas unidades consumió cada uno
+    const cuantas = (p: string) => (quienes.length ? unidadesDe(it, p) : 1);
+    const unidades = entre.reduce((s, p) => s + cuantas(p), 0);
+    for (const p of entre) consumo[p] += (valor * cuantas(p)) / unidades;
   }
 
   // Lo justo: el consumo llevado al total (si no hay ítems, por igual)
@@ -90,6 +95,26 @@ export function dividirPorConsumo({
   const partes: Record<string, number> = { ...repartir(total - fijo, libres, justo) };
   for (const p of fijados) partes[p] = Math.max(0, Math.round(fijos[p]));
   return { ...base, partes: Object.fromEntries(personas.map((p) => [p, partes[p] ?? 0])), error: null };
+}
+
+/** Las unidades que consumió alguien de un ítem (1 si no las marcó) */
+export function unidadesDe(it: Pick<ItemConsumo, 'units'>, persona: string): number {
+  const n = it.units?.[persona];
+  return n != null && Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+/** La propina de un porcentaje, en unidades enteras de la moneda */
+export function propinaDe(base: number, porcentaje: number | null): number {
+  if (!porcentaje || porcentaje <= 0 || base <= 0) return 0;
+  return Math.round((Math.max(0, base) * Math.min(porcentaje, 100)) / 100);
+}
+
+/** «7,5» o «7.5» → 7.5; vacío o raro → null (de 0 a 100, con dos decimales) */
+export function leerPorcentaje(texto: string): number | null {
+  const limpio = texto.replace(',', '.').replace(/[^\d.]/g, '');
+  if (!limpio) return null;
+  const n = Number(limpio);
+  return Number.isFinite(n) ? Math.min(100, Math.round(n * 100) / 100) : null;
 }
 
 /**
