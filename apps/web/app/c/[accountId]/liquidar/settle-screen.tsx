@@ -80,7 +80,7 @@ export function SettleScreen({
 
   const refresh = () => startRefresh(() => router.refresh());
   // Otra persona marca una transferencia, liquidan o llega un gasto: se vuelve a pedir
-  useAccountChanges(accountId, refresh, ['expenses', 'settlements', 'settlement_transfers']);
+  useAccountChanges(accountId, refresh, ['expenses', 'settlements', 'settlement_transfers', 'settlement_payments']);
 
   // Antes de liquidar: así quedarían (el mínimo de transferencias)
   const calculo = useMemo(() => {
@@ -349,6 +349,27 @@ export function SettleScreen({
             </div>
           )
         )}
+        {(d.payments?.length ?? 0) > 0 && (
+          <section className="st-pagos" aria-labelledby="st-pagos-t">
+            <h2 id="st-pagos-t" className="lu-label" style={{ margin: 0 }}>
+              {t('Lo que ya se pagó')}
+            </h2>
+            <ul className="st-pagos__l">
+              {d.payments?.map((x) => (
+                <li key={x.id} className="st-pagos__p">
+                  <span>
+                    {t('{de} le pagó a {para}', { de: nombre(x.from), para: nombre(x.to) })}
+                    <span className="lu-muted"> · {formatDay(new Date(x.paid_at), undefined, t.idioma)}</span>
+                  </span>
+                  <b className="lu-num">{formatCOP(x.amount)}</b>
+                </li>
+              ))}
+            </ul>
+            <p className="lu-small lu-muted" style={{ margin: 0 }}>
+              {t('Ya cuenta en los saldos: las transferencias de arriba solo piden lo que falta.')}
+            </p>
+          </section>
+        )}
         {!calculo.ok && !s && (
           <p className="lu-small" role="alert">
             {t('Los saldos no cuadran ({error}). Recarguen la página; si sigue, revisen los gastos.', { error: calculo.error })}
@@ -394,7 +415,6 @@ export function SettleScreen({
           cerrada={cerrada}
           todoPagado={todoPagado}
           faltan={transfers.length - pagadas}
-          pagadas={pagadas}
           puedeLiquidar={bloqueos === 0 && total > 0 && calculo.ok}
           queSe={queSe}
           busy={busy}
@@ -459,9 +479,9 @@ export function SettleScreen({
       >
         {t('Quedan {n} por hacer.', { n: nTransfers })}{' '}
         {evento
-          ? t('Los gastos del paseo quedan congelados y no entran gastos nuevos.')
+          ? t('Los gastos del paseo quedan congelados. Si llega uno nuevo, el paseo se reabre solo.')
           : t('Los gastos de {que} quedan congelados; los otros meses siguen igual.', { que: queSe })}{' '}
-        {t('Si falta algo, se puede reabrir mientras nadie haya pagado.')}
+        {t('Si falta algo, se puede reabrir: lo que ya pagaron queda anotado.')}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirmar === 'reabrir'}
@@ -471,9 +491,9 @@ export function SettleScreen({
         busy={busy === 'reabrir'}
         onConfirm={reabrir}
       >
-        {evento
-          ? t('Se borran las transferencias y los gastos se pueden volver a corregir; el paseo vuelve a recibir gastos. Después pueden liquidar de nuevo.')
-          : t('Se borran las transferencias y los gastos se pueden volver a corregir. Después pueden liquidar de nuevo.')}
+        {t(
+          'Se borran las transferencias que falta pagar (las pagadas quedan anotadas) y los gastos se pueden volver a corregir. Después pueden liquidar de nuevo.',
+        )}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirmar === 'cerrar'}
@@ -746,6 +766,8 @@ function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boo
             </b>
             <span className="lu-muted st-p__sub">
               {t('pagó {monto}', { monto: formatCOP(p.paid) })} · {t('le tocaba {monto}', { monto: formatCOP(p.share) })}
+              {(p.sent ?? 0) > 0 && ` · ${t('ya transfirió {monto}', { monto: formatCOP(p.sent ?? 0) })}`}
+              {(p.received ?? 0) > 0 && ` · ${t('ya recibió {monto}', { monto: formatCOP(p.received ?? 0) })}`}
             </span>
           </span>
           <span className="st-p__bal">
@@ -785,7 +807,6 @@ function Cierre({
   cerrada,
   todoPagado,
   faltan,
-  pagadas,
   puedeLiquidar,
   queSe,
   busy,
@@ -797,7 +818,6 @@ function Cierre({
   cerrada: boolean;
   todoPagado: boolean;
   faltan: number;
-  pagadas: number;
   puedeLiquidar: boolean;
   queSe: string;
   busy: string | null;
@@ -835,10 +855,10 @@ function Cierre({
         <p className="lu-small" style={{ margin: 0 }}>
           <b>{t('¿Listos?')}</b>{' '}
           {evento
-            ? t('Al liquidar {que} sus gastos quedan congelados y ya no entran gastos nuevos. Si falta algo, se puede reabrir mientras nadie haya pagado.', {
+            ? t('Al liquidar {que} sus gastos quedan congelados. Si después llega un gasto nuevo, el paseo se reabre solo y lo que ya pagaron queda anotado.', {
                 que: queSe,
               })
-            : t('Al liquidar {que} sus gastos quedan congelados. Si falta algo, se puede reabrir mientras nadie haya pagado.', { que: queSe })}
+            : t('Al liquidar {que} sus gastos quedan congelados. Si falta algo, se puede reabrir: lo que ya pagaron queda anotado.', { que: queSe })}
         </p>
         {d.is_admin ? (
           <Button onClick={() => onAccion('liquidar')} disabled={!puedeLiquidar || busy !== null}>
@@ -863,7 +883,7 @@ function Cierre({
             </h2>
             <p className="lu-small" style={{ margin: '4px 0 0' }}>
               {evento
-                ? t('Ya pueden cerrar el paseo. Después no entran más gastos.')
+                ? t('Ya pueden cerrar el paseo (después no entran más gastos) o dejarlo así: si llega otro gasto, se reabre solo.')
                 : t('{mes} quedó a paz y salvo.', { mes: monthName(d.month as string, t.idioma) })}
             </p>
           </div>
@@ -882,7 +902,7 @@ function Cierre({
         <b>{faltan === 1 ? t('Falta 1 transferencia.') : t('Faltan {n} transferencias.', { n: faltan })}</b>{' '}
         {evento ? t('El paseo se cierra cuando todas estén pagadas.') : t('El mes queda saldado cuando todas estén pagadas.')}
       </p>
-      {d.is_admin && pagadas === 0 && (
+      {d.is_admin && (
         <button type="button" className="st-undo" onClick={() => onAccion('reabrir')} disabled={busy !== null}>
           {t('Reabrir la liquidación')}
         </button>

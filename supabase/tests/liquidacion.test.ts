@@ -134,7 +134,7 @@ describe('liquidar el paseo', () => {
     });
   });
 
-  it('liquida, congela los gastos y no recibe más; cada quien marca lo suyo; se cierra cuando todo está pagado', async () => {
+  it('liquida y congela los gastos; cada quien marca lo suyo; se cierra cuando todo está pagado', async () => {
     await as(db, U.laura, async (tx) => {
       await revisarTodo(tx, U.laura, PASEO);
       const ts = transferencias((await vista(tx, PASEO)).people);
@@ -152,10 +152,6 @@ describe('liquidar el paseo', () => {
       expect(await falla(tx, 'delete from public.expense_splits where expense_id = $1', [GASTO_HOSTAL])).toMatch('El paseo ya se liquidó');
       expect(await falla(tx, `update public.expenses set merchant = 'Hostal Brisas' where id = $1`, [GASTO_HOSTAL])).toBeNull();
 
-      // No entran gastos nuevos
-      await impersonate(tx, U.santi);
-      expect(await falla(tx, `select public.submit_upload($1, 'text', 'hielo 12 lucas')`, [PASEO])).toMatch('se está liquidando');
-
       // Marcar: quien no paga ni recibe, no; quien paga, sí
       const [t0] = (v.settlement as NonNullable<Vista['settlement']>).transfers;
       const ajeno = Object.keys(EN_PASEO).find((u) => ![t0.from, t0.to].includes(EN_PASEO[u]) && u !== U.laura && u !== U.valeria) as string;
@@ -167,7 +163,6 @@ describe('liquidar el paseo', () => {
 
       await impersonate(tx, U.laura);
       expect((await vista(tx, PASEO)).settlement?.transfers[0].paid_at).not.toBeNull();
-      expect(await falla(tx, 'select public.reopen_settlement($1)', [v.settlement?.id])).toMatch('Ya hay transferencias pagadas');
       if (ts.length > 1) expect(await falla(tx, 'select public.close_account($1)', [PASEO])).toMatch(/Faltan \d+ transferencias? por pagar/);
 
       for (const t of (v.settlement as NonNullable<Vista['settlement']>).transfers) await tx.query('select public.mark_transfer($1, true)', [t.id]);
@@ -189,6 +184,58 @@ describe('liquidar el paseo', () => {
       expect(await vista(tx, PASEO)).toMatchObject({ settlement: null, account: { status: 'active' } });
       await impersonate(tx, U.santi);
       await tx.query(`select public.submit_upload($1, 'text', 'hielo 12 lucas')`, [PASEO]);
+    });
+  });
+
+  it('reabrir con transferencias pagadas: quedan como pagos y al liquidar otra vez ya se descuentan', async () => {
+    await as(db, U.laura, async (tx) => {
+      await revisarTodo(tx, U.laura, PASEO);
+      const antes = (await vista(tx, PASEO)).people;
+      const { id } = await liquidar(tx, PASEO, null, transferencias(antes));
+      const [t0] = (await vista(tx, PASEO)).settlement?.transfers ?? [];
+      await tx.query('select public.mark_transfer($1, true)', [t0.id]);
+      await tx.query('select public.reopen_settlement($1)', [id]);
+
+      const v = await vista(tx, PASEO) as Vista & { payments: { from: string; to: string; amount: number }[] };
+      expect(v).toMatchObject({ settlement: null, account: { status: 'active' } });
+      expect(v.payments.map((p) => [p.from, p.to, p.amount])).toEqual([[t0.from, t0.to, t0.amount]]);
+      // Quien pagó ya debe menos; a quien le pagaron, le deben menos
+      const saldo = (ps: Persona[], id: string) => ps.find((p) => p.id === id)?.balance;
+      expect(saldo(v.people, t0.from)).toBe((saldo(antes, t0.from) ?? 0) + t0.amount);
+      expect(saldo(v.people, t0.to)).toBe((saldo(antes, t0.to) ?? 0) - t0.amount);
+      expect(v.people.reduce((s, p) => s + p.balance, 0)).toBe(0);
+
+      // Liquidar otra vez: las transferencias nuevas ya no incluyen lo pagado
+      const ts = transferencias(v.people);
+      expect(ts.reduce((s, t) => s + t.amount, 0)).toBe(transferencias(antes).reduce((s, t) => s + t.amount, 0) - t0.amount);
+      await liquidar(tx, PASEO, null, ts);
+      expect((await vista(tx, PASEO)).account.status).toBe('settling');
+    });
+  });
+
+  it('un gasto nuevo reabre el paseo liquidado: no hace falta otra cuenta', async () => {
+    await as(db, U.laura, async (tx) => {
+      await revisarTodo(tx, U.laura, PASEO);
+      await liquidar(tx, PASEO, null, transferencias((await vista(tx, PASEO)).people));
+      // Subirlo desde la app se puede
+      await impersonate(tx, U.santi);
+      const { id: mensaje } = await one<{ id: string }>(tx, `select public.submit_upload($1, 'text', 'hielo 12 lucas') as id`, [PASEO]);
+      expect((await vista(tx, PASEO)).account.status).toBe('settling');
+      // Cuando el worker lo anota, el paseo se reabre
+      await tx.exec('reset role');
+      await tx.exec('set local role service_role');
+      await tx.query('select public.worker_save_expense($1, $2)', [
+        mensaje,
+        JSON.stringify({ merchant: 'Hielo', total_cop: 12_000, expense_date: '2026-10-17', status: 'pending_review' }),
+      ]);
+      await impersonate(tx, U.laura);
+      const v = await vista(tx, PASEO);
+      expect(v).toMatchObject({ settlement: null, account: { status: 'active' }, pending_count: 1 });
+      // Un paseo cerrado no se reabre
+      await tx.exec('reset role');
+      await tx.query(`update public.accounts set status = 'closed' where id = $1`, [PASEO]);
+      await impersonate(tx, U.santi);
+      expect(await falla(tx, `select public.submit_upload($1, 'text', 'hielo 12 lucas')`, [PASEO])).not.toBeNull();
     });
   });
 

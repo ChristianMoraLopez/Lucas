@@ -8,7 +8,7 @@ import { formatear, normalizar } from '@/lib/telefono';
 
 export type Role = 'owner' | 'admin' | 'member';
 export type AccountType = 'hogar' | 'evento';
-/** Un evento se está liquidando (settling): ya no recibe gastos */
+/** Un evento liquidado (settling) espera los pagos; si le llega un gasto nuevo, se reabre (active) */
 export type AccountStatus = 'active' | 'settling' | 'closed';
 
 export const ROLE_LABEL: Record<Role, string> = { owner: 'Titular', admin: 'Admin', member: 'Miembro' };
@@ -217,6 +217,18 @@ export interface SettlementPerson {
   balance: number;
   /** Cuántos gastos pagó */
   expenses: number;
+  /** Lo que ya le pagó a otros y lo que ya le pagaron, de liquidaciones que se reabrieron (ya está en balance) */
+  sent?: number;
+  received?: number;
+}
+
+/** Un pago ya hecho de una liquidación que se reabrió (cuenta en los saldos) */
+export interface SettlementPayment {
+  id: string;
+  from: string;
+  to: string;
+  amount: number;
+  paid_at: string;
 }
 
 export interface SettlementExpense {
@@ -255,6 +267,8 @@ export interface SettlementOverview {
   people: SettlementPerson[];
   expenses: SettlementExpense[];
   settlement: null | { id: string; created_at: string; created_by: string | null; transfers: SettlementTransfer[] };
+  /** Lo que ya se pagó de liquidaciones que se reabrieron (migración 390) */
+  payments?: SettlementPayment[];
   settled_months: string[] | null;
 }
 

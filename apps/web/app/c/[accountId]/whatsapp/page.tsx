@@ -21,7 +21,7 @@ export default async function WhatsappPage({ params }: PageProps<'/c/[accountId]
       accountId={accountId}
       accountName={account.name as string}
       accountType={account.type as AccountType}
-      closed={account.status !== 'active'}
+      closed={account.status === 'closed'}
       ajustes={{
         moneda: esMoneda(account.currency) ? account.currency : 'COP',
         idioma: esIdioma(account.language) ? account.language : 'es',

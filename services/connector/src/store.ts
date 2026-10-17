@@ -163,8 +163,6 @@ export interface IngestCheck {
     | 'archivo_fuera_de_la_cuenta'
     | 'no_me_cuentes';
   account_id?: string;
-  /** La cuenta del grupo ya se había liquidado y este gasto abrió la siguiente (migración 370) */
-  new_account?: string;
   group_id?: string;
   message_id?: string;
   known_sender?: boolean;

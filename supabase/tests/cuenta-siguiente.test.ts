@@ -2,8 +2,9 @@ import type { PGlite, Transaction } from '@electric-sql/pglite';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { as, CASA, createDb, impersonate, one, PASEO, U } from './harness';
 
-// Un grupo sigue después de liquidar (00000000000370_cuenta_siguiente.sql): el
-// Paseo ya se liquidó y al grupo llega un gasto nuevo, o le conectan otra cuenta.
+// Un grupo sigue después de liquidar: el Paseo ya se liquidó y al grupo llega
+// un gasto nuevo (00000000000390_reabrir_el_paseo.sql: se reabre el mismo), o le
+// conectan otra cuenta (00000000000370_cuenta_siguiente.sql).
 
 let db: PGlite;
 beforeAll(async () => {
@@ -89,92 +90,51 @@ describe('«luks CÓDIGO» en un grupo cuya cuenta ya se liquidó', () => {
   });
 });
 
-describe('un gasto en un grupo cuya cuenta ya se liquidó', () => {
-  it('abre la cuenta siguiente con la misma gente, categorías y memoria, y le pasa el grupo', async () => {
+describe('un gasto en un grupo cuya cuenta ya se liquidó (00000000000390_reabrir_el_paseo.sql)', () => {
+  it('se anota en el mismo paseo: no se abre otra cuenta', async () => {
     await as(db, null, async (tx) => {
-      await como(tx, null);
-      const antes = await gastosDelPaseo(tx);
       await liquidar(tx);
       const r = await revisar(tx, 'WA-SIG-1');
-      expect(r).toMatchObject({ ingest: true });
-      const nueva = r.account_id as string;
-      expect(r.new_account).toBe(nueva);
-      expect(nueva).not.toBe(PASEO);
-
-      expect(
-        await one(tx, 'select name, type, status, currency, language, previous_account_id, starts_on is not null as con_inicio from public.accounts where id = $1', [nueva]),
-      ).toEqual({
-        name: 'Paseo Santa Marta 2',
-        type: 'evento',
-        status: 'active',
-        currency: 'COP',
-        language: 'es',
-        previous_account_id: PASEO,
-        con_inicio: true,
-      });
-      // Quienes usan Luks, con su rol y su persona (y sus números)
-      const miembros = (q: string) =>
-        tx.query<{ user_id: string; role: string; nombre: string; numeros: number }>(
-          `select am.user_id, am.role::text, p.display_name as nombre, (select count(*)::int from public.person_whatsapp_ids w where w.person_id = p.id) as numeros
-           from public.account_members am join public.people p on p.id = am.person_id where am.account_id = $1 order by am.user_id`,
-          [q],
-        );
-      expect((await miembros(nueva)).rows).toEqual((await miembros(PASEO)).rows);
-      // Sus categorías y lo que aprendió de los comercios
-      const cats = (q: string) => tx.query<{ name: string }>('select name from public.categories where account_id = $1 order by name', [q]);
-      expect((await cats(nueva)).rows).toEqual((await cats(PASEO)).rows);
-      const memoria = (q: string) =>
-        tx.query(
-          'select mm.normalized, c.name, mm.hits from public.merchant_memory mm join public.categories c on c.id = mm.category_id where mm.account_id = $1 order by 1',
-          [q],
-        );
-      expect((await memoria(nueva)).rows).toEqual((await memoria(PASEO)).rows);
-      // El grupo quedó en la nueva, desde ahora; lo del Paseo se queda allá
-      expect(await enlace(tx)).toEqual({ account_id: nueva, history: 'desde_ya' });
-      expect(await gastosDelPaseo(tx)).toEqual(antes);
-
-      // El siguiente gasto va a la misma (no abre otra)
-      const otro = await revisar(tx, 'WA-SIG-2');
-      expect(otro).toMatchObject({ ingest: true, account_id: nueva });
-      expect(otro.new_account).toBeUndefined();
-      expect(await one(tx, `select count(*)::int as n from public.accounts where previous_account_id = $1`, [PASEO])).toEqual({ n: 1 });
+      expect(r).toMatchObject({ ingest: true, account_id: PASEO });
+      expect(r.new_account).toBeUndefined();
+      expect((await enlace(tx)).account_id).toBe(PASEO);
+      expect(await one(tx, `select count(*)::int as n from public.accounts where previous_account_id = $1`, [PASEO])).toEqual({ n: 0 });
     });
   });
 
-  it('también si la cuenta ya está cerrada', async () => {
+  it('una cuenta cerrada no recibe nada (su grupo queda libre para otra)', async () => {
     await as(db, null, async (tx) => {
       await liquidar(tx, 'closed');
-      const r = await revisar(tx, 'WA-SIG-3');
-      expect(r).toMatchObject({ ingest: true });
-      expect(r.account_id).not.toBe(PASEO);
+      expect(await revisar(tx, 'WA-SIG-3')).toMatchObject({ ingest: false, reason: 'cuenta_liquidada', account_id: PASEO });
+      expect(await revisar(tx, 'WA-SIG-4', null)).toMatchObject({ ingest: false, reason: 'cuenta_liquidada' });
     });
   });
 
-  it('si «Paseo Santa Marta 2» ya existe, abre «Paseo Santa Marta 3»', async () => {
-    await as(db, U.valeria, async (tx) => {
-      await tx.query(`select public.create_account('Paseo Santa Marta 2', 'evento')`);
-      await liquidar(tx);
-      const r = await revisar(tx, 'WA-SIG-4');
-      expect(await one(tx, 'select name from public.accounts where id = $1', [r.account_id])).toEqual({ name: 'Paseo Santa Marta 3' });
-    });
-  });
-
-  it('el chat exportado (sin remitente) y quien dijo «no me cuentes» no abren nada', async () => {
+  it('quien dijo «no me cuentes» sigue sin contar', async () => {
     await as(db, null, async (tx) => {
       await liquidar(tx);
-      expect(await revisar(tx, 'WA-SIG-5', null)).toMatchObject({ ingest: false, reason: 'cuenta_liquidada', account_id: PASEO });
       const { id } = await one<{ id: string }>(tx, `select id from public.whatsapp_identities where phone = $1`, [MAFE_WA]);
       await tx.query('insert into public.account_optouts (account_id, identity_id) values ($1, $2)', [PASEO, id]);
-      expect(await revisar(tx, 'WA-SIG-6')).toMatchObject({ ingest: false, reason: 'cuenta_liquidada' });
-      expect(await one(tx, `select count(*)::int as n from public.accounts where previous_account_id = $1`, [PASEO])).toEqual({ n: 0 });
-      expect((await enlace(tx)).account_id).toBe(PASEO);
+      expect(await revisar(tx, 'WA-SIG-6')).toMatchObject({ ingest: false, reason: 'no_me_cuentes' });
     });
   });
 
-  it('Mister Luks lo cuenta en el grupo con el primer gasto (una vez)', async () => {
+  it('el primer gasto reabre el paseo, lo pagado queda como pago y Mister Luks lo cuenta (una vez)', async () => {
     await as(db, null, async (tx) => {
+      // Liquidado de verdad: una transferencia pagada y otra no
+      await como(tx, null);
+      const [a, b, c] = (
+        await tx.query<{ id: string }>(`select id from public.people where account_id = $1 order by created_at, id limit 3`, [PASEO])
+      ).rows.map((x) => x.id);
+      const { id: liq } = await one<{ id: string }>(tx, `insert into public.settlements (account_id) values ($1) returning id`, [PASEO]);
+      await tx.query(
+        `insert into public.settlement_transfers (settlement_id, account_id, from_person_id, to_person_id, amount_cop, position, paid_at)
+         values ($1, $2, $3, $4, 50000, 1, now() - interval '1 day'), ($1, $2, $5, $4, 30000, 2, null)`,
+        [liq, PASEO, b, a, c],
+      );
       await liquidar(tx);
-      const r = await revisar(tx, 'WA-SIG-7');
+
+      await revisar(tx, 'WA-SIG-7');
       await como(tx, 'service_role');
       const guardar = async (envio: string, texto: string) => {
         const { m } = await one<{ m: { message_id: string } }>(
@@ -190,17 +150,32 @@ describe('un gasto en un grupo cuya cuenta ya se liquidó', () => {
       await guardar('WA-SIG-7', 'empanadas 24 lucas');
       await guardar('WA-SIG-8', 'helado 12 lucas');
       await como(tx, null);
+
+      expect(await one(tx, 'select status from public.accounts where id = $1', [PASEO])).toEqual({ status: 'active' });
+      expect(await one(tx, 'select count(*)::int as n from public.settlements where account_id = $1', [PASEO])).toEqual({ n: 0 });
+      // Lo pagado no se pierde; lo que faltaba se vuelve a calcular
+      const { rows: pagos } = await tx.query('select from_person_id, to_person_id, amount_cop::int as amount from public.settlement_payments where account_id = $1', [
+        PASEO,
+      ]);
+      expect(pagos).toEqual([{ from_person_id: b, to_person_id: a, amount: 50_000 }]);
+      const saldos = await tx.query<{ person_id: string; sent: number; received: number }>(
+        'select person_id, sent::int, received::int from public.saldos($1, null) where sent <> 0 or received <> 0 order by sent desc',
+        [PASEO],
+      );
+      expect(saldos.rows).toEqual([
+        { person_id: b, sent: 50_000, received: 0 },
+        { person_id: a, sent: 0, received: 50_000 },
+      ]);
+
       const { rows } = await tx.query<{ body: string; reason: string }>(
-        `select body, reason from public.whatsapp_outbox where dedupe_key like 'siguiente:%' order by created_at`,
+        `select body, reason from public.whatsapp_outbox where dedupe_key like 'reabierta:%' order by created_at`,
       );
       expect(rows).toHaveLength(1);
-      expect(rows[0].reason).toBe('link');
       expect(rows[0].body).toBe(
-        '🧾 «Paseo Santa Marta» ya estaba liquidada, así que abrí una cuenta nueva para lo que sigue: «Paseo Santa Marta 2». Ahí anoté este gasto 😉 Si quieren, cámbienle el nombre en mrluks.com.',
+        '🔓 «Paseo Santa Marta» ya estaba liquidada y llegó un gasto nuevo, así que la reabrí. Lo que ya pagaron queda anotado; cuando terminen, la vuelven a liquidar en mrluks.com.',
       );
       // No es un gasto (si lo reenvían o viene en un chat exportado)
       expect(await one(tx, 'select public.es_mensaje_de_luks($1) as luks', [rows[0].body])).toEqual({ luks: true });
-      expect(await one(tx, 'select continuation_announced_at is not null as dicho from public.accounts where id = $1', [r.account_id])).toEqual({ dicho: true });
     });
   });
 });

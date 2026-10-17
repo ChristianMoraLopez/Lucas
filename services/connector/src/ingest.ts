@@ -217,8 +217,6 @@ export class Ingestor {
     // Con quién lo mandó: de quien dijo «no me cuentes» ya no se baja ni se guarda nada
     const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt, m.sender.id);
     if (!check.ingest || !check.account_id) return `ignorado:${check.reason ?? 'sin_cuenta'}`;
-    // La cuenta del grupo ya se había liquidado: este gasto abrió la siguiente (Mister Luks lo cuenta cuando se anote)
-    if (check.new_account) this.log.info({ group: m.chatId, account: check.new_account }, 'Cuenta siguiente: la anterior ya estaba liquidada');
 
     let mediaPath: string | null = null;
     let mimeType: string | null = null;

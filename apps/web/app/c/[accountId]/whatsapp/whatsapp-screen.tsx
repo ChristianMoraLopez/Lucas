@@ -211,7 +211,7 @@ export function WhatsappScreen({
 
       {closed && (
         <p className="rv-member lu-small" role="status">
-          {t('La cuenta ya no recibe gastos: está cerrada o liquidándose.')}
+          {t('La cuenta ya no recibe gastos: está cerrada.')}
         </p>
       )}
 
