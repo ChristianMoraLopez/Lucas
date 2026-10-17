@@ -114,6 +114,8 @@ export interface GrupoVista {
   in_group?: boolean;
   /** Ya tiene cuenta: cuál y si estoy en ella (si no estoy, sin su id) */
   linked?: { account_id: string | null; account_name: string; member: boolean } | null;
+  /** La cuenta que tenía el grupo y ya se liquidó: no lo ocupa, se crea la siguiente (migración 370) */
+  previous?: string | null;
   /** Las cuentas que administro, para conectarle el grupo */
   accounts?: { id: string; name: string; type: AccountType }[];
 }

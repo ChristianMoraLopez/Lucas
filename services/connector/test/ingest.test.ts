@@ -4,7 +4,7 @@ import type { IncomingMessage } from '../src/connector.js';
 import { Ingestor } from '../src/ingest.js';
 import { PREGUNTAS } from '../src/preguntas.js';
 import { RateLimiter } from '../src/replies.js';
-import { LINK_GRUPO, MISTER, MSG } from '../src/text.js';
+import { LINK_GRUPO, MISTER, MSG, PREGUNTA_DESDE_CUANDO } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
 const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxChatBytes: 50 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
@@ -161,6 +161,29 @@ describe('«lucas CÓDIGO»', () => {
     expect(await ing.onMessage(contador, wa, m({ text: 'Luks paseo-7k2q' }))).toBe('enlazado');
     expect(store.groups.get(GRUPO)?.account_id).toBe(PASEO);
     expect(bandeja()).toEqual([expect.objectContaining({ reason: 'link', body: MSG.linked('Paseo Santa Marta') })]);
+  });
+
+  it('si la cuenta del grupo ya se liquidó, el código de otra lo pasa a esa, sin preguntar desde cuándo', async () => {
+    store.codes.set('DANI-7K2Q', { id: 'cuenta-dani', name: 'DaniChile' });
+    await ing.onMessage(contador, wa, m({ text: 'luks PASEO-7K2Q' }));
+    store.liquidadas.add(PASEO);
+    store.outbox = [];
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks DANI-7K2Q' }))).toBe('enlazado');
+    expect(store.groups.get(GRUPO)?.account_id).toBe('cuenta-dani');
+    const [o] = bandeja();
+    expect(o.body).toBe(MSG.moved('DaniChile', 'Paseo Santa Marta'));
+    expect(o.body).toContain('Lo de «Paseo Santa Marta» se queda allá');
+    expect(o.body).not.toContain(PREGUNTA_DESDE_CUANDO.es);
+  });
+
+  it('si sigue abierta, dice cuál es; y un error distinto al anterior sí se responde', async () => {
+    store.codes.set('DANI-7K2Q', { id: 'cuenta-dani', name: 'DaniChile' });
+    await ing.onMessage(contador, wa, m({ text: 'luks PASEO-7K2Q' }));
+    store.outbox = [];
+    expect(await ing.onMessage(contador, wa, m({ text: 'lucas NADA-0000' }))).toBe('codigo_invalido');
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks DANI-7K2Q' }))).toBe('otra_cuenta');
+    expect(bandeja().map((o) => o.body)).toEqual([MSG.badCode, MSG.otherAccount('Paseo Santa Marta')]);
+    expect(MSG.otherAccount('Paseo Santa Marta')).toContain('«Paseo Santa Marta», que sigue abierta');
   });
 
   it('un código malo se explica, pero sin llenar el grupo si insisten', async () => {

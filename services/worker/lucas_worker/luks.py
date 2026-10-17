@@ -5,8 +5,8 @@ hizo en mrluks.com» y el link /r/TOKEN; la imagen de ese link (o un pantallazo
 de Liquidar) dice «¿Quién le paga a quién?». Las respuestas de Luks en el grupo
 son «✅ Anotado: Hielo · $8.000», y Mister Luks saluda con «Soy Mister Luks…».
 Sus respuestas a las preguntas firman «Más detalle en mrluks.com». La base y el
-connector revisan lo mismo (public.es_mensaje_de_luks, migraciones 180, 290, 340
-y 350, y services/connector/src/text.ts).
+connector revisan lo mismo (public.es_mensaje_de_luks, migraciones 180, 290, 340,
+350 y 370, y services/connector/src/text.ts).
 """
 
 from __future__ import annotations
@@ -30,7 +30,9 @@ _SALUDO = re.compile(
     # Los avisos de la fase 6: quién decidió desde cuándo anotar y el chat importado
     r"|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat"
     # Las respuestas a las preguntas (fase 7) firman así
-    r"|m[aá]s detalle en mrluks\.com|more detail at mrluks\.com",
+    r"|m[aá]s detalle en mrluks\.com|more detail at mrluks\.com"
+    # El aviso de la cuenta siguiente: la anterior ya estaba liquidada (migración 370)
+    r"|ya estaba liquidada|was already settled",
     re.IGNORECASE,
 )
 # En una imagen el OCR no siempre lee bien la firma: basta la marca con algo de las cuentas

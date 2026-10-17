@@ -42,7 +42,7 @@ const RESPUESTA_LUKS = /^\s*\W{0,4}\s*(?:anotad[oa]s?|recibido|ya estaba anotado
 // Los saludos de Mister Luks y el «Listo: este grupo quedó conectado…» traen montos de ejemplo; y
 // los avisos de quién decidió desde cuándo anotar y del chat importado traen fechas y cantidades
 const SALUDO_LUKS =
-  /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat|m[aá]s detalle en mrluks\.com|more detail at mrluks\.com/i;
+  /(?:soy|i[’']m) \*?mister luks|(?:listo[:!]?|done[:!]?)\s*(?:este grupo quedó conectado|this group is now connected)|dijo que (?:anote|lea)\b|said to (?:log|read)\b|le[ií] el chat exportado|i read the exported chat|m[aá]s detalle en mrluks\.com|more detail at mrluks\.com|ya estaba liquidada|was already settled/i;
 
 export function esMensajeDeLuks(text: string | null | undefined): boolean {
   if (!text) return false;
@@ -279,14 +279,21 @@ export const MSG = {
     idioma === 'en'
       ? `🎉 Done! This group is now connected to “${account}”${members ? ` and its ${members} members are already in the account 🙌` : ''}.\n\nSend receipt photos, PDFs or messages with the amount (for example “airport taxi $45”) and I’ll log them ✅\n\n${PREGUNTA_DESDE_CUANDO.en}`
       : `🎉 ¡Listo! Este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta 🙌` : ''}.\n\nManden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto ✅\n\n${PREGUNTA_DESDE_CUANDO.es}`,
+  /** El grupo venía de otra cuenta (ya liquidada, o desconectada): igual que conectar_grupo en la migración 370, sin la pregunta */
+  moved: (account: string, previous: string, members?: number, idioma: Idioma = 'es') =>
+    idioma === 'en'
+      ? `🎉 Done! This group is now connected to “${account}”${members ? ` and its ${members} members are already in the account 🙌` : ''}.\n\nWhat’s in “${previous}” stays there: from now on I’ll log new expenses here.\n\nSend receipt photos, PDFs or messages with the amount (for example “airport taxi $45”) and I’ll log them ✅`
+      : `🎉 ¡Listo! Este grupo quedó conectado a «${account}»${members ? ` y sus ${members} integrantes ya están en la cuenta 🙌` : ''}.\n\nLo de «${previous}» se queda allá: desde ahora anoto aquí lo nuevo.\n\nManden fotos de recibos, PDFs o mensajes con el monto (por ejemplo «taxi al aeropuerto 45 lucas») y yo los anoto ✅`,
   alreadyLinked: (account: string, idioma: Idioma = 'es') =>
     idioma === 'en' ? `😉 This group is already connected to “${account}”.` : `😉 Este grupo ya está conectado a «${account}».`,
   badCode:
     '🤔 Ese código no me sirve: puede que esté mal escrito o que ya venció. Búsquenlo en la app, en Conectar WhatsApp.\n\n' +
     '🤔 That code doesn’t work: it may be mistyped or expired. Find it in the app, under Connect WhatsApp.',
-  otherAccount:
-    '🙈 Este grupo ya está conectado a otra cuenta de Luks. Para cambiarlo, desconéctenlo primero desde la app.\n\n' +
-    '🙈 This group is already connected to another Luks account. To change it, disconnect it from the app first.',
+  /** El grupo está en otra cuenta que sigue abierta (si ya se hubiera liquidado, el código lo pasaría a la nueva) */
+  otherAccount: (account: string | null | undefined, idioma: Idioma = 'es') =>
+    idioma === 'en'
+      ? `🙈 This group is connected to ${account ? `“${account}”` : 'another Luks account'}, which is still open. To move it, settle it at mrluks.com or disconnect the group there first, then send the code again.`
+      : `🙈 Este grupo está conectado a ${account ? `«${account}»` : 'otra cuenta de Luks'}, que sigue abierta. Para pasarlo a otra, liquídenla en mrluks.com o desconecten el grupo allá, y vuelvan a mandar el código.`,
 } as const;
 
 /** En el mensaje de verificación, el lugar del link /v/CÓDIGO: el código se crea al mandarlo (nunca se guarda) */

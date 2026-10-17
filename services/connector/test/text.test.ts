@@ -219,6 +219,11 @@ describe('los saludos de Mister Luks', () => {
       MISTER.bienvenida('en'),
       MSG.linked('Paseo', 8),
       MSG.linked('Trip', 3, 'en'),
+      MSG.moved('DaniChile', 'Chile Hack', 5),
+      MSG.moved('Trip 2', 'Trip', 3, 'en'),
+      // El aviso de la cuenta siguiente (anunciar_cuenta_siguiente, migración 370)
+      '🧾 «Chile Hack» ya estaba liquidada, así que abrí una cuenta nueva para lo que sigue: «Chile Hack 2». Ahí anoté este gasto 😉 Si quieren, cámbienle el nombre en mrluks.com.',
+      '🧾 “Chile Hack” was already settled, so I opened a new account for what’s next: “Chile Hack 2”. I logged this expense there 😉 You can rename it at mrluks.com.',
     ]) {
       expect(esMensajeDeLuks(t)).toBe(true);
     }

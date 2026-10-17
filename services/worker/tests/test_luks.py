@@ -31,6 +31,8 @@ CUENTAS = (
         "👋 Hi, I’m Mister Luks: I keep track of this group’s expenses. Send “taxi $45”.",
         "Listo: este grupo quedó conectado a «Paseo». Manden «taxi al aeropuerto 45 lucas».",
         "🧾 En «Paseo» llevan $1.234.000 en 12 gastos.\n📊 Más detalle en mrluks.com",
+        "🧾 «Chile Hack» ya estaba liquidada, así que abrí una cuenta nueva para lo que sigue: «Chile Hack 2».",
+        "🧾 “Chile Hack” was already settled, so I opened a new account for what’s next: “Chile Hack 2”.",
         "💸 Mafe → Vale: $50.000\n📊 More detail at mrluks.com",
     ],
 )

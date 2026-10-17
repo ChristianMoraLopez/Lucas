@@ -226,15 +226,30 @@ export class FakeStore implements Store {
     this.left.push(jid);
     this.presentes.delete(`${jid}|${sesion}`);
   }
+  /** Cuentas ya liquidadas: no ocupan su grupo (migración 370) */
+  liquidadas = new Set<string>();
   async linkGroup(sessionId: string, jid: string, name: string | null, code: string): Promise<LinkResult> {
     const cuenta = this.codes.get(code);
     if (!cuenta) return { ok: false, error: 'codigo_invalido' };
     const g = await this.upsertGroup(sessionId, jid, name);
     const actual = this.groups.get(jid);
-    if (actual?.account_id && actual.account_id !== cuenta.id) return { ok: false, error: 'otra_cuenta' };
+    const nombreDe = (id: string | null | undefined) => [...this.codes.values()].find((c) => c.id === id)?.name;
+    let previo: string | null = null;
+    if (actual?.account_id && actual.account_id !== cuenta.id) {
+      if (!this.liquidadas.has(actual.account_id)) return { ok: false, error: 'otra_cuenta', account_name: nombreDe(actual.account_id), language: 'es' };
+      previo = nombreDe(actual.account_id) ?? null;
+    }
     const already = actual?.account_id === cuenta.id;
     if (actual) actual.account_id = cuenta.id;
-    return { ok: true, already, account_id: cuenta.id, account_name: cuenta.name, group_id: g.group_id, members: this.members.get(g.group_id)?.length };
+    return {
+      ok: true,
+      already,
+      account_id: cuenta.id,
+      account_name: cuenta.name,
+      group_id: g.group_id,
+      members: this.members.get(g.group_id)?.length,
+      previous_account: previo,
+    };
   }
   async shouldIngest(jid: string, id: string, _sentAt?: Date, sender: string | null = null): Promise<IngestCheck> {
     const g = this.groups.get(jid);

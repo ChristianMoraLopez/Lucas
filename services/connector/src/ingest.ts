@@ -217,6 +217,8 @@ export class Ingestor {
     // Con quién lo mandó: de quien dijo «no me cuentes» ya no se baja ni se guarda nada
     const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt, m.sender.id);
     if (!check.ingest || !check.account_id) return `ignorado:${check.reason ?? 'sin_cuenta'}`;
+    // La cuenta del grupo ya se había liquidado: este gasto abrió la siguiente (Mister Luks lo cuenta cuando se anote)
+    if (check.new_account) this.log.info({ group: m.chatId, account: check.new_account }, 'Cuenta siguiente: la anterior ya estaba liquidada');
 
     let mediaPath: string | null = null;
     let mimeType: string | null = null;
@@ -266,14 +268,18 @@ export class Ingestor {
     const gente = r.ok && !r.already ? await this.#members(connector, m.chatId, r.group_id) : null;
     // Solo Mister Luks responde; un código malo se explica como mucho una vez por hora
     if (session.kind === 'contador') {
+      const idioma = r.language ?? 'es';
       const body = r.ok
         ? r.already
-          ? MSG.alreadyLinked(r.account_name, r.language ?? 'es')
-          : MSG.linked(r.account_name, gente?.cuantos ?? r.members, r.language ?? 'es')
+          ? MSG.alreadyLinked(r.account_name, idioma)
+          : r.previous_account
+            ? MSG.moved(r.account_name, r.previous_account, gente?.cuantos ?? r.members, idioma)
+            : MSG.linked(r.account_name, gente?.cuantos ?? r.members, idioma)
         : r.error === 'otra_cuenta'
-          ? MSG.otherAccount
+          ? MSG.otherAccount(r.account_name, idioma)
           : MSG.badCode;
-      const dedupe = r.ok ? `link:${m.chatId}:${m.messageId}` : `link:${m.chatId}:error:${tramo(m.sentAt, 60)}`;
+      // Cada error se explica como mucho una vez por hora (otro error distinto sí se responde)
+      const dedupe = r.ok ? `link:${m.chatId}:${m.messageId}` : `link:${m.chatId}:error:${r.error}:${tramo(m.sentAt, 60)}`;
       await this.#encolar([{ chat_jid: m.chatId, reason: 'link', body, dedupe_key: dedupe }]);
     }
     return r.ok ? 'enlazado' : r.error;

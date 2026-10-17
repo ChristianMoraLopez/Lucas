@@ -97,12 +97,14 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
           })
         : await supabase.rpc('link_group_to_account', { p_group_id: vista.group_id, p_token: token, p_account_id: cuenta });
     if (error) return setEstado({ error: humanError(error) });
-    if (!vista.mister_luks) {
+    // Si venía de una cuenta ya liquidada, anota desde ahora (la base no pregunta): nada que elegir
+    const elige = !vista.mister_luks && !vista.previous;
+    if (elige) {
       // Ya quedó conectado: si esto falla, se elige después en la pantalla de WhatsApp
       await supabase.rpc('set_group_history', { p_group_id: vista.group_id, p_mode: desde });
     }
     // «Todo el chat»: allá se sube el chat exportado
-    ir(data as string, chispas, !vista.mister_luks && desde === 'todo' ? 'whatsapp#desde-cuando' : 'resumen');
+    ir(data as string, chispas, elige && desde === 'todo' ? 'whatsapp#desde-cuando' : 'resumen');
   };
 
   // Ya tiene cuenta y no estoy: entro si mi número verificado está en el grupo
@@ -208,6 +210,12 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
         )
       )}
 
+      {vista.previous && (
+        <p className="lu-small gr-aviso" style={{ margin: 0 }}>
+          {t('«{cuenta}» ya se liquidó: esta cuenta es para lo que sigue. Lo de «{cuenta}» se queda allá.', { cuenta: vista.previous })}
+        </p>
+      )}
+
       {vista.in_group ? (
         <p className="lu-small gr-ok">{t('✓ Tu número está en el grupo: en la cuenta quedas como tu persona de ahí, no dos veces.')}</p>
       ) : (
@@ -307,7 +315,7 @@ export function ConectarGrupo({ vista, token, miNombre }: { vista: GrupoVista; t
           </Field>
         )}
 
-        {vista.mister_luks ? (
+        {vista.previous ? null : vista.mister_luks ? (
           <span className="lu-small lu-muted nc-nota">
             {t('🗓️ Mister Luks les pregunta en el grupo desde cuándo anota: desde ahora o todo el chat. Cualquiera responde, y lo cambian cuando quieran.')}
           </span>

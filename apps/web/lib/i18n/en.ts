@@ -1787,5 +1787,10 @@ export const EN: Record<string, string> = {
   'Falta la tasa de cambio': 'The exchange rate is missing',
   'Revisa la fecha de la tasa de cambio': 'Check the exchange rate date',
 
+  // ---------- Cuenta siguiente ----------
+  '«{cuenta}» ya se liquidó: esta cuenta es para lo que sigue. Lo de «{cuenta}» se queda allá.':
+    '“{cuenta}” is already settled: this account is for what comes next. What’s in “{cuenta}” stays there.',
+  'No se pudo desconectar el grupo: solo quienes administran la cuenta pueden hacerlo.': 'The group couldn’t be disconnected: only account admins can do it.',
+
   // ⟨más⟩
 };

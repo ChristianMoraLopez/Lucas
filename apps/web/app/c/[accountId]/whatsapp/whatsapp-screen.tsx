@@ -504,10 +504,12 @@ function Grupos({ grupos, isAdmin, onDone, onError }: { grupos: Grupo[]; isAdmin
   const desconectar = async () => {
     if (!quitar) return;
     setBusy(true);
-    const { error } = await supabase.from('account_group_links').delete().eq('group_id', quitar.group_id);
+    // Si nada se borró (sin permiso, o ya no estaba conectado), se dice en vez de quedarse callado
+    const { data, error } = await supabase.from('account_group_links').delete().eq('group_id', quitar.group_id).select('group_id');
     setBusy(false);
     setQuitar(null);
     if (error) return onError(humanError(error));
+    if (!data?.length) return onError(t('No se pudo desconectar el grupo: solo quienes administran la cuenta pueden hacerlo.'));
     onDone();
   };
 

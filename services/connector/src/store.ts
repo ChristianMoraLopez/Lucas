@@ -101,8 +101,16 @@ export type LinkResult =
       members?: number;
       /** El idioma de la cuenta (migración 260) */
       language?: 'es' | 'en' | null;
+      /** El grupo venía de otra cuenta (ya liquidada, o desconectada): no se pregunta desde cuándo (migración 370) */
+      previous_account?: string | null;
     }
-  | { ok: false; error: 'codigo_invalido' | 'otra_cuenta' | 'no_es_grupo' };
+  | {
+      ok: false;
+      error: 'codigo_invalido' | 'otra_cuenta' | 'no_es_grupo';
+      /** Con 'otra_cuenta': cuál es (sigue abierta) y su idioma */
+      account_name?: string;
+      language?: 'es' | 'en' | null;
+    };
 
 /** Lo de quien pregunta: sus saldos salen de «people»; esto es lo que pagó en el período */
 export interface QuestionMe {
@@ -145,8 +153,18 @@ export type QuestionData = {
 
 export interface IngestCheck {
   ingest: boolean;
-  reason?: 'grupo_sin_enlazar' | 'cuenta_cerrada' | 'antes_del_enlace' | 'repetido' | 'vacio' | 'archivo_fuera_de_la_cuenta' | 'no_me_cuentes';
+  reason?:
+    | 'grupo_sin_enlazar'
+    | 'cuenta_cerrada'
+    | 'cuenta_liquidada'
+    | 'antes_del_enlace'
+    | 'repetido'
+    | 'vacio'
+    | 'archivo_fuera_de_la_cuenta'
+    | 'no_me_cuentes';
   account_id?: string;
+  /** La cuenta del grupo ya se había liquidado y este gasto abrió la siguiente (migración 370) */
+  new_account?: string;
   group_id?: string;
   message_id?: string;
   known_sender?: boolean;

@@ -119,7 +119,8 @@ describe('enlazar un grupo con «lucas CÓDIGO»', () => {
   it('un grupo de otra cuenta no se roba con un código', async () => {
     await as(db, null, async (tx) => {
       await comoConnector(tx);
-      expect(await enlazar(tx, GRUPO_CASA)).toEqual({ ok: false, error: 'otra_cuenta' });
+      // Dice cuál (la Casa sigue abierta: no se suelta)
+      expect(await enlazar(tx, GRUPO_CASA)).toEqual({ ok: false, error: 'otra_cuenta', account_name: 'Casa', language: 'es' });
     });
   });
 });
@@ -173,9 +174,10 @@ describe('ingesta de mensajes', () => {
       await tx.exec('reset role');
       await tx.query(`update public.accounts set status = 'closed' where id = $1`, [CASA]);
       await comoConnector(tx);
+      // Ya liquidada: guardarlo directo no abre nada (eso lo hace connector_should_ingest_sender, migración 370)
       expect(await ingerir(tx, { jid: GRUPO_CASA, id: 'WA-5', at: new Date().toISOString() })).toMatchObject({
         ingest: false,
-        reason: 'cuenta_cerrada',
+        reason: 'cuenta_liquidada',
       });
     });
   });
