@@ -51,7 +51,10 @@ _EN_EL_DOCUMENTO: list[tuple[str, int, re.Pattern[str], str]] = [
         # Chile
         ("CLP", 3, r"\bR\.?\s?U\.?\s?T\.?\s*:?\s*\d{1,2}\.?\d{3}\.?\d{3}\s?-\s?[\dK]\b", "RUT chileno"),
         ("CLP", 3, r"\bS\.\s?I\.\s?I\.?|\bSII\b", "SII"),
-        ("CLP", 3, r"\bBOLETA\s+ELECTRONICA\b|\bTIMBRE\s+ELECTRONICO\b", "boleta electrónica"),
+        # El OCR a veces lo lee pegado: «BOLETAELECTRONICA»
+        ("CLP", 3, r"\bBOLETA\s*ELECTRONICA\b|\bTIMBRE\s*ELECTRONICO\b", "boleta electrónica"),
+        # Un RUT sin la palabra «RUT», con K de dígito verificador (solo existe en Chile)
+        ("CLP", 3, r"\b\d{1,2}\.\d{3}\.\d{3}\s?-\s?K\b", "RUT con K"),
         ("CLP", 3, r"\bTRANSBANK\b|\bWEBPAY\b|\bREDCOMPRA\b|\bBANCOESTADO\b|\bCUENTA\s?RUT\b", "pago en Chile"),
         ("CLP", 3, r"\bCLP\b", "dice CLP"),
         ("CLP", 2, r"\bCHILE\b|\bVALPARAISO\b|\bVINA\s+DEL\s+MAR\b|\bLAS\s+CONDES\b|\bPUNTA\s+ARENAS\b", "Chile"),

@@ -57,6 +57,16 @@ def pesos_al_final():
         (FACTURA_COLOMBIA, None, "COP", None),
         # …y en una cuenta en pesos chilenos, se convierte desde pesos colombianos
         (FACTURA_COLOMBIA, None, "CLP", "COP"),
+        # Lo que llegó de verdad: «BOLETAELECTRONICA» pegado y el RUT sin la palabra (con K)
+        (
+            "SOC RISTORANTE LE DUE TORRI LIMITADA\n81.300.500-K\nBOLETAELECTRONICA: 254764\nTOTAL 122.180",
+            None,
+            "COP",
+            "CLP",
+        ),
+        ("RESTAURANTE\n76.123.456-K\nTOTAL 15.990", None, "COP", "CLP"),
+        # Un NIT colombiano de persona (dos cifras al comienzo) no es un RUT: sin K
+        ("TIENDA DON PEPE\nNIT 79.123.456-1\nTOTAL 15.990", None, "COP", None),
         # Un voucher de tarjeta en Chile
         ("TRANSBANK\nVENTA DEBITO\nMONTO $ 12.500\nREDCOMPRA", None, "COP", "CLP"),
         # Dólares y euros escritos en el papel
