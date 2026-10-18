@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import type { SettlementOverview } from '@/lib/types';
+import type { AvisosDeCobro, SettlementOverview } from '@/lib/types';
 import { siteOrigin } from '@/utils/site';
 import { requireUser } from '@/utils/supabase/server';
 import { SettleScreen } from './settle-screen';
@@ -20,7 +20,7 @@ export default async function LiquidarPage({ params, searchParams }: PageProps<'
   const d = data as SettlementOverview;
 
   // Para cobrar por WhatsApp: el link público (si ya lo crearon) y el número de cada quien
-  const [link, numeros, origin, yo] = await Promise.all([
+  const [link, numeros, origin, yo, avisos] = await Promise.all([
     supabase.rpc('share_link', { p_account_id: accountId }),
     supabase
       .from('person_whatsapp_ids')
@@ -32,6 +32,8 @@ export default async function LiquidarPage({ params, searchParams }: PageProps<'
     siteOrigin(),
     // Si la administra (la puede borrar del todo) y si ya la archivó
     supabase.from('account_members').select('role, archived_at').eq('account_id', accountId).eq('user_id', userId).maybeSingle(),
+    // Los avisos de cobro de Mister Luks (migración 410; si la base no los tiene, no se muestran)
+    supabase.rpc('auto_cobros_estado', { p_account_id: accountId }),
   ]);
   const phones: Record<string, string> = {};
   for (const n of numeros.data ?? []) {
@@ -49,6 +51,7 @@ export default async function LiquidarPage({ params, searchParams }: PageProps<'
       origin={origin}
       puedeBorrar={miembro?.role === 'owner' || miembro?.role === 'admin'}
       archivada={Boolean(miembro?.archived_at)}
+      avisos={avisos.error ? null : (avisos.data as AvisosDeCobro)}
     />
   );
 }

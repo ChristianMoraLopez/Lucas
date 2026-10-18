@@ -1879,5 +1879,17 @@ export const EN: Record<string, string> = {
   'Propina y servicio': 'Tip and service',
   'Total: {monto}': 'Total: {monto}',
 
+  // ---------- Avisos de cobro ----------
+  'Avisar a quien debe': 'Remind whoever owes',
+  'Al liquidar, Mister Luks le escribe a cada uno cuánto debe, a quién y por qué (ítem por ítem), y se lo recuerda cada 3 días hasta que lo marquen pagado (máximo 3 veces).':
+    "When you settle up, Mister Luks tells each person how much they owe, to whom and why (item by item), and reminds them every 3 days until it's marked paid (3 times at most).",
+  'Para avisar, Mister Luks tiene que estar en el grupo de la cuenta (o que le escriban por privado).':
+    "To send reminders, Mister Luks has to be in the account's group (or people have to message him privately).",
+  'Nadie le ha escrito por privado a Mister Luks todavía: les avisa en el grupo. Por privado solo le escribe a quien le escribió primero.':
+    "Nobody has messaged Mister Luks privately yet: he'll remind them in the group. He only messages privately those who wrote to him first.",
+  'Por privado a {n} de {total} (los que ya le escribieron a Mister Luks); a los demás, en el grupo.':
+    'Privately to {n} of {total} (those who already messaged Mister Luks); everyone else, in the group.',
+  'Solo quien administra la cuenta los prende o los apaga.': 'Only account admins can turn them on or off.',
+
   // ⟨más⟩
 };

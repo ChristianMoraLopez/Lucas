@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { avisarCobros } from './cobros.js';
 import { ConfigError, loadConfig } from './config.js';
 import { SessionCipher } from './crypto.js';
 import { startHealthServer } from './health.js';
@@ -101,6 +102,8 @@ const timers = [
   cada(config.syncIntervalMs, 'sesiones', () => manager.sync()),
   cada(config.replies.pollIntervalMs, 'mensajes', () => replies.tick()),
   cada(Math.max(config.syncIntervalMs, 15_000), 'integrantes', () => manager.syncPendingMembers()),
+  // Los avisos de cobro de las cuentas que los tienen prendidos (los manda la bandeja de salida)
+  cada(config.misterLuks.cobrosIntervalMs, 'cobros', () => avisarCobros(store, config.misterLuks.webUrl, log)),
 ];
 log.info({ replies: config.replies.enabled }, 'Connector listo');
 

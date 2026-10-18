@@ -1,6 +1,7 @@
 import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
 import type {
+  Cobro,
   DesdeCuando,
   DetectedResult,
   GroupResult,
@@ -189,6 +190,15 @@ export class FakeStore implements Store {
     return this.outbox
       .filter((o) => !o.sent && !o.dropped)
       .map(({ dedupe_key: _k, sent: _s, dropped: _d, error: _e, waId: _w, ...o }) => ({ ...o, created_at: '2026-10-12T00:00:00Z' }));
+  }
+  /** Avisos de cobro que tocan (connector_cobros) y los que ya se avisaron */
+  cobrosPendientes: Cobro[] = [];
+  avisados: string[] = [];
+  async cobros() {
+    return this.cobrosPendientes.filter((c) => !this.avisados.includes(c.transfer_id));
+  }
+  async cobrosAvisados(ids: string[]) {
+    this.avisados.push(...ids);
   }
   /** Números verificados: número (o «lid:…») → primer nombre de su usuario */
   verificados = new Map<string, string>();

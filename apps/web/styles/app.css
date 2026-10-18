@@ -6903,3 +6903,15 @@ a.gr-fila:focus-visible {
 .st-p__det .st-p__gastos .sh-items {
   background: var(--superficie);
 }
+
+/* ---------- Liquidar: avisos de cobro de Mister Luks ---------- */
+.st-avisos {
+  display: grid;
+  gap: 8px;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--superficie-2);
+}
+.st-avisos__sw {
+  justify-content: flex-start;
+}

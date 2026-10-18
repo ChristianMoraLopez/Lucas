@@ -222,6 +222,15 @@ export interface SettlementPerson {
   received?: number;
 }
 
+/** public.auto_cobros_estado: los avisos de cobro de Mister Luks (migración 410) */
+export interface AvisosDeCobro {
+  on: boolean;
+  /** Si Mister Luks está en el grupo de la cuenta (ahí avisa a quien no le ha escrito) */
+  grupo: boolean;
+  /** Quiénes ya le escribieron a Mister Luks: a ellos les llega por privado */
+  por_privado: string[];
+}
+
 /** Un pago ya hecho de una liquidación que se reabrió (cuenta en los saldos) */
 export interface SettlementPayment {
   id: string;

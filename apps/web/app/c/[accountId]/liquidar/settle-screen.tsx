@@ -22,7 +22,7 @@ import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
 import { reciboDe } from '@/lib/recibo';
 import { minTransfers } from '@/lib/settlement';
 import { calcularTransferencias, cobroMessage, cruzaDeudas, detalleCobro, displayShare, grupoMessage, sharedLink } from '@/lib/share';
-import { asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
+import { type AvisosDeCobro, asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 type Accion = 'liquidar' | 'reabrir' | 'cerrar';
@@ -50,6 +50,7 @@ export function SettleScreen({
   origin,
   puedeBorrar = false,
   archivada = false,
+  avisos = null,
 }: {
   d: SettlementOverview;
   /** El link público de la cuenta (/r/TOKEN), si ya lo crearon */
@@ -61,6 +62,8 @@ export function SettleScreen({
   puedeBorrar?: boolean;
   /** Ya la archivó (solo para ella) */
   archivada?: boolean;
+  /** Los avisos de cobro de Mister Luks (null si la base todavía no los tiene) */
+  avisos?: AvisosDeCobro | null;
 }) {
   const t = useT();
   const $ = useDinero();
@@ -464,6 +467,16 @@ export function SettleScreen({
           </p>
         )}
 
+        {avisos && !cerrada && (
+          <AvisosCobro
+            avisos={avisos}
+            personas={d.people.length}
+            isAdmin={d.is_admin}
+            busy={busy === 'avisos'}
+            onCambiar={(on) => correr('avisos', () => supabase.rpc('set_auto_cobros', { p_account_id: accountId, p_on: on }))}
+          />
+        )}
+
         <Compartir
           accountId={accountId}
           isAdmin={d.is_admin}
@@ -864,6 +877,63 @@ function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boo
         </div>
       </details>
     </li>
+  );
+}
+
+/**
+ * Avisos de cobro: al liquidar, Mister Luks le escribe a cada quien que debe
+ * (por privado si ya le escribió; si no, en el grupo) y se lo recuerda.
+ */
+function AvisosCobro({
+  avisos,
+  personas,
+  isAdmin,
+  busy,
+  onCambiar,
+}: {
+  avisos: AvisosDeCobro;
+  personas: number;
+  isAdmin: boolean;
+  busy: boolean;
+  onCambiar: (on: boolean) => void;
+}) {
+  const t = useT();
+  const privado = avisos.por_privado.length;
+  const nadie = !avisos.grupo && privado === 0;
+  return (
+    <section className="st-avisos" aria-labelledby="st-avisos-t">
+      <label className="wa-switch st-avisos__sw">
+        <input
+          type="checkbox"
+          role="switch"
+          aria-checked={avisos.on}
+          className="lu-switch"
+          checked={avisos.on}
+          disabled={!isAdmin || busy}
+          onChange={(e) => onCambiar(e.target.checked)}
+        />
+        <span id="st-avisos-t" className="lu-title" style={{ fontSize: 16 }}>
+          {t('Avisar a quien debe')}
+        </span>
+      </label>
+      <p className="lu-small" style={{ margin: 0 }}>
+        {t(
+          'Al liquidar, Mister Luks le escribe a cada uno cuánto debe, a quién y por qué (ítem por ítem), y se lo recuerda cada 3 días hasta que lo marquen pagado (máximo 3 veces).',
+        )}
+      </p>
+      <p className="lu-small lu-muted" style={{ margin: 0 }}>
+        {nadie
+          ? t('Para avisar, Mister Luks tiene que estar en el grupo de la cuenta (o que le escriban por privado).')
+          : privado === 0
+            ? t('Nadie le ha escrito por privado a Mister Luks todavía: les avisa en el grupo. Por privado solo le escribe a quien le escribió primero.')
+            : t('Por privado a {n} de {total} (los que ya le escribieron a Mister Luks); a los demás, en el grupo.', { n: privado, total: personas })}
+      </p>
+      {!isAdmin && (
+        <p className="lu-small lu-muted" style={{ margin: 0 }}>
+          {t('Solo quien administra la cuenta los prende o los apaga.')}
+        </p>
+      )}
+    </section>
   );
 }
 

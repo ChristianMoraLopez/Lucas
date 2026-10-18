@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GroupMember, Sender, SessionKind } from './connector.js';
+import type { GastoConItems } from './recibo.js';
 import type { Idioma, Moneda, PendingReply } from './text.js';
 
 /* Todo lo que el connector lee y escribe en Supabase, en un solo lugar.
@@ -75,6 +76,27 @@ export interface OutboxItem {
   identity_id?: string | null;
   /** De qué grupo es el link /g/ para crear su cuenta (migración 330; si no llega, la base lo saca del chat) */
   group_id?: string | null;
+}
+
+/** Un aviso de cobro que toca mandar (connector_cobros, migración 410) */
+export interface Cobro {
+  transfer_id: string;
+  settlement_id: string;
+  /** Cuántos avisos ya se mandaron de esta transferencia (0: el primero) */
+  avisos: number;
+  account: { id: string; name: string; language: Idioma | null; currency: Moneda; type: 'hogar' | 'evento'; month: string | null };
+  from: { id: string; name: string };
+  to: { id: string; name: string };
+  amount: number;
+  /** Su chat privado con Mister Luks (solo si ya le escribió); si no, va al grupo */
+  private_jid: string | null;
+  group_jid: string | null;
+  /** El link público de la cuenta (/r/TOKEN) */
+  token: string | null;
+  /** Todo lo que paga quien debe en esta liquidación */
+  transfers: { to: string; amount: number }[] | null;
+  /** Los gastos en los que tuvo parte y que pagó otro, con los ítems */
+  expenses: (GastoConItems & { merchant: string; payer_person_id: string; payer_name: string })[];
 }
 
 /** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
@@ -264,6 +286,10 @@ export interface Store {
   optout(jid: string, sender: Sender, on: boolean): Promise<{ changed: boolean; reason?: 'sin_cuenta'; account_name?: string; language?: Idioma | null }>;
   /** Un grupo que lee solo un WhatsApp vinculado: Mister Luks abre el chat privado de quien preguntó (false si no hay Mister Luks) */
   openPrivateAnswer(privateJid: string): Promise<boolean>;
+  /** Los avisos de cobro que tocan ahora (migración 410) */
+  cobros(limit: number): Promise<Cobro[]>;
+  /** Ya se avisó de esas transferencias */
+  cobrosAvisados(transferIds: string[]): Promise<void>;
   ingest(input: IngestInput): Promise<IngestCheck>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
@@ -518,6 +544,14 @@ export class SupabaseStore implements Store {
 
   openPrivateAnswer(privateJid: string) {
     return this.#rpc<boolean>('connector_open_private_answer', { p_jid: privateJid });
+  }
+
+  cobros(limit: number) {
+    return this.#rpc<Cobro[]>('connector_cobros', { p_limit: limit });
+  }
+
+  async cobrosAvisados(transferIds: string[]) {
+    if (transferIds.length) await this.#rpc('connector_cobros_avisados', { p_transfer_ids: transferIds });
   }
 
   ingest(m: IngestInput) {
