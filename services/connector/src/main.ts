@@ -4,6 +4,7 @@ import { ConfigError, loadConfig } from './config.js';
 import { SessionCipher } from './crypto.js';
 import { startHealthServer } from './health.js';
 import { Ingestor } from './ingest.js';
+import { preguntarItems } from './items.js';
 import { createLogger } from './log.js';
 import { SessionManager } from './manager.js';
 import { clasificadorOllama } from './qwen.js';
@@ -104,6 +105,8 @@ const timers = [
   cada(Math.max(config.syncIntervalMs, 15_000), 'integrantes', () => manager.syncPendingMembers()),
   // Los avisos de cobro de las cuentas que los tienen prendidos (los manda la bandeja de salida)
   cada(config.misterLuks.cobrosIntervalMs, 'cobros', () => avisarCobros(store, config.misterLuks.webUrl, log)),
+  // ¿Quién pidió qué? de las cuentas con varios ítems que acaban de llegar a un paseo
+  cada(config.misterLuks.itemsIntervalMs, 'items', () => preguntarItems(store, log)),
 ];
 log.info({ replies: config.replies.enabled }, 'Connector listo');
 

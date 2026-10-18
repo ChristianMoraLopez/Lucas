@@ -132,6 +132,42 @@ export interface YaPagueResult {
   quedan: Transferencia[];
 }
 
+/** Una cuenta recién llegada al grupo para preguntar quién pidió qué (migración 440) */
+export interface ItemsPregunta {
+  expense_id: string;
+  group_jid: string;
+  merchant: string;
+  total: number;
+  tip: number;
+  payer_name: string | null;
+  account: { name: string; language: Idioma | null; currency: Moneda };
+  /** En el orden en que salen numerados */
+  items: { id: string; name: string; quantity: number; total: number }[];
+}
+
+/** connector_items_respuesta: lo que quedó de quien respondió la lista (o por qué no) */
+export type ItemsRespuesta =
+  | {
+      ok: true;
+      language: Idioma | null;
+      currency: Moneda;
+      merchant: string;
+      name: string;
+      /** Lo que le toca de la cuenta, ya con la propina */
+      parte: number;
+      mios: { n: number; name: string; quantity: number; units: number }[];
+      /** Cuántos ítems no ha dicho nadie */
+      sin_nadie: number;
+    }
+  | {
+      ok: false;
+      reason: 'no_es_pregunta' | 'liquidado' | 'no_te_conozco' | 'cambio' | 'fijos' | 'no_existe';
+      language?: Idioma | null;
+      merchant?: string;
+      account_name?: string;
+      total_items?: number;
+    };
+
 /** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
 export interface SoyYoResult {
   identity_id: string;
@@ -325,6 +361,12 @@ export interface Store {
   porPagar(jid: string, sender: Sender): Promise<PendientesResult>;
   /** «Ya pagué»: las marca pagadas (solo las que paga quien escribe) */
   yaPague(jid: string, sender: Sender, transferIds: string[]): Promise<YaPagueResult>;
+  /** Las cuentas recién llegadas para preguntar quién pidió qué (migración 440) */
+  itemsPorPreguntar(limit: number): Promise<ItemsPregunta[]>;
+  /** La lista quedó en la bandeja de salida con esa clave */
+  itemPromptGuardado(expenseId: string, itemIds: string[], chatJid: string, dedupeKey: string): Promise<void>;
+  /** Alguien respondió la lista (citándola) con los números de lo suyo */
+  itemsRespuesta(jid: string, quotedId: string, sender: Sender, claims: { n: number; units?: number }[]): Promise<ItemsRespuesta>;
   ingest(input: IngestInput): Promise<IngestCheck>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
@@ -606,6 +648,25 @@ export class SupabaseStore implements Store {
       p_phone: sender.phone,
       p_lid: sender.lid ?? null,
       p_transfer_ids: transferIds,
+    });
+  }
+  itemsPorPreguntar(limit: number) {
+    return this.#rpc<ItemsPregunta[]>('connector_items_por_preguntar', { p_limit: limit });
+  }
+
+  async itemPromptGuardado(expenseId: string, itemIds: string[], chatJid: string, dedupeKey: string) {
+    await this.#rpc('connector_item_prompt_guardado', { p_expense_id: expenseId, p_items: itemIds, p_chat_jid: chatJid, p_dedupe_key: dedupeKey });
+  }
+
+  itemsRespuesta(jid: string, quotedId: string, sender: Sender, claims: { n: number; units?: number }[]) {
+    return this.#rpc<ItemsRespuesta>('connector_items_respuesta', {
+      p_jid: jid,
+      p_quoted_wa_id: quotedId,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+      p_claims: claims,
     });
   }
 

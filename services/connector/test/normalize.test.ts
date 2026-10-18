@@ -43,6 +43,24 @@ describe('mensajes de Baileys → IncomingMessage', () => {
     expect(soloLid?.sender).toEqual({ id: 'lid:123456789012345', phone: null, lid: '123456789012345', name: 'Mafe' });
   });
 
+  it('si responde un mensaje: quién lo escribió y cuál es (para saber a qué lista responde)', () => {
+    const m = normalizeMessage(
+      msg({
+        message: {
+          extendedTextMessage: {
+            text: '1x2, 5',
+            contextInfo: { stanzaId: '3EB0LISTA', participant: '573150000000@s.whatsapp.net', quotedMessage: { conversation: 'la lista' } },
+          },
+        },
+      }),
+      's1',
+      ME,
+      bajar,
+    );
+    expect(m).toMatchObject({ text: '1x2, 5', quotedFrom: '573150000000', quotedId: '3EB0LISTA' });
+    expect(normalizeMessage(msg({}), 's1', ME, bajar)?.quotedId).toBeNull();
+  });
+
   it('foto con pie de foto', async () => {
     const m = normalizeMessage(
       msg({ message: { imageMessage: { caption: ' almuerzo en La Canoa ', mimetype: 'image/jpeg', fileLength: 245_000 } } as WAMessage['message'] }),

@@ -1,0 +1,102 @@
+import { describe, expect, it } from 'vitest';
+import { contestar, leerRespuesta, mensajeItems, preguntarItems } from '../src/items.js';
+import type { ItemsPregunta } from '../src/store.js';
+import { esMensajeDeLuks, looksLikeExpense } from '../src/text.js';
+import { FakeStore, GRUPO, silentLog } from './fakes.js';
+
+// ¿Quién pidió qué? por WhatsApp (migración 440)
+
+const CUENTA: ItemsPregunta = {
+  expense_id: 'g1',
+  group_jid: GRUPO,
+  merchant: 'Le Due Torri',
+  total: 330_000,
+  tip: 0,
+  payer_name: 'Daniel M Castelblanco',
+  account: { name: 'DaniChile', language: 'es', currency: 'COP' },
+  items: [
+    { id: 'i1', name: 'Coca Cola Zero', quantity: 3, total: 30_000 },
+    { id: 'i2', name: 'Ravioli Napolitana', quantity: 1, total: 150_000 },
+    { id: 'i3', name: 'Filete Grill', quantity: 1, total: 120_000 },
+  ],
+};
+
+describe('la lista', () => {
+  it('numerada, con cómo responderla y la firma', () => {
+    expect(mensajeItems(CUENTA)).toBe(
+      [
+        '🧾 *Le Due Torri* · $330.000 (pagó Daniel)',
+        '¿Quién pidió qué? Respondan *este mensaje* con los números de lo suyo:',
+        '',
+        '1. Coca Cola Zero ×3 · $30.000',
+        '2. Ravioli Napolitana · $150.000',
+        '3. Filete Grill · $120.000',
+        '',
+        'Por ejemplo «1, 3», o «1x2» si fueron 2 de las 3. Lo que nadie diga se divide entre todos, y la propina y el servicio según lo que consumió cada uno.',
+        '',
+        '📊 Más detalle en mrluks.com',
+      ].join('\n'),
+    );
+    expect(esMensajeDeLuks(mensajeItems(CUENTA))).toBe(true);
+    const en = mensajeItems({ ...CUENTA, total: 300_000, account: { ...CUENTA.account, language: 'en' } });
+    expect(en).toContain('Who had what? Reply to *this message*');
+    expect(en).toContain('What nobody claims is split among everyone.');
+  });
+});
+
+describe('lo que responden', () => {
+  it.each([
+    ['1, 5', [{ n: 1 }, { n: 5 }]],
+    ['yo la 1 y la 5', [{ n: 1 }, { n: 5 }]],
+    ['1x2', [{ n: 1, units: 2 }]],
+    ['1 x 2, 3', [{ n: 1, units: 2 }, { n: 3 }]],
+    ['yo 2 de la 1', [{ n: 1, units: 2 }]],
+    ['1 (2) y 4', [{ n: 1, units: 2 }, { n: 4 }]],
+    ['3', [{ n: 3 }]],
+    ['Yo: 1×1,5', [{ n: 1, units: 1.5 }]],
+  ])('«%s»', (texto, claims) => expect(leerRespuesta(texto)).toEqual({ claims }));
+
+  it('sin números o preguntando, no es una respuesta', () => {
+    expect(leerRespuesta('jajaja')).toBeNull();
+    expect(leerRespuesta('cuánto es la 3?')).toBeNull();
+    expect(leerRespuesta('')).toBeNull();
+    expect(leerRespuesta('0')).toBeNull();
+  });
+
+  it('y nunca parecen un gasto', () => {
+    for (const t of ['1, 5', '1x2', '2 de la 1', '1 (2) y 4']) expect(looksLikeExpense(t)).toBe(false);
+  });
+
+  it('la confirmación: lo suyo y lo que le toca, en una línea que no se anota como gasto', () => {
+    const r = {
+      ok: true as const,
+      language: 'es' as const,
+      currency: 'COP' as const,
+      merchant: 'Le Due Torri',
+      name: 'Santiago Ricaurte',
+      parte: 154_000,
+      mios: [
+        { n: 1, name: 'Coca Cola Zero', quantity: 3, units: 2 },
+        { n: 3, name: 'Filete Grill', quantity: 1, units: 1 },
+      ],
+      sin_nadie: 1,
+    };
+    expect(contestar(r)).toBe('✅ Anotado: Santiago → Coca Cola Zero (2 de 3), Filete Grill · $154.000 en «Le Due Torri»\nFalta 1 por decir de quién es.');
+    expect(esMensajeDeLuks(contestar(r))).toBe(true);
+    expect(contestar({ ...r, sin_nadie: 0, language: 'en' })).toBe('✅ Logged: Santiago → Coca Cola Zero (2 of 3), Filete Grill · $154,000 in “Le Due Torri”');
+    expect(contestar({ ok: false, reason: 'no_existe', language: 'es', total_items: 3 })).toBe('🤔 La lista va del 1 al 3.');
+    expect(contestar({ ok: false, reason: 'liquidado', language: 'es', merchant: 'Le Due Torri' })).toContain('ya está liquidada');
+  });
+});
+
+describe('preguntar', () => {
+  it('una lista por cuenta al grupo, y no se repite', async () => {
+    const store = new FakeStore();
+    store.presentes.add(`${GRUPO}|contador`);
+    store.porPreguntar = [CUENTA];
+    expect(await preguntarItems(store, silentLog)).toBe(1);
+    expect(store.outbox).toEqual([expect.objectContaining({ chat_jid: GRUPO, reason: 'answer', dedupe_key: 'items:g1', body: mensajeItems(CUENTA) })]);
+    expect(store.listas.get('g1')).toEqual({ items: ['i1', 'i2', 'i3'], chat: GRUPO, dedupe: 'items:g1' });
+    expect(await preguntarItems(store, silentLog)).toBe(0);
+  });
+});

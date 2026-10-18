@@ -676,3 +676,58 @@ describe('«ya pagué»', () => {
     expect(textos('573009990000@s.whatsapp.net').at(-1)).toContain('No encuentro cuentas tuyas con este número');
   });
 });
+
+describe('¿quién pidió qué?', () => {
+  const LUKS = '573337627471';
+  beforeEach(async () => {
+    ing.setMisterLuks([LUKS, 'lid:98765432101234']);
+    await enlazado();
+    // La lista ya salió al grupo
+    await store.itemPromptGuardado('g1', ['i1', 'i2', 'i3'], GRUPO, 'items:g1');
+    store.outbox.push({
+      id: 'o-lista',
+      chat_jid: GRUPO,
+      reason: 'answer',
+      body: 'la lista',
+      dedupe_key: 'items:g1',
+      sent: true,
+      dropped: false,
+      error: null,
+      waId: 'WA-LISTA',
+    });
+    store.respuestaItems = {
+      ok: true,
+      language: 'es',
+      currency: 'COP',
+      merchant: 'Le Due Torri',
+      name: 'Mafe',
+      parte: 95_000,
+      mios: [{ n: 1, name: 'Coca Cola Zero', quantity: 3, units: 2 }],
+      sin_nadie: 2,
+    };
+  });
+
+  it('responder la lista con lo suyo queda anotado y Mister Luks confirma', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: '1x2', quotedFrom: LUKS, quotedId: 'WA-LISTA' }))).toBe('items:ok');
+    expect(store.respuestas).toEqual([{ jid: GRUPO, quotedId: 'WA-LISTA', sender: '573016667788', claims: [{ n: 1, units: 2 }] }]);
+    expect(bandeja(GRUPO).at(-1)?.body).toBe('✅ Anotado: Mafe → Coca Cola Zero (2 de 3) · $95.000 en «Le Due Torri»\nFaltan 2 por decir de quién son.');
+    expect(store.messages.size).toBe(0);
+  });
+
+  it('un «1» que responde otro mensaje de Mister Luks no es de la lista', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: '1', quotedFrom: LUKS, quotedId: 'OTRO' }))).not.toBe('items:ok');
+    expect(store.respuestas).toEqual([]);
+  });
+
+  it('una pregunta citando la lista sigue siendo una pregunta', async () => {
+    store.numeros = null;
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks cuánto llevamos', quotedFrom: LUKS, quotedId: 'WA-LISTA' }))).toBe('pregunta:total');
+    expect(store.respuestas).toEqual([]);
+  });
+
+  it('el WhatsApp vinculado de alguien no responde la lista (lo hace Mister Luks)', async () => {
+    const mio = new FakeConnector(personal);
+    expect(await ing.onMessage(personal, mio, m({ sessionId: 'personal', text: '1x2', quotedFrom: LUKS, quotedId: 'WA-LISTA' }))).not.toBe('items:ok');
+    expect(store.respuestas).toEqual([]);
+  });
+});

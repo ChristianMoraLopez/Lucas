@@ -190,5 +190,6 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
     fromMe: Boolean(raw.key.fromMe),
     mentions,
     quotedFrom: ctx?.quotedMessage ? usuario(ctx.participant) : null,
+    quotedId: ctx?.quotedMessage ? (ctx.stanzaId ?? null) : null,
   };
 }

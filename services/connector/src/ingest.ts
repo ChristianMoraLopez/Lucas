@@ -1,4 +1,5 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
+import { contestar, leerRespuesta } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
 import { elegirPagos, PAGOS } from './pagos.js';
@@ -47,6 +48,7 @@ export type Outcome =
   | 'chat_muy_pesado'
   | `pregunta:${string}`
   | `pago:${string}`
+  | `items:${string}`
   | `link_grupo:${string}`
   | `ignorado:${string}`;
 
@@ -170,6 +172,12 @@ export class Ingestor {
 
     // «luks soy yo» en el grupo: solo lo atiende Mister Luks
     if (session.kind === 'contador' && !m.media && esSoyYo(m.text)) return this.#soyYo(session, m);
+
+    // Responden la lista de «¿quién pidió qué?» con los números de lo suyo (antes que el «1»/«2» de desde cuándo anoto)
+    if (session.kind === 'contador' && !m.media && m.quotedId && this.#esDeLuks(m.quotedFrom)) {
+      const items = await this.#items(m);
+      if (items) return items;
+    }
 
     // El chat exportado: se importa (lo de antes de que Luks empezara a anotar)
     if (m.media?.kind === 'chat') return this.#chatExportado(session, m);
@@ -400,6 +408,30 @@ export class Ingestor {
     await this.#encolar(items);
     this.log.info({ group: m.chatId, intent: intencion, sender: maskWaId(m.sender.id), in_group: enGrupo }, 'Pregunta a Mister Luks');
     return outcome;
+  }
+
+  #esDeLuks(id: string | null | undefined) {
+    return Boolean(id && (this.#misterLuks.has(id) || this.#misterLuks.has(`lid:${id}`)));
+  }
+
+  /**
+   * Responden (citan) la lista numerada de una cuenta con lo suyo: «1, 5»,
+   * «1x2». La base lo anota y reparte; Mister Luks confirma en una línea.
+   * null si no era la lista o no trae números (sigue como cualquier mensaje).
+   */
+  async #items(m: IncomingMessage): Promise<Outcome | null> {
+    const texto = aMisterLuks(m, this.#misterLuks)?.texto ?? m.text ?? '';
+    const respuesta = leerRespuesta(texto);
+    if (!respuesta || !m.quotedId) return null;
+    const r = await this.store.itemsRespuesta(m.chatId, m.quotedId, m.sender, respuesta.claims);
+    if (!r.ok && r.reason === 'no_es_pregunta') return null;
+    const body = contestar(r);
+    if (body) await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+    this.log.info(
+      { group: m.chatId, ok: r.ok, reason: r.ok ? undefined : r.reason, claims: respuesta.claims.length, sender: maskWaId(m.sender.id) },
+      '¿Quién pidió qué?',
+    );
+    return `items:${r.ok ? 'ok' : r.reason}`;
   }
 
   /**

@@ -9,6 +9,8 @@ import type {
   ImportResult,
   IngestCheck,
   IngestInput,
+  ItemsPregunta,
+  ItemsRespuesta,
   KeyItem,
   LinkResult,
   OutboxItem,
@@ -204,6 +206,25 @@ export class FakeStore implements Store {
   async cobrosAvisados(privados: string[], enGrupo: string[]) {
     this.avisados.push(...privados, ...enGrupo);
     this.avisadosPorPrivado.push(...privados);
+  }
+  /** ¿Quién pidió qué?: las cuentas por preguntar, las listas que quedaron en la bandeja y lo que respondieron */
+  porPreguntar: ItemsPregunta[] = [];
+  listas = new Map<string, { items: string[]; chat: string; dedupe: string }>();
+  respuestas: { jid: string; quotedId: string; sender: string | null; claims: { n: number; units?: number }[] }[] = [];
+  /** Lo que responde la base a una respuesta de la lista (la pone cada prueba) */
+  respuestaItems: ItemsRespuesta | null = null;
+  async itemsPorPreguntar() {
+    return this.porPreguntar.filter((p) => !this.listas.has(p.expense_id));
+  }
+  async itemPromptGuardado(expenseId: string, itemIds: string[], chatJid: string, dedupeKey: string) {
+    if (!this.listas.has(expenseId)) this.listas.set(expenseId, { items: itemIds, chat: chatJid, dedupe: dedupeKey });
+  }
+  async itemsRespuesta(jid: string, quotedId: string, sender: Sender, claims: { n: number; units?: number }[]): Promise<ItemsRespuesta> {
+    // Como la base: responde la lista si cita el mensaje que se mandó con ella
+    const lista = [...this.listas.values()].find((l) => l.chat === jid && this.outbox.find((o) => o.dedupe_key === l.dedupe)?.waId === quotedId);
+    if (!lista) return { ok: false, reason: 'no_es_pregunta' };
+    this.respuestas.push({ jid, quotedId, sender: sender.id, claims });
+    return this.respuestaItems ?? { ok: false, reason: 'no_te_conozco', language: 'es', account_name: 'Paseo' };
   }
   /** Lo que debe cada quien de las liquidaciones (`wa`: su número) y lo que ya marcó «ya pagué» */
   deudas: (Transferencia & { wa: string; to_private_jid: string | null; group_jid: string | null })[] = [];

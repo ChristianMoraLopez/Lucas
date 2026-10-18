@@ -41,6 +41,8 @@ export interface Config {
     joinsPerHour: number;
     /** Cada cuánto revisa si hay avisos de cobro por mandar */
     cobrosIntervalMs: number;
+    /** Cada cuánto revisa si llegaron cuentas para preguntar quién pidió qué */
+    itemsIntervalMs: number;
     joinsPerHourPerSender: number;
   };
   /** Qwen en Ollama (el del worker), solo para clasificar las preguntas que las reglas no entienden; null: sin Qwen */
@@ -113,6 +115,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       webUrl: (env.WEB_URL?.trim() || 'https://mrluks.com').replace(/\/+$/, ''),
       joinsPerHour: int(env, 'JOINS_MAX_PER_HOUR', 4),
       cobrosIntervalMs: Math.max(int(env, 'COBROS_INTERVAL_S', 300), 60) * 1000,
+      itemsIntervalMs: Math.max(int(env, 'ITEMS_INTERVAL_S', 30), 10) * 1000,
       joinsPerHourPerSender: int(env, 'JOINS_MAX_PER_HOUR_SENDER', 2),
     },
     queueStaleAfterS: int(env, 'QUEUE_STALE_AFTER_S', 900),

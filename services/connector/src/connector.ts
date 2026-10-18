@@ -64,6 +64,8 @@ export interface IncomingMessage {
   mentions?: string[];
   /** Si responde (cita) un mensaje: el número o LID de quien lo escribió */
   quotedFrom?: string | null;
+  /** Y el id de ese mensaje (para saber a cuál responde: la lista de ítems, por ejemplo) */
+  quotedId?: string | null;
 }
 
 /** Alguien que está en el grupo */
