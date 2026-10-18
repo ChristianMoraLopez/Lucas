@@ -50,7 +50,7 @@ export function ReviewScreen({
         supabase
           .from('expenses')
           .select(
-            'id, merchant, expense_date, total_cop, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id), split_method, original_currency, original_total, fx_rate, fx_date, fx_source, expense_splits(person_id, amount_cop, fixed), expense_items(id)',
+            'id, merchant, expense_date, total_cop, updated_at, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id), split_method, original_currency, original_total, fx_rate, fx_date, fx_source, expense_splits(person_id, amount_cop, fixed), expense_items(id)',
           )
           .eq('account_id', accountId)
           .eq('status', 'pending_review')
@@ -239,7 +239,7 @@ export function ReviewScreen({
             ) : (
               item && (
                 <ExpenseForm
-                  key={item.id}
+                  key={`${item.id}-${item.updated_at ?? ''}`}
                   accountId={accountId}
                   onCategoriesChanged={() => queryClient.invalidateQueries({ queryKey: ['revisar', accountId] })}
                   mode="review"

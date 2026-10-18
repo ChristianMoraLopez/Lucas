@@ -341,6 +341,8 @@ export interface ReviewExpense {
   merchant: string;
   expense_date: string;
   total_cop: number;
+  /** Cambia con cada guardado: el formulario se arma de nuevo con lo último (no con lo de antes de dividir) */
+  updated_at?: string | null;
   category_id: string | null;
   payer_person_id: string | null;
   status: 'pending_review' | 'confirmed';

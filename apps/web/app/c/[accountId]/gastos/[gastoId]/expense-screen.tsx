@@ -44,7 +44,7 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
         supabase
           .from('expenses')
           .select(
-            'id, merchant, expense_date, total_cop, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, corrected_at, cufe, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id, uploaded_by), split_method, original_currency, original_total, fx_rate, fx_date, fx_source, tip_percent, tip_cop, expense_splits(person_id, amount_cop, fixed), expense_items(id, name, quantity, total_cop, extra)',
+            'id, merchant, expense_date, total_cop, updated_at, category_id, payer_person_id, status, confidence, field_confidence, ai_snapshot, split_note, corrected_by, corrected_at, cufe, evidence_path, created_at, source, messages(kind, text_body, file_name, received_at, sender_person_id, uploaded_by), split_method, original_currency, original_total, fx_rate, fx_date, fx_source, tip_percent, tip_cop, expense_splits(person_id, amount_cop, fixed), expense_items(id, name, quantity, total_cop, extra)',
           )
           .eq('id', expenseId)
           .eq('account_id', accountId)
@@ -185,7 +185,8 @@ export function ExpenseScreen({ accountId, expenseId, myRole }: { accountId: str
         </section>
         <section className="rv-data" aria-label={t('Datos del gasto')}>
           <ExpenseForm
-            key={`${expense.id}-${expense.status}`}
+            // Con lo último guardado: si se dividió por consumo (o con propina), el total y la división son otros
+            key={`${expense.id}-${expense.status}-${expense.updated_at ?? ''}`}
             accountId={accountId}
             onCategoriesChanged={() => queryClient.invalidateQueries({ queryKey: ['gasto', expenseId] })}
             mode="edit"

@@ -301,11 +301,10 @@ function Editor({
     // Sigue en «Guardando…» hasta que llegue la pantalla del gasto
     lanzarChispas(e);
     notifyAccountChanged(accountId);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['gasto', gasto.id] }),
-      queryClient.invalidateQueries({ queryKey: ['revisar', accountId] }),
-      queryClient.invalidateQueries({ queryKey: ['dividir', gasto.id] }),
-    ]);
+    // Lo guardado en caché ya no vale (el total cambia con la propina): que la pantalla del gasto no lo muestre ni un momento
+    queryClient.removeQueries({ queryKey: ['gasto', gasto.id] });
+    queryClient.removeQueries({ queryKey: ['revisar', accountId] });
+    await queryClient.invalidateQueries({ queryKey: ['dividir', gasto.id] });
     router.push(atras);
     router.refresh();
   };
