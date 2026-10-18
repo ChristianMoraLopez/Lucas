@@ -918,7 +918,7 @@ function AvisosCobro({
       </label>
       <p className="lu-small" style={{ margin: 0 }}>
         {t(
-          'Al liquidar, Mister Luks le escribe a cada uno cuánto debe, a quién y por qué (ítem por ítem), y se lo recuerda cada 3 días hasta que lo marquen pagado (máximo 3 veces).',
+          'Al liquidar, Mister Luks le escribe a cada uno cuánto debe, a quién y por qué (ítem por ítem), y se lo recuerda cada 3 días hasta que pague (máximo 3 veces). Cuando pagan, le responden «ya pagué» y queda marcado.',
         )}
       </p>
       <p className="lu-small lu-muted" style={{ margin: 0 }}>

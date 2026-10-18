@@ -84,6 +84,8 @@ export interface Cobro {
   settlement_id: string;
   /** Cuántos avisos ya se mandaron de esta transferencia (0: el primero) */
   avisos: number;
+  /** Si alguno ya le llegó por privado (si no, el de privado es el primero aunque se le haya avisado en el grupo) */
+  avisado_privado: boolean;
   account: { id: string; name: string; language: Idioma | null; currency: Moneda; type: 'hogar' | 'evento'; month: string | null };
   from: { id: string; name: string };
   to: { id: string; name: string };
@@ -97,6 +99,37 @@ export interface Cobro {
   transfers: { to: string; amount: number }[] | null;
   /** Los gastos en los que tuvo parte y que pagó otro, con los ítems */
   expenses: (GastoConItems & { merchant: string; payer_person_id: string; payer_name: string })[];
+}
+
+/** Una transferencia de una liquidación, como la lee el connector (migración 420) */
+export interface Transferencia {
+  id: string;
+  settlement_id: string;
+  account: { id: string; name: string; language: Idioma | null; currency: Moneda };
+  from_id: string;
+  from_name: string;
+  to_id: string;
+  to_name: string;
+  amount: number;
+}
+
+/** connector_pendientes: lo que le falta pagar a quien dice «ya pagué» */
+export interface PendientesResult {
+  identity_id: string | null;
+  /** Si el chat es un grupo (si no, es su chat privado con Mister Luks) */
+  grupo: boolean;
+  contador_en_grupo: boolean;
+  /** La cuenta del grupo (por privado no hay: son todas las suyas) */
+  account: { id: string; name: string; language: Idioma | null; currency: Moneda; liquidada: boolean } | null;
+  /** Si se sabe quién es (en la cuenta del grupo, o en alguna) */
+  conocido: boolean;
+  pendientes: Transferencia[];
+}
+
+/** connector_ya_pague: lo que quedó pagado (y a dónde avisarle a quien recibe) y lo que le sigue faltando */
+export interface YaPagueResult {
+  pagadas: (Transferencia & { to_private_jid: string | null; group_jid: string | null; todos_pagaron: boolean })[];
+  quedan: Transferencia[];
 }
 
 /** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
@@ -288,8 +321,12 @@ export interface Store {
   openPrivateAnswer(privateJid: string): Promise<boolean>;
   /** Los avisos de cobro que tocan ahora (migración 410) */
   cobros(limit: number): Promise<Cobro[]>;
-  /** Ya se avisó de esas transferencias */
-  cobrosAvisados(transferIds: string[]): Promise<void>;
+  /** Ya se avisó de esas transferencias: por privado unas, en el grupo otras */
+  cobrosAvisados(privados: string[], enGrupo: string[]): Promise<void>;
+  /** Lo que le falta pagar a quien escribe (migración 420) */
+  porPagar(jid: string, sender: Sender): Promise<PendientesResult>;
+  /** «Ya pagué»: las marca pagadas (solo las que paga quien escribe) */
+  yaPague(jid: string, sender: Sender, transferIds: string[]): Promise<YaPagueResult>;
   ingest(input: IngestInput): Promise<IngestCheck>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
@@ -550,8 +587,28 @@ export class SupabaseStore implements Store {
     return this.#rpc<Cobro[]>('connector_cobros', { p_limit: limit });
   }
 
-  async cobrosAvisados(transferIds: string[]) {
-    if (transferIds.length) await this.#rpc('connector_cobros_avisados', { p_transfer_ids: transferIds });
+  async cobrosAvisados(privados: string[], enGrupo: string[]) {
+    if (privados.length || enGrupo.length) await this.#rpc('connector_cobros_enviados', { p_privados: privados, p_en_grupo: enGrupo });
+  }
+
+  porPagar(jid: string, sender: Sender) {
+    return this.#rpc<PendientesResult>('connector_pendientes', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+    });
+  }
+
+  yaPague(jid: string, sender: Sender, transferIds: string[]) {
+    return this.#rpc<YaPagueResult>('connector_ya_pague', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_transfer_ids: transferIds,
+    });
   }
 
   ingest(m: IngestInput) {

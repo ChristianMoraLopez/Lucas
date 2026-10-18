@@ -223,8 +223,8 @@ export const PREGUNTAS = {
       : `👍 Listo, ${nombre}: vuelvo a anotar lo que mandes en «${cuenta}».`,
   noEntendi: (idioma: Idioma) =>
     idioma === 'en'
-      ? '🤔 I didn’t get that. Ask me “how much so far”, “who owes whom”, “how much do I owe” or “my expenses”.'
-      : '🤔 No te entendí. Pregúntame «cuánto llevamos», «quién le debe a quién», «cuánto debo» o «mis gastos».',
+      ? '🤔 I didn’t get that. Ask me “how much so far”, “who owes whom”, “how much do I owe” or “my expenses”; and when you pay someone, tell me “I paid …”.'
+      : '🤔 No te entendí. Pregúntame «cuánto llevamos», «quién le debe a quién», «cuánto debo» o «mis gastos»; y cuando le pagues a alguien, dime «ya le pagué a …».',
   sinCuenta: (idioma: Idioma) =>
     idioma === 'en'
       ? '🤔 This group doesn’t have a Luks account yet. Type “help” and I’ll send you how to create it.'

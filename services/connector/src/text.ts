@@ -89,8 +89,8 @@ export function respuestaNumerada(text: string | null | undefined): 'desde_ya' |
 }
 
 /** Lo que le pueden pedir a Mister Luks (fase 7) */
-export type Intencion = 'total' | 'deudas' | 'mi_saldo' | 'mis_gastos' | 'privado' | 'aqui' | 'no_me_cuentes' | 'cuentame';
-export const INTENCIONES: readonly Intencion[] = ['total', 'deudas', 'mi_saldo', 'mis_gastos', 'privado', 'aqui', 'no_me_cuentes', 'cuentame'];
+export type Intencion = 'total' | 'deudas' | 'mi_saldo' | 'mis_gastos' | 'ya_pague' | 'privado' | 'aqui' | 'no_me_cuentes' | 'cuentame';
+export const INTENCIONES: readonly Intencion[] = ['total', 'deudas', 'mi_saldo', 'mis_gastos', 'ya_pague', 'privado', 'aqui', 'no_me_cuentes', 'cuentame'];
 /** Lo de cada quien: se manda por privado o en el grupo, como lo prefiera */
 export const PERSONALES: readonly Intencion[] = ['mi_saldo', 'mis_gastos'];
 
@@ -118,14 +118,14 @@ export function aMisterLuks(
   return { texto: sinMenciones.replace(NOMBRE_LUKS, '').trim(), explicito };
 }
 
-/** En minúsculas, sin tildes ni signos: así las reglas son más simples */
-const plano = (t: string) =>
+/** En minúsculas, sin tildes, signos ni emojis: así las reglas son más simples */
+export const plano = (t: string) =>
   t
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[’']/g, '')
-    .replace(/[¿?¡!.,;:«»"“”()]+/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -153,6 +153,11 @@ const REGLAS: [Intencion, RegExp][] = [
     /\b(?:mis gastos|que (?:he )?pague|lo que (?:he )?pague|que he pagado|cuanto (?:he )?pagado|cuanto he puesto|my expenses|what (?:have )?i paid|what did i pay)\b/,
   ],
   [
+    // «ya le pagué a Santiago», «ya les pagué», «ya está pago», «I paid Sam» (sin «¿?»: «¿ya le pagué?» es otra cosa)
+    'ya_pague',
+    /\b(?:ya (?:te |le |les )?(?:pague|cancele|transferi|consigne|gire|deposite|(?:mande|envie|pase) la plata|hice (?:la transferencia|el pago))|(?:te|le|les) (?:pague|transferi|consigne)|ya (?:esta|quedo) pag(?:o|ado)|i (?:already |just )?paid|(?:already|just) paid|paid (?:you|him|her|them)|i (?:sent|transferred) (?:you |him |her |them )?(?:the )?(?:money|payment))\b|^(?:listo |ok |done )?(?:pagado|paid)$/,
+  ],
+  [
     'deudas',
     /\b(?:quien (?:le )?debe(?: a quien)?|quien le paga a quien|quienes deben|como (?:quedamos|van las cuentas|estan las cuentas)|las cuentas|who owes(?: whom| who)?|who pays (?:whom|who)|balances?|settle up)\b/,
   ],
@@ -166,7 +171,9 @@ const REGLAS: [Intencion, RegExp][] = [
 export function intencionDe(texto: string | null | undefined): Intencion | null {
   const t = plano(texto ?? '');
   if (!t) return null;
-  return REGLAS.find(([, re]) => re.test(t))?.[0] ?? null;
+  const i = REGLAS.find(([, re]) => re.test(t))?.[0] ?? null;
+  // «¿ya le pagué a Santiago?» pregunta cómo va, no avisa que pagó
+  return i === 'ya_pague' && /[?¿]/.test(texto ?? '') ? 'mi_saldo' : i;
 }
 
 /** «privado» o «aquí» a secas: la respuesta a «¿te lo mando por privado o aquí?» */

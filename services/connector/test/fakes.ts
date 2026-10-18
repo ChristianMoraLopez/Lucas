@@ -13,12 +13,15 @@ import type {
   LinkResult,
   OutboxItem,
   OutboxPending,
+  PendientesResult,
   PendingMembers,
   QuestionData,
   QueueHealth,
   SessionRow,
   SoyYoResult,
   Store,
+  Transferencia,
+  YaPagueResult,
 } from '../src/store.js';
 import type { PendingReply } from '../src/text.js';
 
@@ -197,8 +200,45 @@ export class FakeStore implements Store {
   async cobros() {
     return this.cobrosPendientes.filter((c) => !this.avisados.includes(c.transfer_id));
   }
-  async cobrosAvisados(ids: string[]) {
-    this.avisados.push(...ids);
+  avisadosPorPrivado: string[] = [];
+  async cobrosAvisados(privados: string[], enGrupo: string[]) {
+    this.avisados.push(...privados, ...enGrupo);
+    this.avisadosPorPrivado.push(...privados);
+  }
+  /** Lo que debe cada quien de las liquidaciones (`wa`: su número) y lo que ya marcó «ya pagué» */
+  deudas: (Transferencia & { wa: string; to_private_jid: string | null; group_jid: string | null })[] = [];
+  pagadas: string[] = [];
+  /** Si la cuenta del grupo ya se liquidó */
+  liquidada = true;
+  /** Números que están en la cuenta aunque no deban nada */
+  conocidos = new Set<string>();
+  async porPagar(jid: string, sender: Sender): Promise<PendientesResult> {
+    const grupo = jid.endsWith('@g.us');
+    const cuenta = grupo ? this.groups.get(jid)?.account_id : null;
+    const suyas = this.deudas.filter((t) => t.wa === sender.id && (!grupo || t.account.id === cuenta));
+    const limpia = ({ wa: _w, to_private_jid: _p, group_jid: _g, ...t }: (typeof this.deudas)[number]): Transferencia => t;
+    return {
+      identity_id: `i-${sender.id}`,
+      grupo,
+      contador_en_grupo: this.presentes.has(`${jid}|contador`),
+      account: cuenta ? { id: cuenta, name: 'Paseo', language: 'es', currency: 'COP', liquidada: this.liquidada } : null,
+      conocido: suyas.length > 0 || this.conocidos.has(sender.id ?? ''),
+      pendientes: suyas.filter((t) => !this.pagadas.includes(t.id)).map(limpia),
+    };
+  }
+  async yaPague(jid: string, sender: Sender, ids: string[]): Promise<YaPagueResult> {
+    const antes = (await this.porPagar(jid, sender)).pendientes.map((t) => t.id);
+    const marcadas = ids.filter((id) => antes.includes(id));
+    this.pagadas.push(...marcadas);
+    return {
+      pagadas: this.deudas
+        .filter((t) => marcadas.includes(t.id))
+        .map(({ wa: _w, ...t }) => ({
+          ...t,
+          todos_pagaron: this.deudas.filter((x) => x.settlement_id === t.settlement_id).every((x) => this.pagadas.includes(x.id)),
+        })),
+      quedan: (await this.porPagar(jid, sender)).pendientes,
+    };
   }
   /** Números verificados: número (o «lid:…») → primer nombre de su usuario */
   verificados = new Map<string, string>();

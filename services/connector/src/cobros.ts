@@ -91,29 +91,36 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
   const nombre = primerNombre(c.from.name);
   const cuenta = limpio(c.account.name);
   const a = limpio(c.to.name);
-  const monto = `*${$(Number(c.amount))}*`;
+  // Lo que le falta pagar en esta liquidación (si le paga a varios, un solo mensaje con todo)
+  const todas = c.transfers?.length ? c.transfers : [{ to: c.to.name, amount: c.amount }];
+  const debe = todas.reduce((s, t) => s + Number(t.amount), 0);
+  const varios = todas.length > 1;
+  const cuanto = varios
+    ? `${en ? 'you owe' : 'debes'} *${$(debe)}*`
+    : en
+      ? `you owe ${a} *${$(Number(c.amount))}*`
+      : `le debes a ${a} *${$(Number(c.amount))}*`;
   const lineas = [
-    c.avisos > 0
+    // Recordatorio solo si ya le había llegado por privado (si solo se le avisó en el grupo, este es el primero)
+    c.avisado_privado
       ? en
-        ? `⏰ Hi ${nombre}, a reminder: for “${cuenta}” you owe ${a} ${monto}.`
-        : `⏰ Hola ${nombre}, te recuerdo: de «${cuenta}» le debes a ${a} ${monto}.`
+        ? `⏰ Hi ${nombre}, a reminder: for “${cuenta}” ${cuanto}.`
+        : `⏰ Hola ${nombre}, te recuerdo: de «${cuenta}» ${cuanto}.`
       : en
-        ? `💸 Hi ${nombre} 👋 “${cuenta}” was settled: you owe ${a} ${monto}.`
-        : `💸 Hola ${nombre} 👋 Ya liquidamos «${cuenta}»: le debes a ${a} ${monto}.`,
+        ? `💸 Hi ${nombre} 👋 “${cuenta}” was settled: ${cuanto}.`
+        : `💸 Hola ${nombre} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
   ];
 
   const { lineas: suyo, consumo } = detalle(c, idioma);
   if (suyo.length) lineas.push('', en ? '🧾 *Your share, item by item:*' : '🧾 *Lo tuyo, ítem por ítem:*', ...suyo);
 
   const cierre: string[] = [];
-  const todas = c.transfers?.length ? c.transfers : [{ to: c.to.name, amount: c.amount }];
-  const debe = todas.reduce((s, t) => s + Number(t.amount), 0);
   if (consumo > debe) {
     cierre.push(
       en ? `➖ ${$(consumo - debe)} from what you paid for others or already paid` : `➖ ${$(consumo - debe)} de lo que tú pagaste por otros o ya pagaste`,
     );
   }
-  if (todas.length > 1) {
+  if (varios) {
     const cada = todas.map((t) => (en ? `${$(Number(t.amount))} to ${limpio(t.to)}` : `${$(Number(t.amount))} a ${limpio(t.to)}`));
     cierre.push(en ? `You pay ${lista(cada, idioma)}.` : `Le pagas ${lista(cada, idioma)}.`);
   }
@@ -127,7 +134,19 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
   if (cierre.length) lineas.push('', ...cierre);
 
   const link = linkDe(c, webUrl, c.from.id);
-  if (link) lineas.push('', en ? `When you pay, mark it here: ${link}` : `Cuando le pagues, márcalo aquí: ${link}`);
+  if (link) lineas.push('', en ? `🔗 All the detail: ${link}` : `🔗 Todo el detalle: ${link}`);
+  // Con «ya pagué» queda marcado (pagos.ts)
+  const a1 = primerNombre(todas[0].to);
+  lineas.push(
+    '',
+    varios
+      ? en
+        ? `When you pay, reply *I paid ${a1}* (or *I paid everyone*) and I’ll mark it ✅`
+        : `Cuando les pagues, respóndeme *ya le pagué a ${a1}* (o *ya les pagué a todos*) y lo marco ✅`
+      : en
+        ? 'When you pay, reply *paid* and I’ll mark it ✅'
+        : 'Cuando le pagues, respóndeme *ya pagué* y lo marco ✅',
+  );
   lineas.push('', FIRMA[idioma]);
   return lineas.join('\n');
 }
@@ -151,12 +170,14 @@ export function mensajeGrupo(cs: Cobro[], webUrl: string): string {
     ...cs.map((x) => `• ${limpio(x.from.name)} → ${limpio(x.to.name)}: *${$(Number(x.amount))}*`),
   ];
   const link = linkDe(c, webUrl, null);
-  if (link)
-    lineas.push(
-      '',
-      en ? `Everyone can see their share, item by item, and mark it paid here: ${link}` : `Cada uno ve lo suyo, ítem por ítem, y lo marca pagado aquí: ${link}`,
-    );
-  lineas.push(en ? 'If you message me privately, I’ll send you your details there.' : 'Si me escriben por privado, les mando el detalle por allá.');
+  if (link) lineas.push('', en ? `Everyone can see their share, item by item, here: ${link}` : `Cada uno ve lo suyo, ítem por ítem, aquí: ${link}`);
+  const a1 = primerNombre(c.to.name);
+  lineas.push(
+    '',
+    en
+      ? `When you pay, write me “luks I paid ${a1}” and I’ll mark it ✅ If you message me privately, I’ll send you your details there.`
+      : `Cuando paguen, escríbanme «luks ya le pagué a ${a1}» y lo marco ✅ Si me escriben por privado, les mando el detalle por allá.`,
+  );
   lineas.push('', FIRMA[idioma]);
   return lineas.join('\n');
 }
@@ -170,25 +191,29 @@ export async function avisarCobros(store: Store, webUrl: string, log: Logger): P
   const cobros = await store.cobros(40);
   if (!cobros.length) return 0;
   const items: OutboxItem[] = [];
-  const avisados: string[] = [];
+  const privados: string[] = [];
+  const enGrupo: string[] = [];
+  // Por privado, uno por persona y liquidación (con todo lo que le falta pagar); en el grupo, uno por liquidación
+  const porPersona = new Map<string, Cobro[]>();
   const porGrupo = new Map<string, Cobro[]>();
   for (const c of cobros) {
-    if (c.private_jid) {
-      items.push({ chat_jid: c.private_jid, reason: 'answer', body: mensajeCobro(c, webUrl), dedupe_key: `cobro:${c.transfer_id}:${c.avisos}` });
-      avisados.push(c.transfer_id);
-    } else if (c.group_jid) {
-      const clave = `${c.group_jid}|${c.settlement_id}`;
-      porGrupo.set(clave, [...(porGrupo.get(clave) ?? []), c]);
-    }
+    const [mapa, clave] = c.private_jid ? [porPersona, `${c.private_jid}|${c.settlement_id}`] : [porGrupo, `${c.group_jid}|${c.settlement_id}`];
+    if (!c.private_jid && !c.group_jid) continue;
+    mapa.set(clave, [...(mapa.get(clave) ?? []), c]);
+  }
+  for (const [clave, [c, ...otros]] of porPersona) {
+    const [jid] = clave.split('|');
+    items.push({ chat_jid: jid, reason: 'answer', body: mensajeCobro(c, webUrl), dedupe_key: `cobro:${c.transfer_id}:${c.avisos}` });
+    privados.push(c.transfer_id, ...otros.map((x) => x.transfer_id));
   }
   for (const [clave, cs] of porGrupo) {
     const [jid, liquidacion] = clave.split('|');
     const vuelta = Math.min(...cs.map((x) => x.avisos));
     items.push({ chat_jid: jid, reason: 'answer', body: mensajeGrupo(cs, webUrl), dedupe_key: `cobro-grupo:${liquidacion}:${vuelta}` });
-    avisados.push(...cs.map((x) => x.transfer_id));
+    enGrupo.push(...cs.map((x) => x.transfer_id));
   }
   const nuevos = await store.outboxEnqueue(items);
-  await store.cobrosAvisados(avisados);
-  log.info({ privados: items.length - porGrupo.size, grupos: porGrupo.size, nuevos: nuevos.length }, 'Avisos de cobro');
+  await store.cobrosAvisados(privados, enGrupo);
+  log.info({ privados: porPersona.size, grupos: porGrupo.size, nuevos: nuevos.length }, 'Avisos de cobro');
   return nuevos.length;
 }

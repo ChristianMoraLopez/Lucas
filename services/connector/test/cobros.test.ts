@@ -46,6 +46,7 @@ const cobro = (o: Partial<Cobro> = {}): Cobro => ({
   transfer_id: 't1',
   settlement_id: 's1',
   avisos: 0,
+  avisado_privado: false,
   account: { id: 'a1', name: 'DaniChile', language: 'es', currency: 'COP', type: 'evento', month: null },
   from: { id: 'mari', name: 'Marimari Gómez' },
   to: { id: 'dan', name: 'Daniel' },
@@ -62,10 +63,10 @@ const cobro = (o: Partial<Cobro> = {}): Cobro => ({
 });
 
 describe('avisos de cobro', () => {
-  it('por privado: cuánto, a quién y por qué, ítem por ítem, con el link para marcarlo', () => {
+  it('por privado: cuánto, a quién y por qué, ítem por ítem, y que responda «ya pagué»', () => {
     expect(mensajeCobro(cobro(), WEB_URL)).toBe(
       [
-        '💸 Hola Marimari 👋 Ya liquidamos «DaniChile»: le debes a Daniel *$165.000*.',
+        '💸 Hola Marimari 👋 Ya liquidamos «DaniChile»: debes *$195.000*.',
         '',
         '🧾 *Lo tuyo, ítem por ítem:*',
         '',
@@ -80,7 +81,9 @@ describe('avisos de cobro', () => {
         '',
         'Le pagas $165.000 a Daniel y $30.000 a Santiago.',
         '',
-        'Cuando le pagues, márcalo aquí: https://mrluks.com/r/TokenDeLaCuenta12345678?p=mari',
+        '🔗 Todo el detalle: https://mrluks.com/r/TokenDeLaCuenta12345678?p=mari',
+        '',
+        'Cuando les pagues, respóndeme *ya le pagué a Daniel* (o *ya les pagué a todos*) y lo marco ✅',
         '',
         '📊 Más detalle en mrluks.com',
       ].join('\n'),
@@ -88,11 +91,20 @@ describe('avisos de cobro', () => {
   });
 
   it('los recordatorios, en inglés y cuando se cruzaron las deudas', () => {
-    expect(mensajeCobro(cobro({ avisos: 1 }), WEB_URL).split('\n')[0]).toBe('⏰ Hola Marimari, te recuerdo: de «DaniChile» le debes a Daniel *$165.000*.');
+    const solo = { transfers: null, expenses: [restaurante] };
+    expect(mensajeCobro(cobro({ ...solo, avisos: 1, avisado_privado: true }), WEB_URL).split('\n')[0]).toBe(
+      '⏰ Hola Marimari, te recuerdo: de «DaniChile» le debes a Daniel *$165.000*.',
+    );
+    expect(mensajeCobro(cobro(solo), WEB_URL)).toContain('Cuando le pagues, respóndeme *ya pagué* y lo marco ✅');
+    // Si solo se le había avisado en el grupo, el de privado es el primero
+    expect(mensajeCobro(cobro({ ...solo, avisos: 1 }), WEB_URL).split('\n')[0]).toBe(
+      '💸 Hola Marimari 👋 Ya liquidamos «DaniChile»: le debes a Daniel *$165.000*.',
+    );
     const en = mensajeCobro(cobro({ account: { ...cobro().account, language: 'en' }, transfers: null }), WEB_URL);
     expect(en.split('\n')[0]).toBe('💸 Hi Marimari 👋 “DaniChile” was settled: you owe Daniel *$165,000*.');
     expect(en).toContain('• Coca Cola Zero (2 of 3): $20,000');
     expect(en).toContain('?p=mari&l=en');
+    expect(en).toContain('When you pay, reply *paid* and I’ll mark it ✅');
     const cruzado = mensajeCobro(cobro({ to: { id: 'otro', name: 'Felipe' }, expenses: [bruna], amount: 30_000, transfers: null }), WEB_URL);
     expect(cruzado).toContain('Se cruzaron las deudas para hacer menos transferencias: por eso le pagas a Felipe.');
   });
@@ -112,7 +124,8 @@ describe('avisos de cobro', () => {
       '• Marimari Gómez → Daniel: *$165.000*',
       '• Christian → Santiago: *$30.000*',
     ]);
-    expect(m).toContain('Cada uno ve lo suyo, ítem por ítem, y lo marca pagado aquí: https://mrluks.com/r/TokenDeLaCuenta12345678');
+    expect(m).toContain('Cada uno ve lo suyo, ítem por ítem, aquí: https://mrluks.com/r/TokenDeLaCuenta12345678');
+    expect(m).toContain('Cuando paguen, escríbanme «luks ya le pagué a Daniel» y lo marco ✅');
   });
 
   it('una vuelta: por privado a quien ya le escribió, el resto en el grupo, y no se repite', async () => {
@@ -131,7 +144,17 @@ describe('avisos de cobro', () => {
     ]);
     expect(store.outbox[1].body).toContain('• David → Daniel: *$67.265*');
     expect(store.avisados.sort()).toEqual(['t1', 't2', 't3']);
+    expect(store.avisadosPorPrivado).toEqual(['t1']);
     expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(0);
+  });
+
+  it('a quien le paga a varios le llega un solo mensaje por privado', async () => {
+    const store = new FakeStore();
+    store.presentes.add(`${PRIVADO}|contador`);
+    store.cobrosPendientes = [cobro(), cobro({ transfer_id: 't2', to: { id: 'santi', name: 'Santiago' }, amount: 30_000 })];
+    expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(1);
+    expect(store.outbox[0].body).toContain('Le pagas $165.000 a Daniel y $30.000 a Santiago.');
+    expect(store.avisadosPorPrivado).toEqual(['t1', 't2']);
   });
 
   it('lo de cada uno da lo mismo que en la app', () => {

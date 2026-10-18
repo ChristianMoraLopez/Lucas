@@ -1881,8 +1881,8 @@ export const EN: Record<string, string> = {
 
   // ---------- Avisos de cobro ----------
   'Avisar a quien debe': 'Remind whoever owes',
-  'Al liquidar, Mister Luks le escribe a cada uno cuánto debe, a quién y por qué (ítem por ítem), y se lo recuerda cada 3 días hasta que lo marquen pagado (máximo 3 veces).':
-    "When you settle up, Mister Luks tells each person how much they owe, to whom and why (item by item), and reminds them every 3 days until it's marked paid (3 times at most).",
+  'Al liquidar, Mister Luks le escribe a cada uno cuánto debe, a quién y por qué (ítem por ítem), y se lo recuerda cada 3 días hasta que pague (máximo 3 veces). Cuando pagan, le responden «ya pagué» y queda marcado.':
+    "When you settle up, Mister Luks tells each person how much they owe, to whom and why (item by item), and reminds them every 3 days until they pay (3 times at most). Once they pay, they reply “paid” and it's marked.",
   'Para avisar, Mister Luks tiene que estar en el grupo de la cuenta (o que le escriban por privado).':
     "To send reminders, Mister Luks has to be in the account's group (or people have to message him privately).",
   'Nadie le ha escrito por privado a Mister Luks todavía: les avisa en el grupo. Por privado solo le escribe a quien le escribió primero.':

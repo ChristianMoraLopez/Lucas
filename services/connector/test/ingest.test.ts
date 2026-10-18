@@ -601,3 +601,78 @@ describe('preguntas a Mister Luks', () => {
     });
   });
 });
+
+describe('«ya pagué»', () => {
+  const VALE = '573001112233@s.whatsapp.net';
+  const cuenta = { id: PASEO, name: 'Paseo', language: 'es' as const, currency: 'COP' as const };
+  const deuda = (id: string, to_name: string, amount: number, extra: { to_private_jid?: string | null } = {}) => ({
+    id,
+    settlement_id: 's1',
+    account: cuenta,
+    from_id: 'm',
+    from_name: 'Mafe',
+    to_id: `p-${to_name}`,
+    to_name,
+    amount,
+    wa: '573016667788',
+    to_private_jid: extra.to_private_jid ?? null,
+    group_jid: GRUPO,
+  });
+  const textos = (jid?: string) => bandeja(jid).map((o) => o.body);
+
+  beforeEach(async () => {
+    ing.setMisterLuks(['573337627471', 'lid:98765432101234']);
+    await enlazado();
+    store.deudas = [deuda('t1', 'Valeria', 300_000), deuda('t2', 'Laura', 45_000)];
+  });
+
+  it('en el grupo: «luks ya le pagué a Valeria» queda marcado, y lo ve todo el grupo', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks ya le pagué a Valeria' }))).toBe('pago:marcar');
+    expect(store.pagadas).toEqual(['t1']);
+    expect(textos()).toEqual(['✅ Listo, Mafe: anoté que le pagaste *$300.000* a Valeria.\n\nTe falta:\n• *$45.000* a Laura\n\n📊 Más detalle en mrluks.com']);
+    expect(bandeja()[0].chat_jid).toBe(GRUPO);
+    // No se guarda como gasto
+    expect(store.messages.size).toBe(0);
+  });
+
+  it('con una mención y sin decir a quién: si le debe a varios, pregunta', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: '@573337627471 ya pagué', mentions: ['573337627471'] }))).toBe('pago:cual');
+    expect(store.pagadas).toEqual([]);
+    expect(textos()[0]).toContain('¿a quién le pagaste? Te falta:');
+  });
+
+  it('un gasto dicho así sigue siendo un gasto', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks ya pagué la luz 120 lucas' }))).toBe('guardado');
+    expect(store.pagadas).toEqual([]);
+  });
+
+  it('antes de liquidar, lo dice', async () => {
+    store.deudas = [];
+    store.liquidada = false;
+    store.conocidos.add('573016667788');
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks ya pagué' }))).toBe('pago:nada');
+    expect(textos()[0]).toContain('«Paseo» todavía no se ha liquidado');
+  });
+
+  it('por privado: «ya pagué» respondiendo el aviso; a quien recibe le avisa por su privado si ya le escribió', async () => {
+    await store.privateChat('contador', VALE);
+    store.deudas = [deuda('t1', 'Valeria', 300_000, { to_private_jid: VALE })];
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Ya pagué ✅' }))).toBe('pago:marcar');
+    expect(store.pagadas).toEqual(['t1']);
+    expect(textos(PRIVADO).at(-1)).toContain('anoté que le pagaste *$300.000* a Valeria («Paseo»).');
+    expect(textos(VALE)).toEqual([expect.stringContaining('💰 Hola Valeria: Mafe me dijo que ya te pagó *$300.000* de «Paseo».')]);
+    expect(textos(GRUPO)).toEqual([]);
+  });
+
+  it('por privado, si quien recibe no le ha escrito a Mister Luks, se lo dice en el grupo', async () => {
+    store.deudas = [deuda('t2', 'Laura', 45_000)];
+    expect(await ing.onMessage(contador, wa, privado({ text: 'luks ya le pagué a Laura' }))).toBe('pago:marcar');
+    expect(textos(GRUPO)).toEqual([expect.stringContaining('✅ Mafe me dijo por privado que ya le pagó *$45.000* a Laura.')]);
+  });
+
+  it('por privado, de un número que no está en ninguna cuenta', async () => {
+    const otro = { id: '573009990000', phone: '573009990000', name: 'Pepe' };
+    expect(await ing.onMessage(contador, wa, privado({ chatId: '573009990000@s.whatsapp.net', sender: otro, text: 'ya pagué' }))).toBe('pago:no_te_conozco');
+    expect(textos('573009990000@s.whatsapp.net').at(-1)).toContain('No encuentro cuentas tuyas con este número');
+  });
+});

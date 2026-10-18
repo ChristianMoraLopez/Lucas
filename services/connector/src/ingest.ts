@@ -1,6 +1,7 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
+import { elegirPagos, PAGOS } from './pagos.js';
 import { PREGUNTAS, primerNombre, RESPUESTA } from './preguntas.js';
 import type { Clasificador } from './qwen.js';
 import type { RateLimiter } from './replies.js';
@@ -45,6 +46,7 @@ export type Outcome =
   | 'chat_importado'
   | 'chat_muy_pesado'
   | `pregunta:${string}`
+  | `pago:${string}`
   | `link_grupo:${string}`
   | `ignorado:${string}`;
 
@@ -307,6 +309,13 @@ export class Ingestor {
     const invitacion = parseInviteLink(m.text);
     if (invitacion) return this.#unirse(connector, m, invitacion, idioma);
 
+    // «ya pagué» (respondiendo el aviso de cobro, por ejemplo): queda marcado
+    const texto = aMisterLuks(m, this.#misterLuks)?.texto ?? m.text ?? '';
+    if (!m.media && intencionDe(texto) === 'ya_pague') {
+      const pago = await this.#yaPague(session, m, texto);
+      if (pago) return pago;
+    }
+
     if (esPedidoDeAyuda(m.text) && !primeraVez) {
       await this.#encolar([
         { chat_jid: m.chatId, reason: 'guide', body: MISTER.guia(idioma), ...conGuia, dedupe_key: `guide:${m.chatId}:${tramo(m.sentAt, 10)}` },
@@ -337,6 +346,7 @@ export class Ingestor {
     if (!intencion && texto && this.mister.clasificar) intencion = await this.mister.clasificar(texto);
     // Un «Luks…» que no se entiende puede ser charla; a una mención o a una cita sí se le contesta
     if (!intencion && !explicito) return null;
+    if (intencion === 'ya_pague') return this.#yaPague(session, m, texto);
 
     const d = await this.store.question(m.chatId, m.sender);
     if (!d) return 'ignorado:pregunta';
@@ -389,6 +399,70 @@ export class Ingestor {
     }
     await this.#encolar(items);
     this.log.info({ group: m.chatId, intent: intencion, sender: maskWaId(m.sender.id), in_group: enGrupo }, 'Pregunta a Mister Luks');
+    return outcome;
+  }
+
+  /**
+   * «Ya le pagué a Santiago» (migración 420), en el grupo o por privado: lo que
+   * le falta pagar a quien escribe queda marcado. Cuál, lo decide elegirPagos
+   * (por a quién, por el monto o porque es lo único); si no queda claro,
+   * pregunta. Quien recibe se entera: en el grupo lo ve; si fue por privado, se
+   * lo dice Mister Luks por su privado (si ya le escribió) o en el grupo.
+   * Devuelve null si era un gasto («luks ya pagué la luz 120 lucas»).
+   */
+  async #yaPague(session: SessionInfo, m: IncomingMessage, texto: string): Promise<Outcome | null> {
+    const enGrupo = m.chatKind === 'grupo';
+    const d = await this.store.porPagar(m.chatId, m.sender);
+    // Si Mister Luks está en el grupo, responde él (no también el WhatsApp vinculado)
+    if (enGrupo && session.kind !== 'contador' && d.contador_en_grupo) return 'ignorado:lo_responde_mister_luks';
+    const decision = d.conocido && (!enGrupo || d.account) ? elegirPagos(d.pendientes, texto, enGrupo) : null;
+    if (decision?.tipo === 'gasto') return null;
+
+    // En el grupo responde Mister Luks; si lo lee solo un WhatsApp vinculado, por privado (nunca escribe ese)
+    const privado = privadoDe(m);
+    const aqui = enGrupo && session.kind === 'contador' ? m.chatId : privado;
+    if (!aqui) return 'ignorado:sin_numero';
+    if (enGrupo && session.kind !== 'contador' && !(await this.store.openPrivateAnswer(aqui))) return 'pregunta:sin_mister_luks';
+
+    const idioma: Idioma = d.account?.language ?? d.pendientes[0]?.account.language ?? idiomaDeNumero(m.sender.phone);
+    const nombre = primerNombre(d.pendientes[0]?.from_name ?? m.sender.name);
+    const conCuenta = !enGrupo;
+    const items: OutboxItem[] = [];
+    const decir = (chat: string, body: string, clave = `answer:${chat}:${m.messageId}`) =>
+      items.push({ chat_jid: chat, reason: 'answer', body, dedupe_key: clave });
+
+    let outcome: Outcome = `pago:${decision?.tipo ?? 'no_te_conozco'}`;
+    if (enGrupo && !d.account) {
+      decir(aqui, PREGUNTAS.sinCuenta(idioma), `answer:${aqui}:sin_cuenta:${tramo(m.sentAt, 60)}`);
+      outcome = 'pago:sin_cuenta';
+    } else if (!decision) {
+      decir(aqui, d.account ? PREGUNTAS.noTeConozco(idioma, d.account.name) : PAGOS.noTeEncuentro(idioma));
+    } else if (decision.tipo === 'nada') {
+      decir(aqui, d.account && !d.account.liquidada ? PAGOS.sinLiquidar(idioma, nombre, d.account.name) : PAGOS.nada(idioma, nombre, d.account?.name ?? null));
+    } else if (decision.tipo === 'cual') {
+      decir(aqui, PAGOS.cual(idioma, nombre, d.pendientes, decision.nombre, conCuenta));
+    } else if (decision.tipo === 'no_le_debes') {
+      decir(aqui, PAGOS.noLeDebes(idioma, nombre, decision.nombre, d.pendientes, conCuenta));
+    } else {
+      const r = await this.store.yaPague(m.chatId, m.sender, decision.ids);
+      if (!r.pagadas.length) {
+        decir(aqui, PAGOS.nada(idioma, nombre, d.account?.name ?? null));
+        outcome = 'pago:nada';
+      } else {
+        decir(aqui, PAGOS.listo(idioma, nombre, r, conCuenta));
+        // En el grupo con Mister Luks, quien recibe ya lo vio
+        if (!(enGrupo && session.kind === 'contador')) {
+          for (const p of r.pagadas) {
+            const chat = p.to_private_jid ?? p.group_jid;
+            if (!chat) continue;
+            const idiomaP = p.account.language ?? idioma;
+            decir(chat, p.to_private_jid ? PAGOS.tePagaron(idiomaP, p) : PAGOS.pagoEnGrupo(idiomaP, p), `pagado:${p.id}`);
+          }
+        }
+      }
+    }
+    await this.#encolar(items);
+    this.log.info({ chat: m.chatId, outcome, marked: decision?.tipo === 'marcar' ? decision.ids.length : 0, sender: maskWaId(m.sender.id) }, '«Ya pagué»');
     return outcome;
   }
 
