@@ -126,18 +126,6 @@ describe('las respuestas', () => {
         { de: 'Mafe Cárdenas', deId: 'm', a: 'Valeria', aId: 'v', monto: 270_000, pagada: false },
       ],
     });
-    // Con quién pagó algo de quién: cada uno le paga solo a quien pagó algo suyo, con pocas transferencias
-    const conQuien: Numeros = {
-      ...directo,
-      paid_for: [
-        { from_id: 'm', to_id: 'v' },
-        { from_id: 's', to_id: 'v' },
-      ],
-    };
-    expect(deudasDe(conQuien).lista).toEqual([
-      { de: 'Mafe Cárdenas', deId: 'm', a: 'Valeria', aId: 'v', monto: 300_000, pagada: false },
-      { de: 'Santi', deId: 's', a: 'Valeria', aId: 'v', monto: 100_000, pagada: false },
-    ]);
     // Cruzando deudas (o con la base de antes), el cálculo de siempre
     expect(deudasDe({ ...directo, direct: false }).lista).toHaveLength(2);
     expect(deudasDe({ ...directo, direct: false }).lista[0].a).toBe('Valeria');

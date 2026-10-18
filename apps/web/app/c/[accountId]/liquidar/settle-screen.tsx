@@ -318,7 +318,7 @@ export function SettleScreen({
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
               {cruza
                 ? t('Se cruzan las deudas para hacer menos transferencias: puede que le pagues a alguien que no pagó lo tuyo.')
-                : t('Cada quien le paga solo a alguien que pagó algo suyo.')}
+                : t('Cada quien le paga a cada persona lo que esa persona pagó por él.')}
               {!cruza && minimas !== null && minimas < transfers.length
                 ? ` ${t('Cruzando deudas serían {n} en vez de {m}.', { n: minimas, m: transfers.length })}`
                 : ''}
@@ -515,7 +515,7 @@ export function SettleScreen({
             )}
             {cruza
               ? t('Al que puso de más le devuelven, el que puso de menos completa, y se cruzan las deudas para hacer el menor número de transferencias.')
-              : t('Cada quien le paga solo a alguien que pagó algo suyo, con las menos transferencias que se pueda.')}
+              : t('Cada quien le paga a cada persona lo que esa persona pagó por él; si dos se deben entre ellos, solo va la diferencia.')}
           </p>
         </section>
       </aside>

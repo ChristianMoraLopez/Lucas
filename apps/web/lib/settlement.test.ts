@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aQuienPagoPor, type Balance, EXACT_LIMIT, minTransfers, settlesAll } from './settlement';
+import { type Balance, EXACT_LIMIT, minTransfers, settlesAll } from './settlement';
 
 const B = (entries: [string, number][]): Balance[] => entries.map(([name, balance]) => ({ id: name, name, balance }));
 const legible = (ts: { from: string; to: string; amount: number }[]) => ts.map((t) => `${t.from}→${t.to} ${t.amount}`);
@@ -257,58 +257,5 @@ describe('settlesAll', () => {
     expect(settlesAll(b, [{ from: 'A', to: 'B', amount: -5_000 }])).toBe(false);
     expect(settlesAll(b, [{ from: 'A', to: 'A', amount: 5_000 }])).toBe(false);
     expect(settlesAll(b, [{ from: 'X', to: 'A', amount: 5_000 }])).toBe(false);
-  });
-});
-
-describe('a quien pagó por cada uno', () => {
-  // DaniChile: Daniel pagó el restaurante (Christian no estaba); Santiago pagó Bruna, entre los seis
-  const saldos: Balance[] = [
-    { id: 'chris', name: 'Christian', balance: -33_789 },
-    { id: 'david', name: 'David', balance: -101_054 },
-    { id: 'santi', name: 'Santiago', balance: 103_167 },
-    { id: 'mari', name: 'Marimari', balance: -145_379 },
-    { id: 'dan', name: 'Daniel Castelblanco', balance: 284_093 },
-    { id: 'diaz', name: 'Daniel Díaz', balance: -107_038 },
-  ];
-  const pagaronPor = new Map([
-    ['chris', ['santi']],
-    ['david', ['dan', 'santi']],
-    ['mari', ['dan', 'santi']],
-    ['diaz', ['dan', 'santi']],
-    ['santi', ['dan']],
-    ['dan', ['santi']],
-  ]);
-
-  it('nadie le paga a quien no pagó nada suyo, y con pocas transferencias', () => {
-    const ts = aQuienPagoPor(saldos, pagaronPor) as NonNullable<ReturnType<typeof aQuienPagoPor>>;
-    expect(settlesAll(saldos, ts)).toBe(true);
-    expect(ts.find((t) => t.from === 'chris')).toEqual({ from: 'chris', to: 'santi', amount: 33_789 });
-    for (const t of ts) expect(pagaronPor.get(t.from)).toContain(t.to);
-    expect(ts.length).toBeLessThanOrEqual(5);
-  });
-
-  it('si así no cuadra, null (se usan las transferencias por pareja)', () => {
-    expect(aQuienPagoPor(saldos, new Map([['chris', ['dan']]]))).toBeNull();
-    expect(aQuienPagoPor([{ id: 'a', name: 'A', balance: 1 }], new Map())).toBeNull();
-  });
-
-  it('con saldos al azar, cuando hay respuesta deja a todos en cero', () => {
-    for (let semilla = 1; semilla <= 80; semilla++) {
-      let x = semilla;
-      const azar = () => {
-        x = (x * 1_103_515_245 + 12_345) % 2 ** 31;
-        return x / 2 ** 31;
-      };
-      const n = 2 + (semilla % 10);
-      const b = Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, balance: Math.round((azar() - 0.5) * 200) * 1000 }));
-      b[n - 1].balance -= b.reduce((s, y) => s + y.balance, 0);
-      const acreedores = b.filter((y) => y.balance > 0).map((y) => y.id);
-      const pagaron = new Map(b.map((y) => [y.id, acreedores.filter(() => azar() > 0.3)]));
-      const ts = aQuienPagoPor(b, pagaron);
-      if (ts) {
-        expect(settlesAll(b, ts)).toBe(true);
-        for (const t of ts) expect(pagaron.get(t.from)).toContain(t.to);
-      }
-    }
   });
 });

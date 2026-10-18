@@ -272,7 +272,7 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
                 <p className="lu-small lu-muted" style={{ margin: 0 }}>
                   {cruzaDeudas(d)
                     ? t('Se cruzan las deudas para hacer menos transferencias: puede que le pagues a alguien que no pagó lo tuyo.')
-                    : t('Cada quien le paga solo a alguien que pagó algo suyo.')}
+                    : t('Cada quien le paga a cada persona lo que esa persona pagó por él.')}
                 </p>
               )}
               {ts.length ? (

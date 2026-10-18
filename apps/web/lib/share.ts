@@ -4,7 +4,7 @@
 import { crearT, type Idioma, type T } from '@/lib/i18n';
 import { corto, DECIMALES, dinero, type Moneda } from '@/lib/moneda';
 import { reciboDe } from './recibo';
-import { aQuienPagoPor, minTransfers } from './settlement';
+import { minTransfers } from './settlement';
 import type { SettlementExpense, SettlementPerson, SettlementTransfer } from './types';
 
 const ES = crearT('es');
@@ -164,38 +164,19 @@ export function grupoMessage({
 
 type DatosLiquidar = {
   people: Pick<SettlementPerson, 'id' | 'name' | 'balance'>[];
-  expenses?: Pick<SettlementExpense, 'payer_person_id' | 'shares'>[];
   direct?: boolean;
   direct_transfers?: { from: string; to: string; amount: number }[];
 };
 
-/** Quién pagó algo de cada uno: deudor → los que pagaron gastos en los que tuvo parte */
-export function pagaronPorDe(expenses: Pick<SettlementExpense, 'payer_person_id' | 'shares'>[]) {
-  const out = new Map<string, Set<string>>();
-  for (const e of expenses) {
-    if (!e.payer_person_id) continue;
-    for (const s of e.shares) {
-      if (s.person_id === e.payer_person_id || s.amount_cop <= 0) continue;
-      if (!out.has(s.person_id)) out.set(s.person_id, new Set());
-      out.get(s.person_id)?.add(e.payer_person_id);
-    }
-  }
-  return out;
-}
-
 /**
- * Cómo quedarían si se liquidara hoy (migración 400): cada quien le paga solo
- * a quien pagó algo suyo, con pocas transferencias (si así no cuadra, pareja
- * por pareja, como las calcula la base); o, si la cuenta cruza las deudas, el
- * mínimo de transferencias.
+ * Cómo quedarían si se liquidara hoy (migración 400): cada quien le paga a
+ * cada uno que pagó algo suyo lo que le toca de eso (si dos se deben entre
+ * ellos, solo la diferencia), como las calcula la base; o, si la cuenta cruza
+ * las deudas, el mínimo de transferencias.
  */
 export function calcularTransferencias(d: DatosLiquidar) {
-  const saldos = d.people.map((p) => ({ id: p.id, name: p.name, balance: p.balance }));
-  if (d.direct !== false && d.direct_transfers) {
-    const directas = d.expenses ? aQuienPagoPor(saldos, pagaronPorDe(d.expenses)) : null;
-    return directas ?? d.direct_transfers.map((x) => ({ from: x.from, to: x.to, amount: Number(x.amount) }));
-  }
-  return minTransfers(saldos);
+  if (d.direct !== false && d.direct_transfers) return d.direct_transfers.map((x) => ({ from: x.from, to: x.to, amount: Number(x.amount) }));
+  return minTransfers(d.people.map((p) => ({ id: p.id, name: p.name, balance: p.balance })));
 }
 
 /** Se cruzan las deudas (la cuenta lo eligió, o la base todavía no trae las directas) */

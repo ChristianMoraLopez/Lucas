@@ -235,7 +235,8 @@ describe('los mensajes en inglés y en otras monedas', () => {
     ]);
   });
 
-  it('a quien pagó por cada uno: Christian le paga a Santiago, no a Daniel', () => {
+  it('a quien pagó por cada uno: cada uno le paga lo suyo a cada quien pagó (como en DaniChile)', () => {
+    // Daniel pagó el restaurante (Christian no estaba) y Santiago pagó Bruna entre todos: Mari le debe a los dos
     const d = {
       people: [
         { id: 'yo', name: 'Christian', balance: -30_000 },
@@ -243,26 +244,23 @@ describe('los mensajes en inglés y en otras monedas', () => {
         { id: 'santi', name: 'Santiago', balance: 40_000 },
         { id: 'mari', name: 'Mari', balance: -180_000 },
       ],
-      expenses: [
-        {
-          payer_person_id: 'dan',
-          shares: [
-            { person_id: 'mari', amount_cop: 150_000 },
-            { person_id: 'dan', amount_cop: 100_000 },
-            { person_id: 'santi', amount_cop: 50_000 },
-          ],
-        },
-        {
-          payer_person_id: 'santi',
-          shares: ['yo', 'dan', 'santi', 'mari'].map((person_id) => ({ person_id, amount_cop: 30_000 })),
-        },
-      ],
+      // Como las calcula la base: pareja por pareja (Santiago y Daniel se deben entre ellos: solo la diferencia)
       direct: true,
-      direct_transfers: [],
+      direct_transfers: [
+        { from: 'mari', to: 'dan', amount: 150_000 },
+        { from: 'mari', to: 'santi', amount: 30_000 },
+        { from: 'yo', to: 'santi', amount: 30_000 },
+        { from: 'santi', to: 'dan', amount: 20_000 },
+      ],
       settlement: null,
     };
     const ts = transfersFor(d);
+    expect(ts.filter((x) => x.from === 'mari')).toEqual([
+      { from: 'mari', to: 'dan', amount: 150_000, paid_at: null },
+      { from: 'mari', to: 'santi', amount: 30_000, paid_at: null },
+    ]);
     expect(ts.find((x) => x.from === 'yo')).toMatchObject({ to: 'santi', amount: 30_000 });
-    expect(ts.length).toBeLessThanOrEqual(3);
+    // Y dejan a todos en cero
+    for (const p of d.people) expect(ts.reduce((s, x) => s + (x.to === p.id ? x.amount : 0) - (x.from === p.id ? x.amount : 0), 0)).toBe(p.balance);
   });
 });

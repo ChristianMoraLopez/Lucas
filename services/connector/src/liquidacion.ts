@@ -1,6 +1,5 @@
 /* Quién le paga a quién con el menor número de transferencias: el mismo
-   cálculo de Liquidar en la app (apps/web/lib/settlement.ts, minTransfers y
-   aQuienPagoPor),
+   cálculo de Liquidar en la app (apps/web/lib/settlement.ts, minTransfers),
    copiado aquí porque la imagen del connector se arma solo con su carpeta.
    test/liquidacion.test.ts revisa que los dos den lo mismo: si cambia uno,
    se cambia el otro. Ver allá cómo funciona (programación dinámica sobre
@@ -111,35 +110,4 @@ function settleGroup(group: Balance[]): Transfer[] {
     if (d.balance === 0) debtors.shift();
   }
   return out;
-}
-
-/**
- * Cada quien le paga solo a alguien que pagó algo suyo (`pagaronPor`: deudor →
- * quienes pagaron gastos en los que tuvo parte), con pocas transferencias:
- * primero los que tienen menos opciones; cada uno le paga a quien más le
- * deben entre esas (si a alguno le deben justo lo que él debe, a ese). null si
- * así no cuadra: entonces se usan las transferencias por pareja.
- */
-export function aQuienPagoPor(balances: Balance[], pagaronPor: Map<string, Iterable<string>>): Transfer[] | null {
-  if (balances.some((b) => !Number.isSafeInteger(b.balance)) || balances.reduce((s, b) => s + b.balance, 0) !== 0) return null;
-  const credito = new Map(balances.filter((b) => b.balance > 0).map((b) => [b.id, b.balance]));
-  const deudores = balances
-    .filter((b) => b.balance < 0)
-    .map((b) => ({ ...b, opciones: [...new Set(pagaronPor.get(b.id) ?? [])].filter((c) => credito.has(c)) }))
-    .sort((a, b) => a.opciones.length - b.opciones.length || a.balance - b.balance || a.name.localeCompare(b.name, 'es') || a.id.localeCompare(b.id));
-  const out: Transfer[] = [];
-  for (const d of deudores) {
-    let falta = -d.balance;
-    while (falta > 0) {
-      const vivos = d.opciones.filter((c) => (credito.get(c) ?? 0) > 0);
-      if (!vivos.length) return null;
-      const c =
-        vivos.find((x) => credito.get(x) === falta) ?? vivos.sort((x, y) => (credito.get(y) as number) - (credito.get(x) as number) || x.localeCompare(y))[0];
-      const monto = Math.min(falta, credito.get(c) as number);
-      out.push({ from: d.id, to: c, amount: monto });
-      credito.set(c, (credito.get(c) as number) - monto);
-      falta -= monto;
-    }
-  }
-  return out.sort((a, b) => b.amount - a.amount || nameOf(balances, a.from).localeCompare(nameOf(balances, b.from), 'es'));
 }

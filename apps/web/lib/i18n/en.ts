@@ -1855,10 +1855,10 @@ export const EN: Record<string, string> = {
     "Debts were netted out for fewer transfers: that's why you pay {nombre}.",
 
   // ---------- Liquidar a quien pagó por cada uno ----------
-  'Cada quien le paga solo a alguien que pagó algo suyo.': 'Everyone only pays someone who paid for something of theirs.',
+  'Cada quien le paga a cada persona lo que esa persona pagó por él.': 'Everyone pays each person what that person paid for them.',
   'Cruzando deudas serían {n} en vez de {m}.': 'Netting out debts would take {n} instead of {m}.',
-  'Cada quien le paga solo a alguien que pagó algo suyo, con las menos transferencias que se pueda.':
-    'Everyone only pays someone who paid for something of theirs, with as few transfers as possible.',
+  'Cada quien le paga a cada persona lo que esa persona pagó por él; si dos se deben entre ellos, solo va la diferencia.':
+    'Everyone pays each person what that person paid for them; if two people owe each other, only the difference changes hands.',
   '➖ {monto} de lo que tú pagaste por otros o ya pagaste': '➖ {monto} from what you paid for others or already paid',
   '{monto} a {nombre}': '{monto} to {nombre}',
   'Le pagas {lista}.': 'You pay {lista}.',

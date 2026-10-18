@@ -205,8 +205,6 @@ export type QuestionData = {
       /** Migración 400: si se liquida «a quien pagó por cada uno», cómo quedarían hoy (null si se cruzan las deudas) */
       direct?: boolean;
       direct_transfers?: { from: string; to: string; from_id: string; to_id: string; amount: number }[] | null;
-      /** Quién pagó algo de quién (deudor → pagador), para pagarle solo a alguien que pagó algo suyo */
-      paid_for?: { from_id: string; to_id: string }[] | null;
       me: QuestionMe | null;
     }
 );
