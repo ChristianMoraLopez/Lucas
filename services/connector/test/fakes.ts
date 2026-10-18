@@ -2,6 +2,7 @@ import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
 import type {
   Cobro,
+  DecisionLiquidada,
   DesdeCuando,
   DetectedResult,
   GroupResult,
@@ -206,6 +207,17 @@ export class FakeStore implements Store {
   async cobrosAvisados(privados: string[], enGrupo: string[]) {
     this.avisados.push(...privados, ...enGrupo);
     this.avisadosPorPrivado.push(...privados);
+  }
+  /** La pregunta de un paseo liquidado: el id del mensaje con que salió (si salió), lo que se respondió y lo que contesta la base */
+  preguntaReabrir: { waId: string | null; resuelta: boolean } | null = null;
+  decisiones: { jid: string; quotedId: string | null; sender: string | null; modo: 'reabrir' | 'nueva' }[] = [];
+  decision: DecisionLiquidada | null = null;
+  async decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva'): Promise<DecisionLiquidada> {
+    const q = this.preguntaReabrir;
+    if (!q || q.resuelta || (quotedId !== null && q.waId !== quotedId)) return { ok: false, reason: 'no_es_pregunta' };
+    this.decisiones.push({ jid, quotedId, sender: sender.id, modo });
+    q.resuelta = true;
+    return this.decision ?? { ok: false, reason: 'no_te_conozco', language: 'es', account_name: 'Paseo' };
   }
   /** ¿Quién pidió qué?: las cuentas por preguntar, las listas que quedaron en la bandeja y lo que respondieron */
   porPreguntar: ItemsPregunta[] = [];

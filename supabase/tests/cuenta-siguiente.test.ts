@@ -119,7 +119,7 @@ describe('un gasto en un grupo cuya cuenta ya se liquidó (00000000000390_reabri
     });
   });
 
-  it('el primer gasto reabre el paseo, lo pagado queda como pago y Mister Luks lo cuenta (una vez)', async () => {
+  it('un gasto nuevo espera, Mister Luks pregunta y con «reabrir» entra; lo pagado queda como pago', async () => {
     await as(db, null, async (tx) => {
       // Liquidado de verdad: una transferencia pagada y otra no
       await como(tx, null);
@@ -151,6 +151,27 @@ describe('un gasto en un grupo cuya cuenta ya se liquidó (00000000000390_reabri
       await guardar('WA-SIG-8', 'helado 12 lucas');
       await como(tx, null);
 
+      // Mister Luks está en el grupo: no reabre solo, pregunta (una vez) y los gastos esperan (la 450)
+      expect(await one(tx, 'select status from public.accounts where id = $1', [PASEO])).toEqual({ status: 'settling' });
+      expect(await one(tx, 'select count(*)::int as n from public.gastos_en_espera where account_id = $1 and released_at is null', [PASEO])).toEqual({ n: 2 });
+      const { rows: preguntas } = await tx.query<{ body: string }>(`select body from public.whatsapp_outbox where dedupe_key like 'reabrir:%'`);
+      expect(preguntas).toHaveLength(1);
+      expect(preguntas[0].body).toBe(
+        '🔒 «Paseo Santa Marta» ya está liquidada y Mafe mandó un gasto nuevo: *Empanadas* · $24.000.\n¿Qué hago? Respondan este mensaje:\n*1* · Reabrir «Paseo Santa Marta» y sumarlo (lo que ya pagaron queda anotado)\n*2* · Anotarlo en una cuenta nueva («Paseo Santa Marta 2»)\n\n📊 Más detalle en mrluks.com',
+      );
+      expect(await one(tx, 'select public.es_mensaje_de_luks($1) as luks', [preguntas[0].body])).toEqual({ luks: true });
+
+      // «1»: se reabre y entran los dos
+      await como(tx, 'service_role');
+      const { r } = await one<{ r: { ok: boolean; cuenta: string; gastos: { merchant: string }[] } }>(
+        tx,
+        `select public.connector_decidir_liquidada($1, null, $2, $2, null, 'Mafe', 'reabrir') as r`,
+        [JID, MAFE_WA],
+      );
+      await como(tx, null);
+      expect(r).toMatchObject({ ok: true, cuenta: 'Paseo Santa Marta' });
+      expect(r.gastos.map((g) => g.merchant)).toEqual(['Empanadas', 'Empanadas']);
+
       expect(await one(tx, 'select status from public.accounts where id = $1', [PASEO])).toEqual({ status: 'active' });
       expect(await one(tx, 'select count(*)::int as n from public.settlements where account_id = $1', [PASEO])).toEqual({ n: 0 });
       // Lo pagado no se pierde; lo que faltaba se vuelve a calcular
@@ -166,16 +187,7 @@ describe('un gasto en un grupo cuya cuenta ya se liquidó (00000000000390_reabri
         { person_id: b, sent: 50_000, received: 0 },
         { person_id: a, sent: 0, received: 50_000 },
       ]);
-
-      const { rows } = await tx.query<{ body: string; reason: string }>(
-        `select body, reason from public.whatsapp_outbox where dedupe_key like 'reabierta:%' order by created_at`,
-      );
-      expect(rows).toHaveLength(1);
-      expect(rows[0].body).toBe(
-        '🔓 «Paseo Santa Marta» ya estaba liquidada y llegó un gasto nuevo, así que la reabrí. Lo que ya pagaron queda anotado; cuando terminen, la vuelven a liquidar en mrluks.com.',
-      );
-      // No es un gasto (si lo reenvían o viene en un chat exportado)
-      expect(await one(tx, 'select public.es_mensaje_de_luks($1) as luks', [rows[0].body])).toEqual({ luks: true });
+      expect(await one(tx, `select count(*)::int as n from public.expenses where account_id = $1 and merchant = 'Empanadas'`, [PASEO])).toEqual({ n: 2 });
     });
   });
 });

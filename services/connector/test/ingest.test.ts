@@ -731,3 +731,46 @@ describe('¿quién pidió qué?', () => {
     expect(store.respuestas).toEqual([]);
   });
 });
+
+describe('¿reabrir o cuenta nueva?', () => {
+  const LUKS = '573337627471';
+  beforeEach(async () => {
+    ing.setMisterLuks([LUKS, 'lid:98765432101234']);
+    await enlazado();
+    // La pregunta de desde cuándo anoto ya la respondieron (si no, un «1» a secas es para esa)
+    store.desdeCuando.set(GRUPO, { modo: 'desde_ya', quien: 'Mafe' });
+    store.preguntaReabrir = { waId: 'WA-PREGUNTA', resuelta: false };
+    store.decision = {
+      ok: true,
+      modo: 'reabrir',
+      language: 'es',
+      currency: 'COP',
+      name: 'Mafe',
+      cuenta: 'Paseo',
+      anterior: 'Paseo',
+      gastos: [{ expense_id: 'g1', duplicate_of: null, merchant: 'Trattoria', total: 120_000, items: 2 }],
+    };
+  });
+
+  it('responder la pregunta con «1» la reabre y Mister Luks lo cuenta', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: '1', quotedFrom: LUKS, quotedId: 'WA-PREGUNTA' }))).toBe('reabrir:reabrir');
+    expect(store.decisiones).toEqual([{ jid: GRUPO, quotedId: 'WA-PREGUNTA', sender: '573016667788', modo: 'reabrir' }]);
+    expect(bandeja(GRUPO).at(-1)?.body).toContain('🔓 Listo, Mafe: reabrí «Paseo» y sumé *Trattoria* ($120.000). Ahora les pregunto quién pidió qué.');
+  });
+
+  it('«2» a secas también (si hay una pregunta abierta)', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: '2' }))).toBe('reabrir:reabrir');
+    expect(store.decisiones[0]).toMatchObject({ quotedId: null, modo: 'nueva' });
+  });
+
+  it('«luks cuenta nueva»', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks cuenta nueva' }))).toBe('reabrir:reabrir');
+    expect(store.decisiones[0]).toMatchObject({ modo: 'nueva' });
+  });
+
+  it('sin pregunta abierta, un «1» sigue siendo lo de siempre', async () => {
+    store.preguntaReabrir = null;
+    expect(await ing.onMessage(contador, wa, m({ text: '1' }))).toBe('ignorado:desde_cuando');
+    expect(store.decisiones).toEqual([]);
+  });
+});

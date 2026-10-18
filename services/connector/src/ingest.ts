@@ -5,6 +5,7 @@ import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
 import { elegirPagos, PAGOS } from './pagos.js';
 import { PREGUNTAS, primerNombre, RESPUESTA } from './preguntas.js';
 import type { Clasificador } from './qwen.js';
+import { contestarDecision, leerDecision } from './reabrir.js';
 import type { RateLimiter } from './replies.js';
 import type { OutboxItem, Store } from './store.js';
 import {
@@ -49,6 +50,7 @@ export type Outcome =
   | `pregunta:${string}`
   | `pago:${string}`
   | `items:${string}`
+  | `reabrir:${string}`
   | `link_grupo:${string}`
   | `ignorado:${string}`;
 
@@ -173,10 +175,13 @@ export class Ingestor {
     // «luks soy yo» en el grupo: solo lo atiende Mister Luks
     if (session.kind === 'contador' && !m.media && esSoyYo(m.text)) return this.#soyYo(session, m);
 
-    // Responden la lista de «¿quién pidió qué?» con los números de lo suyo (antes que el «1»/«2» de desde cuándo anoto)
+    // Responden (citando) un mensaje de Mister Luks: la lista de «¿quién pidió qué?» o la pregunta de un paseo
+    // liquidado («1» reabrir, «2» cuenta nueva). Antes que el «1»/«2» de desde cuándo anoto
     if (session.kind === 'contador' && !m.media && m.quotedId && this.#esDeLuks(m.quotedFrom)) {
       const items = await this.#items(m);
       if (items) return items;
+      const decision = await this.#decision(m, m.quotedId);
+      if (decision) return decision;
     }
 
     // El chat exportado: se importa (lo de antes de que Luks empezara a anotar)
@@ -189,7 +194,13 @@ export class Ingestor {
       if (modo) {
         const r = await this.store.historyAnswer(m.chatId, modo, m.sender.name, !orden);
         this.log.info({ group: m.chatId, mode: modo, changed: r.changed, reason: r.reason }, '¿Desde cuándo anoto?');
-        return r.changed ? 'desde_cuando' : 'ignorado:desde_cuando';
+        if (r.changed) return 'desde_cuando';
+        // Un «1» o «2» a secas también puede responder la pregunta de un paseo liquidado
+        if (!orden) {
+          const decision = await this.#decision(m, null);
+          if (decision) return decision;
+        }
+        return 'ignorado:desde_cuando';
       }
     }
 
@@ -212,6 +223,11 @@ export class Ingestor {
     // Le preguntan algo a Mister Luks (antes del filtro de la charla), o responden «privado» / «aquí»
     if (!m.media) {
       const pregunta = aMisterLuks(m, this.#misterLuks);
+      // «luks reabre» / «luks cuenta nueva»: la pregunta de un paseo liquidado
+      if (pregunta && session.kind === 'contador' && leerDecision(pregunta.texto)) {
+        const decision = await this.#decision(m, null, pregunta.texto);
+        if (decision) return decision;
+      }
       const respuesta = pregunta
         ? await this.#pregunta(session, m, pregunta.texto, pregunta.explicito)
         : session.kind === 'contador' && canalDe(m.text)
@@ -432,6 +448,28 @@ export class Ingestor {
       '¿Quién pidió qué?',
     );
     return `items:${r.ok ? 'ok' : r.reason}`;
+  }
+
+  /**
+   * La respuesta a «¿reabro el paseo o abro una cuenta nueva?» (migración 450).
+   * null si no es una respuesta o no había pregunta (sigue como cualquier mensaje).
+   */
+  async #decision(m: IncomingMessage, quotedId: string | null, texto?: string): Promise<Outcome | null> {
+    const modo = leerDecision(texto ?? aMisterLuks(m, this.#misterLuks)?.texto ?? m.text);
+    if (!modo) return null;
+    let r: Awaited<ReturnType<Store['decidirLiquidada']>>;
+    try {
+      r = await this.store.decidirLiquidada(m.chatId, quotedId, m.sender, modo);
+    } catch (e) {
+      // Sin la migración 450 todavía: el mensaje sigue como cualquier otro
+      this.log.warn({ err: (e as Error).message }, 'No se pudo responder la pregunta de reabrir');
+      return null;
+    }
+    if (!r.ok && r.reason === 'no_es_pregunta') return null;
+    const body = contestarDecision(r);
+    if (body) await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+    this.log.info({ group: m.chatId, modo, ok: r.ok, reason: r.ok ? undefined : r.reason, sender: maskWaId(m.sender.id) }, '¿Reabrir o cuenta nueva?');
+    return `reabrir:${r.ok ? r.modo : r.reason}`;
   }
 
   /**

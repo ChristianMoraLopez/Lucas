@@ -168,6 +168,21 @@ export type ItemsRespuesta =
       total_items?: number;
     };
 
+/** connector_decidir_liquidada: respondieron si se reabre el paseo liquidado o va a una cuenta nueva (migración 450) */
+export type DecisionLiquidada =
+  | {
+      ok: true;
+      modo: 'reabrir' | 'nueva';
+      language: Idioma | null;
+      currency: Moneda;
+      name: string;
+      /** La cuenta donde quedó (la misma reabierta o la nueva) y la liquidada */
+      cuenta: string;
+      anterior: string;
+      gastos: { expense_id: string | null; duplicate_of: string | null; merchant: string; total: number; items: number }[];
+    }
+  | { ok: false; reason: 'no_es_pregunta' | 'no_te_conozco' | 'cerrada'; language?: Idioma | null; account_name?: string };
+
 /** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
 export interface SoyYoResult {
   identity_id: string;
@@ -365,6 +380,8 @@ export interface Store {
   itemsPorPreguntar(limit: number): Promise<ItemsPregunta[]>;
   /** La lista quedó en la bandeja de salida con esa clave */
   itemPromptGuardado(expenseId: string, itemIds: string[], chatJid: string, dedupeKey: string): Promise<void>;
+  /** Respondieron la pregunta de un paseo liquidado: reabrirlo o anotar en una cuenta nueva (citándola o no) */
+  decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva'): Promise<DecisionLiquidada>;
   /** Alguien respondió la lista (citándola) con los números de lo suyo */
   itemsRespuesta(jid: string, quotedId: string, sender: Sender, claims: { n: number; units?: number }[]): Promise<ItemsRespuesta>;
   ingest(input: IngestInput): Promise<IngestCheck>;
@@ -650,6 +667,18 @@ export class SupabaseStore implements Store {
       p_transfer_ids: transferIds,
     });
   }
+  decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva') {
+    return this.#rpc<DecisionLiquidada>('connector_decidir_liquidada', {
+      p_jid: jid,
+      p_quoted_wa_id: quotedId,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+      p_modo: modo,
+    });
+  }
+
   itemsPorPreguntar(limit: number) {
     return this.#rpc<ItemsPregunta[]>('connector_items_por_preguntar', { p_limit: limit });
   }
