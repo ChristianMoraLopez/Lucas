@@ -6,8 +6,10 @@ import type { SettlementExpense } from './types';
 
 export interface LineaRecibo {
   name: string;
-  /** Cuántas unidades fueron suyas (si el ítem traía varias) */
+  /** Cuántas unidades fueron suyas (si el ítem traía varias y marcaron quiénes) */
   units: number | null;
+  /** De cuántas traía el ítem */
+  de: number;
   /** Entre cuántos se partió (1 = solo suyo) */
   entre: number;
   amount: number;
@@ -40,6 +42,7 @@ export function reciboDe(e: Pick<SettlementExpense, 'shares' | 'items'>, personI
     items.push({
       name: it.name,
       units: varias ? suyas : null,
+      de: Number(it.quantity) || 1,
       entre: pidieron.length,
       amount: Math.round((total * suyas) / unidades),
     });

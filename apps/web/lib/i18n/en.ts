@@ -1848,9 +1848,7 @@ export const EN: Record<string, string> = {
   'Se cruzan las deudas para hacer menos transferencias: puede que le pagues a alguien que no pagó lo tuyo.':
     "Debts are netted out for fewer transfers: you may end up paying someone who didn't pay for your stuff.",
   'Lo que pediste en {comercio}': 'What you ordered at {comercio}',
-  '{n} tuyas': '{n} yours',
   'Propina, servicio y lo que no está en los ítems': 'Tip, service and anything not in the items',
-  'Alguien puso más por ti': 'Someone chipped in more for you',
   '🧾 *Lo tuyo:*': '🧾 *Your share:*',
   'propina y servicio {monto}': 'tip and service {monto}',
   '… y {n} más en el link': '… and {n} more in the link',
@@ -1868,7 +1866,12 @@ export const EN: Record<string, string> = {
   'Le pagas {lista}.': 'You pay {lista}.',
 
   // ---------- Liquidar a quien pagó por cada uno ----------
-  '1 tuya': '1 yours',
+
+  // ---------- Liquidar por ítem ----------
+  'Le tocó': 'Their share',
+  'No le tocó nada.': 'Nothing to pay.',
+  'Lo que pidió {nombre} en {comercio}': 'What {nombre} ordered at {comercio}',
+  'Lo que otro puso de más': 'What someone else chipped in',
 
   // ⟨más⟩
 };

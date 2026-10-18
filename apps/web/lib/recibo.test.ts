@@ -28,13 +28,13 @@ describe('lo de cada uno en un gasto', () => {
     expect(reciboDe(gasto, 'ana')).toEqual({
       parte: 66_000,
       items: [
-        { name: 'Coca-Cola', units: 2, entre: 2, amount: 6_000 },
-        { name: 'Pizza', units: null, entre: 1, amount: 60_000 },
-        { name: 'Papas', units: null, entre: 3, amount: 10_000 },
+        { name: 'Coca-Cola', units: 2, de: 3, entre: 2, amount: 6_000 },
+        { name: 'Pizza', units: null, de: 1, entre: 1, amount: 60_000 },
+        { name: 'Papas', units: null, de: 1, entre: 3, amount: 10_000 },
       ],
       resto: -10_000,
     });
-    expect(reciboDe(gasto, 'pipe')).toEqual({ parte: 11_000, items: [{ name: 'Papas', units: null, entre: 3, amount: 10_000 }], resto: 1_000 });
+    expect(reciboDe(gasto, 'pipe')).toEqual({ parte: 11_000, items: [{ name: 'Papas', units: null, de: 1, entre: 3, amount: 10_000 }], resto: 1_000 });
   });
 
   it('a quien no le toca, nada; sin ítems, solo su parte', () => {

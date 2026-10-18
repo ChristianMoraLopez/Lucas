@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { IdiomaProvider } from '@/components/idioma';
+import { ItemsDeUno } from '@/components/items-de-uno';
 import { LogoLink } from '@/components/logo-link';
 import { Amount, Avatar, BillCard, CategoryTag, Sticker } from '@/components/lucas-ui';
 import { MenuPrincipal } from '@/components/menu-principal';
@@ -358,32 +359,7 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
                             {parte !== null ? (parte ? t('tu parte {monto}', { monto: fmt(parte) }) : t('no te toca')) : t('entre {n}', { n: e.shares.length })}
                           </span>
                         </span>
-                        {recibo && recibo.items.length > 0 && (
-                          <ul className="sh-items" aria-label={t('Lo que pediste en {comercio}', { comercio: e.merchant })}>
-                            {recibo.items.map((i, k) => (
-                              // biome-ignore lint/suspicious/noArrayIndexKey: dos ítems pueden llamarse igual
-                              <li key={`${i.name}-${k}`} className="sh-items__li">
-                                <span>
-                                  {i.name}
-                                  <span className="lu-muted">
-                                    {i.units
-                                      ? ` · ${i.units === 1 ? t('1 tuya') : t('{n} tuyas', { n: i.units })}`
-                                      : i.entre > 1
-                                        ? ` · ${t('entre {n}', { n: i.entre })}`
-                                        : ''}
-                                  </span>
-                                </span>
-                                <span className="lu-num">{fmt(i.amount)}</span>
-                              </li>
-                            ))}
-                            {Math.abs(recibo.resto) > recibo.items.length && (
-                              <li className="sh-items__li sh-items__resto">
-                                <span>{recibo.resto > 0 ? t('Propina, servicio y lo que no está en los ítems') : t('Alguien puso más por ti')}</span>
-                                <span className="lu-num">{recibo.resto > 0 ? fmt(recibo.resto) : `−${fmt(-recibo.resto)}`}</span>
-                              </li>
-                            )}
-                          </ul>
-                        )}
+                        {recibo && <ItemsDeUno recibo={recibo} label={t('Lo que pediste en {comercio}', { comercio: e.merchant })} fmt={fmt} t={t} />}
                       </li>
                     );
                   })}

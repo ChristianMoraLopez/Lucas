@@ -7,6 +7,7 @@ import { FinDeCuenta } from '@/components/archivo-cuenta';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
+import { ItemsDeUno } from '@/components/items-de-uno';
 import { Amount, Avatar, BillCard, Button, CategoryTag, ICONS, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
@@ -18,6 +19,7 @@ import { rico } from '@/lib/i18n/rico';
 import { whatsappUrl } from '@/lib/invite';
 import { type Moneda, unidades } from '@/lib/moneda';
 import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
+import { reciboDe } from '@/lib/recibo';
 import { minTransfers } from '@/lib/settlement';
 import { calcularTransferencias, cobroMessage, cruzaDeudas, detalleCobro, displayShare, grupoMessage, sharedLink } from '@/lib/share';
 import { asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
@@ -438,7 +440,7 @@ export function SettleScreen({
         </p>
         <ul className="st-pp lu-stagger">
           {d.people.map((p, i) => (
-            <Persona key={p.id} i={i} p={p} yo={p.id === d.my_person_id} gastos={d.expenses.filter((e) => e.payer_person_id === p.id)} />
+            <Persona key={p.id} i={i} p={p} yo={p.id === d.my_person_id} gastos={d.expenses} />
           ))}
         </ul>
       </section>
@@ -787,10 +789,21 @@ function MesNav({ accountId, mes, hoy, liquidados }: { accountId: string; mes: s
   );
 }
 
-/** Una persona: lo que pagó, lo que le tocaba y su saldo; al tocarla, qué pagó. */
+/** Una persona: lo que pagó, lo que le tocaba y su saldo; al tocarla, qué pagó y qué le tocó (ítem por ítem). */
 function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boolean; gastos: SettlementOverview['expenses'] }) {
   const t = useT();
   const formatCOP = useDinero().fmt;
+  const pago = gastos.filter((e) => e.payer_person_id === p.id);
+  const toco = gastos.flatMap((e) => {
+    const r = reciboDe(e, p.id);
+    return r ? [{ e, r }] : [];
+  });
+  const tag = (e: SettlementOverview['expenses'][number]) =>
+    e.category ? (
+      <CategoryTag name={e.category} showName={false} size="sm" letter={e.category_letter ?? undefined} tone={asTone(e.category_tone)} />
+    ) : (
+      <span className="st-p__sin" aria-hidden="true" />
+    );
   return (
     <li style={{ '--i': i } as React.CSSProperties}>
       <details className="st-p">
@@ -812,26 +825,43 @@ function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boo
             <span className="lu-muted">{p.balance === 0 ? t('a paz y salvo') : p.balance > 0 ? t('le deben') : t('debe')}</span>
           </span>
         </summary>
-        {gastos.length ? (
-          <ul className="st-p__gastos">
-            {gastos.map((e) => (
-              <li key={e.id} className="st-p__g">
-                {e.category ? (
-                  <CategoryTag name={e.category} showName={false} size="sm" letter={e.category_letter ?? undefined} tone={asTone(e.category_tone)} />
-                ) : (
-                  <span className="st-p__sin" aria-hidden="true" />
-                )}
-                <span className="st-p__m">
-                  {e.merchant}
-                  <span className="lu-muted"> · {formatDay(e.expense_date, undefined, t.idioma)}</span>
-                </span>
-                <Amount value={e.total_cop} size="sm" />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="lu-small lu-muted st-p__nada">{t('No pagó ningún gasto.')}</p>
-        )}
+        <div className="st-p__det">
+          <h3 className="lu-label st-p__h">{t('Pagó')}</h3>
+          {pago.length ? (
+            <ul className="st-p__gastos">
+              {pago.map((e) => (
+                <li key={e.id} className="st-p__g">
+                  {tag(e)}
+                  <span className="st-p__m">
+                    {e.merchant}
+                    <span className="lu-muted"> · {formatDay(e.expense_date, undefined, t.idioma)}</span>
+                  </span>
+                  <Amount value={e.total_cop} size="sm" />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="lu-small lu-muted st-p__nada">{t('No pagó ningún gasto.')}</p>
+          )}
+          <h3 className="lu-label st-p__h">{t('Le tocó')}</h3>
+          {toco.length ? (
+            <ul className="st-p__gastos">
+              {toco.map(({ e, r }) => (
+                <li key={e.id} className="st-p__g">
+                  {tag(e)}
+                  <span className="st-p__m">
+                    {e.merchant}
+                    <span className="lu-muted"> · {formatDay(e.expense_date, undefined, t.idioma)}</span>
+                  </span>
+                  <Amount value={r.parte} size="sm" />
+                  <ItemsDeUno recibo={r} label={t('Lo que pidió {nombre} en {comercio}', { nombre: p.name, comercio: e.merchant })} fmt={formatCOP} t={t} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="lu-small lu-muted st-p__nada">{t('No le tocó nada.')}</p>
+          )}
+        </div>
       </details>
     </li>
   );

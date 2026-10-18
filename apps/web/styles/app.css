@@ -6890,3 +6890,16 @@ a.gr-fila:focus-visible {
   border-top: 1px dashed var(--borde);
   color: var(--tinta-2);
 }
+
+/* ---------- Liquidar: al tocar a alguien, qué pagó y qué le tocó (ítem por ítem) ---------- */
+.st-p__det {
+  display: grid;
+  background: var(--superficie-2);
+}
+.st-p__h {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) 0;
+}
+.st-p__det .st-p__gastos .sh-items {
+  background: var(--superficie);
+}
