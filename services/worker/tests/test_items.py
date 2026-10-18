@@ -121,6 +121,21 @@ TOTAL $ 122.180
 SA-CREDITO S 122.180
 El IVA de esta boleta es $ 19.508"""
 
+CUENTA_BRUNA = """Mesa Fecha 17/10/2026
+Garzon 167
+Comanda: 166169 BRUNA
+Hora: 21:59
+DETALLE DE MESA
+CANT ARTICULO
+2 MISTRAL NOBEL 15,000
+6 2X PISCO SOURCATEDR47,700
+SUBTOTAL S 62,700
+Dscto. S 0
+Recargo S 0
+TOTAL A PAGAR S 62,700
+10 % PropSugerida S 6,270
+TOTAL + PROPINA S 68,970"""
+
 NU_EXTRANJERO = """nU
 Comprobante de
 transacción
@@ -212,6 +227,14 @@ def test_boleta_chilena_con_la_cantidad_en_la_misma_linea():
         ("Puyehue sin gas", 1, 3_690, 3_690),
     ]
     assert sum(t for *_, t in _tabla(BOLETA_CHILE, 122_180)) == 122_180
+
+
+def test_cuenta_chilena_con_la_cantidad_primero_y_el_precio_pegado():
+    # «6 2X PISCO SOURCATEDR47,700»: seis piscos (en promoción 2x) y el precio pegado al nombre
+    assert _tabla(CUENTA_BRUNA, 62_700) == [
+        ("Mistral Nobel", 2, 7_500, 15_000),
+        ("Pisco Sourcatedr", 6, 7_950, 47_700),
+    ]
 
 
 def test_un_comprobante_de_banco_no_tiene_items():
