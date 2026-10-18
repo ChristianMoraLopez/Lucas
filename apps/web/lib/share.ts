@@ -212,14 +212,22 @@ export function transfersFor(d: DatosLiquidar & { settlement: { transfers: Settl
 }
 
 /**
- * Para el mensaje de cobro: todo lo del deudor, gasto por gasto y con lo que
- * pidió, y cómo se reparte lo que debe (si le paga a varios). Si le paga a
- * alguien que no pagó nada suyo (se cruzaron las deudas), por qué.
+ * Para el mensaje de cobro: lo que le tocó al deudor, ítem por ítem en los
+ * gastos divididos por consumo (en los demás, su parte), y cómo se reparte lo
+ * que debe si le paga a varios. Si le paga a alguien que no pagó nada suyo (se
+ * cruzaron las deudas), por qué.
  *
- *   🧾 *Lo tuyo:*
- *   • Le Due Torri (pagó Daniel): *$165.000*
- *     Coca Cola Zero ×2 $20.000 · Ravioli $90.000 · propina y servicio $55.000
- *   • Bruna (pagó Santiago): *$30.000*
+ *   🧾 *Lo tuyo, ítem por ítem:*
+ *
+ *   *Le Due Torri* (pagó Daniel)
+ *   • Coca Cola Zero (2 de 3): $20.000
+ *   • Ravioli: $90.000
+ *   • Propina y servicio: $55.000
+ *   Total: *$165.000*
+ *
+ *   *Bruna* (pagó Santiago)
+ *   • Tu parte (entre 6): $30.000
+ *
  *   Le pagas $150.000 a Daniel y $45.000 a Santiago.
  */
 export function detalleCobro({
@@ -243,38 +251,48 @@ export function detalleCobro({
   const $ = (n: number) => dinero(n, moneda, t.idioma);
   const gastos = expenses
     .filter((e) => e.payer_person_id && e.payer_person_id !== debtorId)
-    .map((e) => ({ e, r: reciboDe(e, debtorId) }))
-    .filter((x) => x.r !== null);
-  if (!gastos.length) return [];
-  const lineas = [t('🧾 *Lo tuyo:*')];
-  const MAX = 6;
-  for (const { e, r } of gastos.slice(0, MAX)) {
-    if (!r) continue;
-    lineas.push(
-      `• ${t('{comercio} (pagó {nombre})', { comercio: sinFormato(e.merchant), nombre: sinFormato(nombre(e.payer_person_id as string)) })}: *${$(r.parte)}*`,
-    );
-    const partes = r.items.slice(0, 6).map((i) => {
-      const cuantas = i.units ? ` ×${i.units}` : i.entre > 1 ? ` (${t('entre {n}', { n: i.entre })})` : '';
-      return `${sinFormato(i.name)}${cuantas} ${$(i.amount)}`;
+    .flatMap((e) => {
+      const r = reciboDe(e, debtorId);
+      return r ? [{ e, r }] : [];
     });
-    if (r.items.length > 6) partes.push('…');
-    if (r.items.length && r.resto > r.items.length) partes.push(t('propina y servicio {monto}', { monto: $(r.resto) }));
-    if (partes.length) lineas.push(`   ${partes.join(' · ')}`);
+  if (!gastos.length) return [];
+  const conItems = gastos.some((x) => x.r.items.length > 0);
+  const lineas = [conItems ? t('🧾 *Lo tuyo, ítem por ítem:*') : t('🧾 *Lo tuyo:*')];
+  const MAX_GASTOS = 6;
+  const MAX_ITEMS = 12;
+  for (const { e, r } of gastos.slice(0, MAX_GASTOS)) {
+    lineas.push('', t('*{comercio}* (pagó {nombre})', { comercio: sinFormato(e.merchant), nombre: sinFormato(nombre(e.payer_person_id as string)) }));
+    if (!r.items.length) {
+      const entre = e.shares.filter((x) => x.amount_cop > 0).length;
+      lineas.push(`• ${entre > 1 ? t('Tu parte (entre {n})', { n: entre }) : t('Tu parte')}: ${$(r.parte)}`);
+      continue;
+    }
+    for (const i of r.items.slice(0, MAX_ITEMS)) {
+      const cuantas = i.units ? t('{n} de {total}', { n: i.units, total: i.de }) : i.entre > 1 ? t('entre {n}', { n: i.entre }) : '';
+      lineas.push(`• ${sinFormato(i.name)}${cuantas ? ` (${cuantas})` : ''}: ${$(i.amount)}`);
+    }
+    if (r.items.length > MAX_ITEMS) lineas.push(`• ${t('… y {n} más en el link', { n: r.items.length - MAX_ITEMS })}`);
+    if (Math.abs(r.resto) > r.items.length) {
+      lineas.push(r.resto > 0 ? `• ${t('Propina y servicio')}: ${$(r.resto)}` : `• ${t('Lo que otro puso de más')}: −${$(-r.resto)}`);
+    }
+    lineas.push(t('Total: {monto}', { monto: `*${$(r.parte)}*` }));
   }
-  if (gastos.length > MAX) lineas.push(t('… y {n} más en el link', { n: gastos.length - MAX }));
+  if (gastos.length > MAX_GASTOS) lineas.push('', t('… y {n} más en el link', { n: gastos.length - MAX_GASTOS }));
 
   const suyas = transfers.filter((x) => x.from === debtorId);
   const debe = suyas.reduce((s, x) => s + x.amount, 0);
-  const consumo = gastos.reduce((s, x) => s + (x.r?.parte ?? 0), 0);
+  const consumo = gastos.reduce((s, x) => s + x.r.parte, 0);
+  const cierre: string[] = [];
   // Lo que pagó por otros (o ya pagó) le baja lo que debe
-  if (consumo > debe) lineas.push(t('➖ {monto} de lo que tú pagaste por otros o ya pagaste', { monto: $(consumo - debe) }));
+  if (consumo > debe) cierre.push(t('➖ {monto} de lo que tú pagaste por otros o ya pagaste', { monto: $(consumo - debe) }));
   if (suyas.length > 1) {
     const cada = suyas.map((x) => t('{monto} a {nombre}', { monto: $(x.amount), nombre: sinFormato(nombre(x.to)) }));
-    lineas.push(t('Le pagas {lista}.', { lista: cada.length > 1 ? `${cada.slice(0, -1).join(', ')}${t(' y ')}${cada.at(-1)}` : cada[0] }));
+    cierre.push(t('Le pagas {lista}.', { lista: `${cada.slice(0, -1).join(', ')}${t(' y ')}${cada.at(-1)}` }));
   }
   if (!gastos.some((x) => x.e.payer_person_id === creditorId)) {
-    lineas.push(t('Se cruzaron las deudas para hacer menos transferencias: por eso le pagas a {nombre}.', { nombre: sinFormato(nombre(creditorId)) }));
+    cierre.push(t('Se cruzaron las deudas para hacer menos transferencias: por eso le pagas a {nombre}.', { nombre: sinFormato(nombre(creditorId)) }));
   }
+  if (cierre.length) lineas.push('', ...cierre);
   return lineas;
 }
 

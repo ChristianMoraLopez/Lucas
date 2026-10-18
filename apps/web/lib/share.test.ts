@@ -200,10 +200,17 @@ describe('los mensajes en inglés y en otras monedas', () => {
       { from: 'yo', to: 'santi', amount: 30_000 },
     ];
     expect(detalleCobro({ expenses, debtorId: 'mari', creditorId: 'dan', transfers, nombre })).toEqual([
-      '🧾 *Lo tuyo:*',
-      '• Le Due Torri (pagó Daniel): *$165.000*',
-      '   Coca Cola Zero ×2 $20.000 · Ravioli $90.000 · propina y servicio $55.000',
-      '• Bruna (pagó Santiago): *$30.000*',
+      '🧾 *Lo tuyo, ítem por ítem:*',
+      '',
+      '*Le Due Torri* (pagó Daniel)',
+      '• Coca Cola Zero (2 de 3): $20.000',
+      '• Ravioli: $90.000',
+      '• Propina y servicio: $55.000',
+      'Total: *$165.000*',
+      '',
+      '*Bruna* (pagó Santiago)',
+      '• Tu parte (entre 2): $30.000',
+      '',
       'Le pagas $150.000 a Daniel y $45.000 a Santiago.',
     ]);
     // Christian no estuvo en la factura de Daniel: si le tocara pagarle, se explica por qué
@@ -218,11 +225,13 @@ describe('los mensajes en inglés y en otras monedas', () => {
       creditorIsMe: false,
       detalle: detalleCobro({ expenses, debtorId: 'mari', creditorId: 'dan', transfers, nombre }),
     });
-    expect(m.split('\n').slice(0, 4)).toEqual([
+    expect(m.split('\n').slice(0, 6)).toEqual([
       'Hola Mari 👋 De «Chile» le debes a Daniel $150.000 (150 lucas).',
       '',
-      '🧾 *Lo tuyo:*',
-      '• Le Due Torri (pagó Daniel): *$165.000*',
+      '🧾 *Lo tuyo, ítem por ítem:*',
+      '',
+      '*Le Due Torri* (pagó Daniel)',
+      '• Coca Cola Zero (2 de 3): $20.000',
     ]);
   });
 
