@@ -92,7 +92,7 @@ describe('un paseo liquidado y llega otro gasto', () => {
       await tx.query(`update public.whatsapp_outbox set sent_at = now(), wa_message_id = 'WA-PREGUNTA' where dedupe_key like 'reabrir:%'`);
       expect(await decidir(tx, MAFE_WA, 'reabrir', 'OTRO')).toEqual({ ok: false, reason: 'no_es_pregunta' });
       const r = await decidir(tx, MAFE_WA, 'reabrir', 'WA-PREGUNTA');
-      expect(r).toMatchObject({ ok: true, modo: 'reabrir', cuenta: 'Paseo Santa Marta', name: 'Mafe' });
+      expect(r).toMatchObject({ ok: true, modo: 'reabrir', account_id: PASEO, cuenta: 'Paseo Santa Marta', name: 'Mafe' });
       expect((r.gastos as { merchant: string; items: number }[]).map((g) => [g.merchant, g.items])).toEqual([
         ['Trattoria', 2],
         ['Heladería', 2],

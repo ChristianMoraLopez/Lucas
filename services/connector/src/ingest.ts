@@ -63,6 +63,8 @@ export interface IngestLimits extends MediaLimits {
 export interface MisterLuksOptions {
   /** Dónde están la imagen y el PDF de la guía (https://mrluks.com/guia) */
   guiaUrl: string;
+  /** La web, para los links a la app (https://mrluks.com) */
+  webUrl?: string;
   /** Cuántos grupos acepta Mister Luks con links de invitación (por quien manda el link y en total, por hora) */
   joins: RateLimiter;
   /** Qwen, para las preguntas que las reglas no entienden (sin Ollama, no hay) */
@@ -466,7 +468,7 @@ export class Ingestor {
       return null;
     }
     if (!r.ok && r.reason === 'no_es_pregunta') return null;
-    const body = contestarDecision(r);
+    const body = contestarDecision(r, this.mister.webUrl ?? 'https://mrluks.com');
     if (body) await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
     this.log.info({ group: m.chatId, modo, ok: r.ok, reason: r.ok ? undefined : r.reason, sender: maskWaId(m.sender.id) }, '¿Reabrir o cuenta nueva?');
     return `reabrir:${r.ok ? r.modo : r.reason}`;

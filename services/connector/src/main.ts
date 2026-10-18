@@ -58,7 +58,7 @@ const joins = new RateLimiter({
 });
 // Qwen solo clasifica las preguntas que las reglas no entienden (los números salen de la base)
 const clasificar = config.ollama ? clasificadorOllama(config.ollama, log) : null;
-const ingestor = new Ingestor(store, { ...config.media }, { guiaUrl: config.misterLuks.guiaUrl, joins, clasificar }, log);
+const ingestor = new Ingestor(store, { ...config.media }, { guiaUrl: config.misterLuks.guiaUrl, webUrl: config.misterLuks.webUrl, joins, clasificar }, log);
 const manager = new SessionManager(
   store,
   (session, handlers) => new BaileysConnector(session, handlers, { store, cipher, log }),
@@ -106,7 +106,7 @@ const timers = [
   // Los avisos de cobro de las cuentas que los tienen prendidos (los manda la bandeja de salida)
   cada(config.misterLuks.cobrosIntervalMs, 'cobros', () => avisarCobros(store, config.misterLuks.webUrl, log)),
   // ¿Quién pidió qué? de las cuentas con varios ítems que acaban de llegar a un paseo
-  cada(config.misterLuks.itemsIntervalMs, 'items', () => preguntarItems(store, log)),
+  cada(config.misterLuks.itemsIntervalMs, 'items', () => preguntarItems(store, config.misterLuks.webUrl, log)),
 ];
 log.info({ replies: config.replies.enabled }, 'Connector listo');
 

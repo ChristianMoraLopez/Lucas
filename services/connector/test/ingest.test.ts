@@ -743,6 +743,7 @@ describe('¿reabrir o cuenta nueva?', () => {
     store.decision = {
       ok: true,
       modo: 'reabrir',
+      account_id: PASEO,
       language: 'es',
       currency: 'COP',
       name: 'Mafe',

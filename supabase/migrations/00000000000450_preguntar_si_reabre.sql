@@ -590,6 +590,7 @@ begin
   return jsonb_build_object(
     'ok', true,
     'modo', p_modo,
+    'account_id', d.id,
     'language', d.language,
     'currency', d.currency,
     'name', (select p.display_name from public.people p where p.id = v_me),

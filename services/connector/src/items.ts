@@ -18,8 +18,11 @@ const limpio = (s: string | null | undefined) => (s ?? '').replace(/[*_~`]/g, ''
 const primerNombre = (s: string | null | undefined) => limpio(s).split(/\s+/)[0] ?? '';
 const cantidad = (n: number) => String(Number(n)).replace('.', ',');
 
-/** La lista numerada, para responderla */
-export function mensajeItems(p: ItemsPregunta): string {
+/** El gasto en la app, para terminar de revisarlo y repartirlo */
+export const linkDividir = (webUrl: string, cuenta: string, gasto: string) => `${webUrl}/c/${cuenta}/gastos/${gasto}/dividir`;
+
+/** La lista numerada, para responderla (y el link para terminar en la app lo que no quede bien) */
+export function mensajeItems(p: ItemsPregunta, webUrl: string): string {
   const idioma: Idioma = p.account.language === 'en' ? 'en' : 'es';
   const en = idioma === 'en';
   const $ = (n: number) => formatCOP(Number(n), p.account.currency, idioma);
@@ -44,6 +47,10 @@ export function mensajeItems(p: ItemsPregunta): string {
     ...items,
     '',
     `${ejemplo} ${reparto}`,
+    '',
+    en
+      ? `If something isn’t right, finish reviewing and splitting it here: ${linkDividir(webUrl, p.account.id, p.expense_id)}`
+      : `Lo que no quede bien, terminen de revisarlo y repartirlo aquí: ${linkDividir(webUrl, p.account.id, p.expense_id)}`,
     '',
     FIRMA[idioma],
   ].join('\n');
@@ -135,12 +142,12 @@ export function contestar(r: ItemsRespuesta): string {
 }
 
 /** Una vuelta: las cuentas recién llegadas, numeradas al grupo (una vez cada una) */
-export async function preguntarItems(store: Store, log: Logger): Promise<number> {
+export async function preguntarItems(store: Store, webUrl: string, log: Logger): Promise<number> {
   const pendientes = await store.itemsPorPreguntar(10);
   let nuevas = 0;
   for (const p of pendientes) {
     const clave = `items:${p.expense_id}`;
-    const r = await store.outboxEnqueue([{ chat_jid: p.group_jid, reason: 'answer', body: mensajeItems(p), dedupe_key: clave }]);
+    const r = await store.outboxEnqueue([{ chat_jid: p.group_jid, reason: 'answer', body: mensajeItems(p, webUrl), dedupe_key: clave }]);
     // Aunque no se haya podido encolar, no se vuelve a preguntar
     await store.itemPromptGuardado(
       p.expense_id,

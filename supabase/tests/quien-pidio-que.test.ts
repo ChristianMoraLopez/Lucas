@@ -70,6 +70,7 @@ interface Pregunta {
   merchant: string;
   total: number;
   payer_name: string;
+  account: { id: string };
   items: { id: string; name: string; quantity: number; total: number }[];
 }
 
@@ -97,7 +98,7 @@ describe('¿quién pidió qué?', () => {
       const { id, total } = await llegaLaCuenta(tx);
       const r = await servicio<Pregunta[]>(tx, 'select public.connector_items_por_preguntar() as r');
       const p = r.find((x) => x.expense_id === id) as Pregunta;
-      expect(p).toMatchObject({ group_jid: GRUPO, merchant: 'Le Due Torri', total });
+      expect(p).toMatchObject({ group_jid: GRUPO, merchant: 'Le Due Torri', total, account: { id: PASEO } });
       expect(p.items.map((i) => i.name)).toEqual(['Coca Cola', 'Pasta', 'Pizza']);
       await preguntar(tx, p);
       expect((await servicio<Pregunta[]>(tx, 'select public.connector_items_por_preguntar() as r')).some((x) => x.expense_id === id)).toBe(false);

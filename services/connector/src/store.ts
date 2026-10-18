@@ -140,7 +140,7 @@ export interface ItemsPregunta {
   total: number;
   tip: number;
   payer_name: string | null;
-  account: { name: string; language: Idioma | null; currency: Moneda };
+  account: { id: string; name: string; language: Idioma | null; currency: Moneda };
   /** En el orden en que salen numerados */
   items: { id: string; name: string; quantity: number; total: number }[];
 }
@@ -173,6 +173,8 @@ export type DecisionLiquidada =
   | {
       ok: true;
       modo: 'reabrir' | 'nueva';
+      /** La cuenta donde quedó (para el link) */
+      account_id: string;
       language: Idioma | null;
       currency: Moneda;
       name: string;

@@ -1,3 +1,4 @@
+import { linkDividir } from './items.js';
 import type { DecisionLiquidada } from './store.js';
 import { formatCOP, type Idioma, plano } from './text.js';
 
@@ -28,7 +29,7 @@ const primerNombre = (s: string | null | undefined) =>
     .split(/\s+/)[0] ?? '';
 
 /** Lo que contesta Mister Luks (vacío si no hay nada que decir) */
-export function contestarDecision(r: DecisionLiquidada): string {
+export function contestarDecision(r: DecisionLiquidada, webUrl: string): string {
   const idioma: Idioma = r.language === 'en' ? 'en' : 'es';
   const en = idioma === 'en';
   if (!r.ok) {
@@ -58,5 +59,16 @@ export function contestarDecision(r: DecisionLiquidada): string {
       : en
         ? `🆕 Done, ${nombre}: I opened “${r.cuenta}”${lista ? ` and logged ${lista} there` : ''}.${sigue} “${r.anterior}” stays as it was.`
         : `🆕 Listo, ${nombre}: abrí «${r.cuenta}»${lista ? ` y ahí anoté ${lista}` : ''}.${sigue} «${r.anterior}» queda como estaba.`;
-  return `${cuerpo}\n\n${FIRMA[idioma]}`;
+  // Si no sigue la lista de ítems, el link para revisarlo y repartirlo en la app
+  const link = conItems
+    ? null
+    : nuevos.length === 1 && nuevos[0].expense_id
+      ? linkDividir(webUrl, r.account_id, nuevos[0].expense_id)
+      : `${webUrl}/c/${r.account_id}/gastos`;
+  const revisar = link
+    ? en
+      ? `\nIf something isn’t right, review and split it here: ${link}`
+      : `\nLo que no quede bien, revísenlo y repártanlo aquí: ${link}`
+    : '';
+  return `${cuerpo}${revisar}\n\n${FIRMA[idioma]}`;
 }
