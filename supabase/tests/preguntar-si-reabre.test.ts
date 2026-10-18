@@ -116,7 +116,13 @@ describe('un paseo liquidado y llega otro gasto', () => {
       expect(r).toMatchObject({ ok: true, modo: 'nueva', cuenta: 'Paseo Santa Marta 2', anterior: 'Paseo Santa Marta' });
       const { id: nueva } = await one<{ id: string }>(tx, `select id from public.accounts where name = 'Paseo Santa Marta 2'`);
       expect(await one(tx, 'select status from public.accounts where id = $1', [PASEO])).toEqual({ status: 'settling' });
-      expect(await one(tx, `select a.name from public.account_group_links l join public.accounts a on a.id = l.account_id join public.whatsapp_groups g on g.id = l.group_id where g.wa_group_jid = $1`, [JID])).toEqual({
+      expect(
+        await one(
+          tx,
+          `select a.name from public.account_group_links l join public.accounts a on a.id = l.account_id join public.whatsapp_groups g on g.id = l.group_id where g.wa_group_jid = $1`,
+          [JID],
+        ),
+      ).toEqual({
         name: 'Paseo Santa Marta 2',
       });
       // El gasto, con quien pagó en la cuenta nueva

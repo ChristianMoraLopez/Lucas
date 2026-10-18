@@ -70,9 +70,7 @@ describe('propina aparte, extras y unidades', () => {
         { person_id: CARO, units: '2.000' },
       ]);
       // Quien no marcó unidades cuenta una
-      expect(
-        (await one<{ u: string }>(tx, 'select units::text as u from public.expense_item_people where item_id = $1', [PATACONES])).u,
-      ).toBe('1.000');
+      expect((await one<{ u: string }>(tx, 'select units::text as u from public.expense_item_people where item_id = $1', [PATACONES])).u).toBe('1.000');
 
       // Otra vez, con el 10 % y sin el postre: la factura sigue siendo 272.500
       await dividir(tx, ITEMS.slice(0, 3), { [FELIPE]: 99_750, [VALE]: 70_000, [CARO]: 60_000, [SANTI]: 70_000 }, 10, 27_250);
@@ -97,9 +95,9 @@ describe('propina aparte, extras y unidades', () => {
       await tx.exec('rollback to savepoint a');
       await expect(dividir(tx, ITEMS, { [FELIPE]: 900_000 }, null, 400_000)).rejects.toThrow('La propina no puede ser más que la cuenta');
       await tx.exec('rollback to savepoint a');
-      await expect(
-        dividir(tx, [{ name: 'Limonada', total_cop: 47_500, people: [VALE], units: { [VALE]: 0 } }], { [FELIPE]: 272_500 }),
-      ).rejects.toThrow('Las unidades de cada uno tienen que ser mayores que cero');
+      await expect(dividir(tx, [{ name: 'Limonada', total_cop: 47_500, people: [VALE], units: { [VALE]: 0 } }], { [FELIPE]: 272_500 })).rejects.toThrow(
+        'Las unidades de cada uno tienen que ser mayores que cero',
+      );
       await tx.exec('rollback to savepoint a');
       await expect(dividir(tx, [{ name: 'Algo', total_cop: 1_000, extra: 'si' as unknown as boolean }], { [FELIPE]: 272_500 })).rejects.toThrow(
         'Los ítems no llegaron bien',

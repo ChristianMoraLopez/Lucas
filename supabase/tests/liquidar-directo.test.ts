@@ -22,8 +22,7 @@ interface Vista {
   }[];
 }
 
-const vista = async (tx: Transaction, cuenta: string) =>
-  (await one<{ r: Vista }>(tx, 'select public.settlement_overview($1, null) as r', [cuenta])).r;
+const vista = async (tx: Transaction, cuenta: string) => (await one<{ r: Vista }>(tx, 'select public.settlement_overview($1, null) as r', [cuenta])).r;
 
 /**
  * Como DaniChile: Daniel pagó el restaurante (Christian no estaba) y Santiago
@@ -103,11 +102,11 @@ describe('liquidar directo', () => {
         cuenta,
         JSON.stringify((await vista(tx, cuenta)).direct_transfers),
       ]);
-      const { id: t } = await one<{ id: string }>(tx, 'select id from public.settlement_transfers where settlement_id = $1 and from_person_id = $2 and to_person_id = $3', [
-        id,
-        P.mari,
-        P.dan,
-      ]);
+      const { id: t } = await one<{ id: string }>(
+        tx,
+        'select id from public.settlement_transfers where settlement_id = $1 and from_person_id = $2 and to_person_id = $3',
+        [id, P.mari, P.dan],
+      );
       await tx.query('select public.mark_transfer($1, true)', [t]);
       await tx.query('select public.reopen_settlement($1)', [id]);
       expect(pares((await vista(tx, cuenta)).direct_transfers)).toEqual(

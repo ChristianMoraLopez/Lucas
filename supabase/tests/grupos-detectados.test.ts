@@ -192,7 +192,9 @@ describe('«Nuevo grupo detectado»', () => {
         { group_id, name: 'Finca en Guatapé', member_count: 3, names: ['Juana', 'Toño'] },
       ]);
       // Sin link: le basta su número verificado
-      expect((await one<{ v: { status: string; via: string; in_group: boolean } }>(tx, 'select public.preview_group(null, $1) as v', [group_id])).v).toMatchObject({
+      expect(
+        (await one<{ v: { status: string; via: string; in_group: boolean } }>(tx, 'select public.preview_group(null, $1) as v', [group_id])).v,
+      ).toMatchObject({
         status: 'ok',
         via: 'detectado',
         in_group: true,
@@ -242,7 +244,11 @@ describe('con el WhatsApp vinculado', () => {
     const { r } = await one<{ r: string }>(tx, 'select public.request_personal_whatsapp(null) as r');
     await comoConnector(tx);
     await tx.query(`select public.connector_set_status($1, 'connected', '573170000001@s.whatsapp.net', null, '573170000001')`, [r]);
-    const { g } = await one<{ g: { group_id: string } }>(tx, `select public.connector_upsert_group($1, '120363777000111222@g.us', 'Asado del sábado', 6) as g`, [r]);
+    const { g } = await one<{ g: { group_id: string } }>(
+      tx,
+      `select public.connector_upsert_group($1, '120363777000111222@g.us', 'Asado del sábado', 6) as g`,
+      [r],
+    );
     // Sin cuenta no se guardan sus integrantes
     const { m } = await one<{ m: { stored: boolean } }>(tx, 'select public.connector_set_group_members($1, $2) as m', [g.group_id, JSON.stringify(GENTE)]);
     expect(m.stored).toBe(false);
@@ -299,7 +305,9 @@ describe('con el WhatsApp vinculado', () => {
       const { cuenta } = await one<{ cuenta: string }>(tx, `select public.create_account_from_group($1, null, '', 'hogar') as cuenta`, [grupo]);
       // Sin nombre, el del grupo
       expect(await one(tx, 'select name, type from public.accounts where id = $1', [cuenta])).toEqual({ name: 'Asado del sábado', type: 'hogar' });
-      expect((await one<{ g: { account_id: string }[] }>(tx, 'select public.my_whatsapp_groups() as g', [])).g.find((x) => x.account_id === cuenta)).toBeTruthy();
+      expect(
+        (await one<{ g: { account_id: string }[] }>(tx, 'select public.my_whatsapp_groups() as g', [])).g.find((x) => x.account_id === cuenta),
+      ).toBeTruthy();
     });
   });
 });

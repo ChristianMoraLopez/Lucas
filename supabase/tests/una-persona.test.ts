@@ -59,11 +59,9 @@ describe('grupo primero, Gmail después', () => {
 
       const token = await linkDeCaro(tx);
       await impersonate(tx, U.nuevo);
-      const { r } = await one<{ r: { merged_in: string[]; taken_in: string[]; accounts: number } }>(
-        tx,
-        'select public.redeem_whatsapp_verification($1) as r',
-        [token],
-      );
+      const { r } = await one<{ r: { merged_in: string[]; taken_in: string[]; accounts: number } }>(tx, 'select public.redeem_whatsapp_verification($1) as r', [
+        token,
+      ]);
       expect(r).toMatchObject({ merged_in: ['Paseo Santa Marta'], taken_in: [], accounts: 1 });
 
       await tx.exec('reset role');

@@ -107,11 +107,10 @@ describe('«ya pagué» por WhatsApp', () => {
     await as(db, null, async (tx) => {
       await liquidar(tx);
       const yo = await deudor(tx);
-      const { id: ajena } = await one<{ id: string }>(
-        tx,
-        'select id from public.settlement_transfers where account_id = $1 and from_person_id <> $2 limit 1',
-        [PASEO, yo.person_id],
-      );
+      const { id: ajena } = await one<{ id: string }>(tx, 'select id from public.settlement_transfers where account_id = $1 and from_person_id <> $2 limit 1', [
+        PASEO,
+        yo.person_id,
+      ]);
       expect((await yaPague(tx, GRUPO_PASEO, yo.wa_id, [ajena])).pagadas).toEqual([]);
       expect((await one<{ paid_at: string | null }>(tx, 'select paid_at from public.settlement_transfers where id = $1', [ajena])).paid_at).toBeNull();
       // Un número que no está en la cuenta no ve nada
@@ -161,7 +160,11 @@ describe('«ya pagué» por WhatsApp', () => {
       await liquidar(tx);
       const yo = await deudor(tx);
       const cobros = () =>
-        servicio<{ transfer_id: string; from: { id: string }; private_jid: string | null; avisado_privado: boolean }[]>(tx, 'select public.connector_cobros() as r', []);
+        servicio<{ transfer_id: string; from: { id: string }; private_jid: string | null; avisado_privado: boolean }[]>(
+          tx,
+          'select public.connector_cobros() as r',
+          [],
+        );
       const todos = await cobros();
       const mios = todos.filter((c) => c.from.id === yo.person_id).map((c) => c.transfer_id);
       expect(mios.length).toBeGreaterThan(0);

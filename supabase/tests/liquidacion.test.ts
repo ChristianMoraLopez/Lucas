@@ -196,7 +196,7 @@ describe('liquidar el paseo', () => {
       await tx.query('select public.mark_transfer($1, true)', [t0.id]);
       await tx.query('select public.reopen_settlement($1)', [id]);
 
-      const v = await vista(tx, PASEO) as Vista & { payments: { from: string; to: string; amount: number }[] };
+      const v = (await vista(tx, PASEO)) as Vista & { payments: { from: string; to: string; amount: number }[] };
       expect(v).toMatchObject({ settlement: null, account: { status: 'active' } });
       expect(v.payments.map((p) => [p.from, p.to, p.amount])).toEqual([[t0.from, t0.to, t0.amount]]);
       // Quien pagó ya debe menos; a quien le pagaron, le deben menos

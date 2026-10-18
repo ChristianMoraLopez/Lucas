@@ -7,11 +7,9 @@ import { as, createDb, one, P, PASEO, U } from './harness';
 // El cálculo de la app, para comparar (se carga al correr la prueba)
 const WEB = new URL('../../apps/web/lib/consumo.ts', import.meta.url).href;
 const { dividirPorConsumo } = (await import(WEB)) as {
-  dividirPorConsumo: (a: {
-    total: number;
-    personas: string[];
-    items: { total: number; people: string[]; units?: Record<string, number> }[];
-  }) => { partes: Record<string, number> };
+  dividirPorConsumo: (a: { total: number; personas: string[]; items: { total: number; people: string[]; units?: Record<string, number> }[] }) => {
+    partes: Record<string, number>;
+  };
 };
 
 let db: PGlite;
@@ -33,11 +31,14 @@ async function servicio<T>(tx: Transaction, sql: string, params: unknown[] = [])
 }
 
 /** La cuenta del restaurante llega por WhatsApp: $300.000 en ítems + $30.000 de servicio, igual entre cuatro */
-async function llegaLaCuenta(tx: Transaction, items: [string, number, number][] = [
-  ['Coca Cola', 3, 30_000],
-  ['Pasta', 1, 150_000],
-  ['Pizza', 1, 120_000],
-]) {
+async function llegaLaCuenta(
+  tx: Transaction,
+  items: [string, number, number][] = [
+    ['Coca Cola', 3, 30_000],
+    ['Pasta', 1, 150_000],
+    ['Pizza', 1, 120_000],
+  ],
+) {
   await tx.exec('reset role');
   const { id: msg } = await one<{ id: string }>(
     tx,
@@ -76,20 +77,34 @@ interface Pregunta {
 
 /** Lo que haría el connector: la lista a la bandeja de salida, y «mandada» con su id de WhatsApp */
 async function preguntar(tx: Transaction, p: Pregunta, waId = 'WA-LISTA') {
-  await tx.query(`insert into public.whatsapp_outbox (chat_jid, reason, body, dedupe_key) values ($1, 'answer', 'la lista', $2)`, [GRUPO, `items:${p.expense_id}`]);
-  await servicio(tx, 'select public.connector_item_prompt_guardado($1, $2, $3, $4) as r', [p.expense_id, p.items.map((i) => i.id), GRUPO, `items:${p.expense_id}`]);
+  await tx.query(`insert into public.whatsapp_outbox (chat_jid, reason, body, dedupe_key) values ($1, 'answer', 'la lista', $2)`, [
+    GRUPO,
+    `items:${p.expense_id}`,
+  ]);
+  await servicio(tx, 'select public.connector_item_prompt_guardado($1, $2, $3, $4) as r', [
+    p.expense_id,
+    p.items.map((i) => i.id),
+    GRUPO,
+    `items:${p.expense_id}`,
+  ]);
   await tx.query('update public.whatsapp_outbox set sent_at = now(), wa_message_id = $2 where dedupe_key = $1', [`items:${p.expense_id}`, waId]);
 }
 
 const responder = (tx: Transaction, wa: string, claims: { n: number; units?: number }[], quoted = 'WA-LISTA') =>
-  servicio<Record<string, unknown>>(tx, 'select public.connector_items_respuesta($1, $2, $3, $3, null, null, $4) as r', [GRUPO, quoted, wa, JSON.stringify(claims)]);
+  servicio<Record<string, unknown>>(tx, 'select public.connector_items_respuesta($1, $2, $3, $3, null, null, $4) as r', [
+    GRUPO,
+    quoted,
+    wa,
+    JSON.stringify(claims),
+  ]);
 
 const partes = async (tx: Transaction, gasto: string) =>
   Object.fromEntries(
-    (await tx.query<{ person_id: string; amount: number }>('select person_id, amount_cop::int as amount from public.expense_splits where expense_id = $1', [gasto])).rows.map((r) => [
-      r.person_id,
-      r.amount,
-    ]),
+    (
+      await tx.query<{ person_id: string; amount: number }>('select person_id, amount_cop::int as amount from public.expense_splits where expense_id = $1', [
+        gasto,
+      ])
+    ).rows.map((r) => [r.person_id, r.amount]),
   );
 
 describe('¿quién pidió qué?', () => {
@@ -155,12 +170,18 @@ describe('¿quién pidió qué?', () => {
           x = (x * 1_103_515_245 + 12_345) % 2 ** 31;
           return x / 2 ** 31;
         };
-        const items = Array.from({ length: 2 + (semilla % 5) }, (_, k) => [`Ítem ${k}`, 1 + Math.floor(azar() * 3), 1_000 + Math.round(azar() * 90_000)] as [string, number, number]);
+        const items = Array.from(
+          { length: 2 + (semilla % 5) },
+          (_, k) => [`Ítem ${k}`, 1 + Math.floor(azar() * 3), 1_000 + Math.round(azar() * 90_000)] as [string, number, number],
+        );
         const { id, total } = await llegaLaCuenta(tx, items);
-        const ids = (await tx.query<{ id: string }>('select id from public.expense_items where expense_id = $1 order by created_at, id', [id])).rows.map((r) => r.id);
+        const ids = (await tx.query<{ id: string }>('select id from public.expense_items where expense_id = $1 order by created_at, id', [id])).rows.map(
+          (r) => r.id,
+        );
         const marcas = ids.map(() => orden.filter(() => azar() > 0.6).map((p) => ({ p, u: 1 + Math.floor(azar() * 3) })));
         for (const [k, item] of ids.entries()) {
-          for (const { p, u } of marcas[k]) await tx.query('insert into public.expense_item_people (item_id, person_id, units) values ($1, $2, $3)', [item, p, u]);
+          for (const { p, u } of marcas[k])
+            await tx.query('insert into public.expense_item_people (item_id, person_id, units) values ($1, $2, $3)', [item, p, u]);
         }
         await tx.query('select public.repartir_por_consumo($1)', [id]);
         const web = dividirPorConsumo({

@@ -53,9 +53,11 @@ async function guardar(tx: Transaction, data: Record<string, unknown>) {
 }
 
 const original = (tx: Transaction, gasto: string) =>
-  one(tx, 'select total_cop::int as total, original_currency, original_total::int, fx_rate::text, fx_date::text, fx_source from public.expenses where id = $1', [
-    gasto,
-  ]);
+  one(
+    tx,
+    'select total_cop::int as total, original_currency, original_total::int, fx_rate::text, fx_date::text, fx_source from public.expenses where id = $1',
+    [gasto],
+  );
 
 const CAMBIAR = 'select public.set_expense_currency($1, $2, $3, $4, $5, $6, $7) as r';
 const REVISAR = 'select public.review_expense($1, $2, $3, $4, $5, $6, $7, true)';

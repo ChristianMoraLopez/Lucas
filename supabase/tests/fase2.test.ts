@@ -368,11 +368,7 @@ describe('account_dashboard', () => {
   it('al elegir un mes anterior, la tendencia sigue llegando hasta el mes actual (migración 270)', async () => {
     const hoy = await tablero(U.valeria, CASA);
     const septiembre = hoy.trend[4].month;
-    const d = await as(
-      db,
-      U.valeria,
-      async (tx) => (await one<{ d: Tablero }>(tx, 'select public.account_dashboard($1, $2) as d', [CASA, septiembre])).d,
-    );
+    const d = await as(db, U.valeria, async (tx) => (await one<{ d: Tablero }>(tx, 'select public.account_dashboard($1, $2) as d', [CASA, septiembre])).d);
     expect(d.month).toBe(septiembre);
     expect(d.total).toBe(hoy.trend[4].total);
     // Las mismas seis barras: el mes actual no desaparece

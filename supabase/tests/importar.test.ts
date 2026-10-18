@@ -37,9 +37,9 @@ describe('desde cuándo anota', () => {
     await as(db, null, async (tx) => {
       const grupo = await enlazarNuevo(tx);
       await tx.exec('reset role');
-      expect(
-        await one(tx, 'select history, ingest_from = created_at as desde_el_enlace from public.account_group_links where group_id = $1', [grupo]),
-      ).toEqual({ history: 'pendiente', desde_el_enlace: true });
+      expect(await one(tx, 'select history, ingest_from = created_at as desde_el_enlace from public.account_group_links where group_id = $1', [grupo])).toEqual(
+        { history: 'pendiente', desde_el_enlace: true },
+      );
     });
   });
 
@@ -47,12 +47,14 @@ describe('desde cuándo anota', () => {
     await as(db, null, async (tx) => {
       await enlazarNuevo(tx);
       const ayer = new Date(Date.now() - 86_400_000).toISOString();
-      const ingerir = () => one<{ r: { reason?: string; ingest: boolean } }>(tx, `select public.connector_should_ingest($1, 'WA-X', $2) as r`, [JID_NUEVO, ayer]);
+      const ingerir = () =>
+        one<{ r: { reason?: string; ingest: boolean } }>(tx, `select public.connector_should_ingest($1, 'WA-X', $2) as r`, [JID_NUEVO, ayer]);
       expect((await ingerir()).r).toMatchObject({ ingest: false, reason: 'antes_del_enlace' });
       await tx.exec('reset role');
-      await tx.query(`update public.account_group_links set ingest_from = now() - interval '2 days' where group_id = (select id from public.whatsapp_groups where wa_group_jid = $1)`, [
-        JID_NUEVO,
-      ]);
+      await tx.query(
+        `update public.account_group_links set ingest_from = now() - interval '2 days' where group_id = (select id from public.whatsapp_groups where wa_group_jid = $1)`,
+        [JID_NUEVO],
+      );
       await comoConnector(tx);
       expect((await ingerir()).r.ingest).toBe(true);
     });
@@ -112,7 +114,16 @@ describe('importar el chat exportado', () => {
     const despues = new Date(Date.parse(c.import.before) + 3_600_000).toISOString();
     const items = [
       { key: 'a1', sender: 'Santi', kind: 'text', text: 'Mercado en el Éxito 230 lucas', sent_at: antes },
-      { key: 'a2', sender: '+57 301 666 7788', kind: 'photo', text: null, media_path: `${PASEO}/import/${id}/1.jpg`, file_name: 'IMG-1.jpg', mime_type: 'image/jpeg', sent_at: antes },
+      {
+        key: 'a2',
+        sender: '+57 301 666 7788',
+        kind: 'photo',
+        text: null,
+        media_path: `${PASEO}/import/${id}/1.jpg`,
+        file_name: 'IMG-1.jpg',
+        mime_type: 'image/jpeg',
+        sent_at: antes,
+      },
       // De después: ya entró en vivo
       { key: 'a3', sender: 'Santi', kind: 'text', text: 'hielo 12 lucas', sent_at: despues },
       // Lo que escribió Luks no es un gasto
@@ -126,9 +137,9 @@ describe('importar el chat exportado', () => {
   }
 
   it('desde la web: solo quien administra, con un archivo de la cuenta; queda en la cola y la pregunta como «todo el chat»', async () => {
-    await expect(
-      as(db, U.santi, (tx) => tx.query(`select public.request_chat_import($1, null, $2, 'x.zip')`, [PASEO, `${PASEO}/x.zip`])),
-    ).rejects.toThrow('Solo quienes administran');
+    await expect(as(db, U.santi, (tx) => tx.query(`select public.request_chat_import($1, null, $2, 'x.zip')`, [PASEO, `${PASEO}/x.zip`]))).rejects.toThrow(
+      'Solo quienes administran',
+    );
     await expect(as(db, U.valeria, (tx) => tx.query(`select public.request_chat_import($1, null, 'otra/x.zip', 'x.zip')`, [PASEO]))).rejects.toThrow(
       'no es de esta cuenta',
     );
@@ -223,11 +234,11 @@ describe('importar el chat exportado', () => {
         JSON.stringify([{ id: '573016667788', phone: '573016667788', name: 'Mafe' }]),
       ]);
       const pedir = (chat: string | null, telefono = '573016667788') =>
-        one<{ r: Record<string, unknown> }>(
-          tx,
-          `select public.connector_request_import_private('whatsapp/p.zip', 'x.zip', $1, $2, null, 'Mafe', $3) as r`,
-          [`P-${Math.random()}`, telefono, chat],
-        );
+        one<{ r: Record<string, unknown> }>(tx, `select public.connector_request_import_private('whatsapp/p.zip', 'x.zip', $1, $2, null, 'Mafe', $3) as r`, [
+          `P-${Math.random()}`,
+          telefono,
+          chat,
+        ]);
       expect((await pedir('paseo santa marta 2026')).r).toMatchObject({ ok: true, group_name: 'Paseo Santa Marta 2026' });
       await comoConnector(tx);
       expect((await pedir('Otro grupo')).r).toEqual({ ok: false, reason: 'sin_grupo', groups: [] });

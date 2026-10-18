@@ -65,11 +65,11 @@ describe('«luks CÓDIGO» en un grupo cuya cuenta ya se liquidó', () => {
       await liquidar(tx);
 
       await como(tx, 'service_role');
-      const { r } = await one<{ r: Record<string, unknown> }>(tx, `select public.connector_link_group($1, $2, 'Paseo Santa Marta 2026', 'DANI-7K2Q', $3) as r`, [
-        CONTADOR,
-        JID,
-        MAFE_WA,
-      ]);
+      const { r } = await one<{ r: Record<string, unknown> }>(
+        tx,
+        `select public.connector_link_group($1, $2, 'Paseo Santa Marta 2026', 'DANI-7K2Q', $3) as r`,
+        [CONTADOR, JID, MAFE_WA],
+      );
       expect(r).toMatchObject({ ok: true, already: false, account_id: nueva, account_name: 'DaniChile', previous_account: 'Paseo Santa Marta' });
       await como(tx, null);
       expect(await enlace(tx)).toEqual({ account_id: nueva, history: 'desde_ya' });
@@ -175,9 +175,10 @@ describe('un gasto en un grupo cuya cuenta ya se liquidó (00000000000390_reabri
       expect(await one(tx, 'select status from public.accounts where id = $1', [PASEO])).toEqual({ status: 'active' });
       expect(await one(tx, 'select count(*)::int as n from public.settlements where account_id = $1', [PASEO])).toEqual({ n: 0 });
       // Lo pagado no se pierde; lo que faltaba se vuelve a calcular
-      const { rows: pagos } = await tx.query('select from_person_id, to_person_id, amount_cop::int as amount from public.settlement_payments where account_id = $1', [
-        PASEO,
-      ]);
+      const { rows: pagos } = await tx.query(
+        'select from_person_id, to_person_id, amount_cop::int as amount from public.settlement_payments where account_id = $1',
+        [PASEO],
+      );
       expect(pagos).toEqual([{ from_person_id: b, to_person_id: a, amount: 50_000 }]);
       const saldos = await tx.query<{ person_id: string; sent: number; received: number }>(
         'select person_id, sent::int, received::int from public.saldos($1, null) where sent <> 0 or received <> 0 order by sent desc',
@@ -216,7 +217,11 @@ describe('desde la app', () => {
       await tx.query('select public.link_group_to_account(null, $1, $2)', [TOKEN, CASA]);
       await como(tx, null);
       expect(await enlace(tx)).toEqual({ account_id: CASA, history: 'desde_ya' });
-      const { body } = await one<{ body: string }>(tx, `select body from public.whatsapp_outbox where reason = 'link' and group_id = $1 order by created_at desc limit 1`, [GRUPO]);
+      const { body } = await one<{ body: string }>(
+        tx,
+        `select body from public.whatsapp_outbox where reason = 'link' and group_id = $1 order by created_at desc limit 1`,
+        [GRUPO],
+      );
       expect(body).toContain('Este grupo quedó conectado a «Casa»');
       expect(body).toContain('Lo de «Paseo Santa Marta» se queda allá');
       expect(body).not.toContain('¿Desde cuándo anoto?');
