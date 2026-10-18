@@ -6855,3 +6855,38 @@ a.gr-fila:focus-visible {
   font-size: 14px;
   line-height: 20px;
 }
+
+/* ---------- Liquidar: a quien pagó por cada uno o cruzando deudas ---------- */
+.st-modo {
+  display: grid;
+  gap: 8px;
+}
+
+/* ---------- Link público: lo que pidió cada uno en un gasto por consumo ---------- */
+.sh-items {
+  grid-column: 2 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+  border-radius: var(--radius-md);
+  background: var(--superficie-2);
+  font-size: 13px;
+  line-height: 18px;
+}
+.sh-items__li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.sh-items__li > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sh-items__resto {
+  padding-top: 4px;
+  border-top: 1px dashed var(--borde);
+  color: var(--tinta-2);
+}

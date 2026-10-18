@@ -110,6 +110,39 @@ describe('las respuestas', () => {
     expect(RESPUESTA.deudas({ ...NUMEROS, people: [] }, 'es')).toBe('🙌 En «Paseo» todos están a paz y salvo.');
   });
 
+  it('si la cuenta liquida «a quien pagó por cada uno», responde con esas transferencias', () => {
+    const directo: Numeros = {
+      ...NUMEROS,
+      direct: true,
+      direct_transfers: [
+        { from: 'Mafe Cárdenas', to: 'Santi', from_id: 'm', to_id: 's', amount: 30_000 },
+        { from: 'Mafe Cárdenas', to: 'Valeria', from_id: 'm', to_id: 'v', amount: 270_000 },
+      ],
+    };
+    expect(deudasDe(directo)).toEqual({
+      liquidado: false,
+      lista: [
+        { de: 'Mafe Cárdenas', deId: 'm', a: 'Santi', aId: 's', monto: 30_000, pagada: false },
+        { de: 'Mafe Cárdenas', deId: 'm', a: 'Valeria', aId: 'v', monto: 270_000, pagada: false },
+      ],
+    });
+    // Con quién pagó algo de quién: cada uno le paga solo a quien pagó algo suyo, con pocas transferencias
+    const conQuien: Numeros = {
+      ...directo,
+      paid_for: [
+        { from_id: 'm', to_id: 'v' },
+        { from_id: 's', to_id: 'v' },
+      ],
+    };
+    expect(deudasDe(conQuien).lista).toEqual([
+      { de: 'Mafe Cárdenas', deId: 'm', a: 'Valeria', aId: 'v', monto: 300_000, pagada: false },
+      { de: 'Santi', deId: 's', a: 'Valeria', aId: 'v', monto: 100_000, pagada: false },
+    ]);
+    // Cruzando deudas (o con la base de antes), el cálculo de siempre
+    expect(deudasDe({ ...directo, direct: false }).lista).toHaveLength(2);
+    expect(deudasDe({ ...directo, direct: false }).lista[0].a).toBe('Valeria');
+  });
+
   it('«cuánto debo»: lo suyo, a quién le paga y la firma', () => {
     expect(RESPUESTA.miSaldo(NUMEROS, NUMEROS.me as NonNullable<Numeros['me']>, 'es')).toBe(
       '💸 Mafe, en «Paseo» pusiste *$200.000* y te tocan *$500.000*: debes *$300.000*.\n• Le pagas a Valeria *$300.000*\n\n📊 Más detalle en mrluks.com',

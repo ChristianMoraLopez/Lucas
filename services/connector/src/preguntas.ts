@@ -1,4 +1,4 @@
-import { minTransfers } from './liquidacion.js';
+import { aQuienPagoPor, minTransfers } from './liquidacion.js';
 import type { QuestionData, QuestionMe } from './store.js';
 import { formatCOP, type Idioma } from './text.js';
 
@@ -42,7 +42,9 @@ export interface Deuda {
 
 /**
  * Quién le paga a quién: la liquidación, si el período ya se liquidó; si no,
- * como quedaría hoy, con el mismo cálculo de Liquidar en la app.
+ * como quedaría hoy, con el mismo cálculo de Liquidar en la app: cada quien a
+ * quien pagó por él (lo calcula la base) o, si la cuenta cruza las deudas, el
+ * mínimo de transferencias.
  */
 export function deudasDe(d: Numeros): { liquidado: boolean; lista: Deuda[] } {
   if (d.settlement) {
@@ -52,6 +54,23 @@ export function deudasDe(d: Numeros): { liquidado: boolean; lista: Deuda[] } {
     };
   }
   const nombres = new Map(d.people.map((p) => [p.id, p.name]));
+  if (d.direct && d.direct_transfers) {
+    // Cada quien le paga solo a alguien que pagó algo suyo; si así no cuadra, por pareja
+    const pagaron = new Map<string, string[]>();
+    for (const e of d.paid_for ?? []) pagaron.set(e.from_id, [...(pagaron.get(e.from_id) ?? []), e.to_id]);
+    const pocas = d.paid_for
+      ? aQuienPagoPor(
+          d.people.map((p) => ({ id: p.id, name: p.name, balance: Number(p.balance) })),
+          pagaron,
+        )
+      : null;
+    return {
+      liquidado: false,
+      lista: pocas
+        ? pocas.map((t) => ({ de: nombres.get(t.from) ?? '', deId: t.from, a: nombres.get(t.to) ?? '', aId: t.to, monto: t.amount, pagada: false }))
+        : d.direct_transfers.map((t) => ({ de: t.from, deId: t.from_id, a: t.to, aId: t.to_id, monto: Number(t.amount), pagada: false })),
+    };
+  }
   try {
     const lista = minTransfers(d.people.map((p) => ({ id: p.id, name: p.name, balance: Number(p.balance) })));
     return {

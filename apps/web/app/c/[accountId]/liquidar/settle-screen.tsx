@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
 import { Amount, Avatar, BillCard, Button, CategoryTag, ICONS, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { useDinero } from '@/components/moneda';
+import { Segmento } from '@/components/segmento';
 import { copiar, copiarLuego } from '@/lib/clipboard';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
@@ -18,7 +19,7 @@ import { whatsappUrl } from '@/lib/invite';
 import { type Moneda, unidades } from '@/lib/moneda';
 import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
 import { minTransfers } from '@/lib/settlement';
-import { cobroMessage, displayShare, grupoMessage, sharedLink } from '@/lib/share';
+import { calcularTransferencias, cobroMessage, cruzaDeudas, detalleCobro, displayShare, grupoMessage, sharedLink } from '@/lib/share';
 import { asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -82,14 +83,24 @@ export function SettleScreen({
   // Otra persona marca una transferencia, liquidan o llega un gasto: se vuelve a pedir
   useAccountChanges(accountId, refresh, ['expenses', 'settlements', 'settlement_transfers', 'settlement_payments']);
 
-  // Antes de liquidar: así quedarían (el mínimo de transferencias)
+  // Antes de liquidar: así quedarían (cada quien a quien pagó por él, o cruzando las deudas)
   const calculo = useMemo(() => {
     try {
-      return { ok: true as const, transfers: minTransfers(d.people.map((p) => ({ id: p.id, name: p.name, balance: p.balance }))) };
+      return { ok: true as const, transfers: calcularTransferencias(d) };
     } catch (e) {
       return { ok: false as const, error: (e as Error).message, transfers: [] };
     }
+  }, [d]);
+  const cruza = cruzaDeudas(d);
+  // Para comparar: cuántas serían cruzando las deudas
+  const minimas = useMemo(() => {
+    try {
+      return minTransfers(d.people.map((p) => ({ id: p.id, name: p.name, balance: p.balance }))).length;
+    } catch {
+      return null;
+    }
   }, [d.people]);
+  const cambiarModo = (directo: boolean) => correr('modo', () => supabase.rpc('set_settle_mode', { p_account_id: accountId, p_direct: directo }));
 
   const transfers: SettlementTransfer[] = s
     ? s.transfers
@@ -118,6 +129,7 @@ export function SettleScreen({
         accountName: d.account.name,
         link: tk ? sharedLink(origin, tk, { person: x.from, month: mesDelLink, idioma: t.idioma }) : null,
         creditorIsMe: x.to === d.my_person_id,
+        detalle: detalleCobro({ expenses: d.expenses, debtorId: x.from, creditorId: x.to, transfers, nombre, t, moneda: $.moneda }),
         t,
         moneda: $.moneda,
       }),
@@ -283,6 +295,29 @@ export function SettleScreen({
                 ? t('Cuando lleguen gastos al paseo, aquí sale quién le paga a quién.')
                 : t('Cuando lleguen gastos este mes, aquí sale quién le paga a quién.')}
             </span>
+          </div>
+        )}
+        {!s && total > 0 && d.direct !== undefined && (
+          <div className="st-modo">
+            {d.is_admin && !cerrada ? (
+              <Segmento
+                opciones={[
+                  { value: 'directo', label: t('A quien pagó') },
+                  { value: 'cruzar', label: t('Cruzar deudas') },
+                ]}
+                value={cruza ? 'cruzar' : 'directo'}
+                onChange={(v) => v !== (cruza ? 'cruzar' : 'directo') && cambiarModo(v === 'directo')}
+                label={t('Cómo se paga')}
+              />
+            ) : null}
+            <p className="lu-small lu-muted" style={{ margin: 0 }}>
+              {cruza
+                ? t('Se cruzan las deudas para hacer menos transferencias: puede que le pagues a alguien que no pagó lo tuyo.')
+                : t('Cada quien le paga solo a alguien que pagó algo suyo.')}
+              {!cruza && minimas !== null && minimas < transfers.length
+                ? ` ${t('Cruzando deudas serían {n} en vez de {m}.', { n: minimas, m: transfers.length })}`
+                : ''}
+            </p>
           </div>
         )}
         {transfers.length > 0 ? (
@@ -463,7 +498,9 @@ export function SettleScreen({
             ) : (
               `${t('A cada quien le toca su parte de cada gasto en que participó.')} `
             )}
-            {t('Al que puso de más le devuelven, el que puso de menos completa, y se cruzan las deudas para hacer el menor número de transferencias.')}
+            {cruza
+              ? t('Al que puso de más le devuelven, el que puso de menos completa, y se cruzan las deudas para hacer el menor número de transferencias.')
+              : t('Cada quien le paga solo a alguien que pagó algo suyo, con las menos transferencias que se pueda.')}
           </p>
         </section>
       </aside>

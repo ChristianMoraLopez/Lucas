@@ -38,7 +38,7 @@ const CON_DATOS: [RegExp, string][] = [
   ],
   [/^Primero revisen 1 gasto pendiente$/, 'First review 1 pending expense'],
   [/^Primero revisen (\d+) gastos pendientes$/, 'First review $1 pending expenses'],
-  [/^Sobran transferencias: con (\d+) personas con saldo bastan (\d+)$/, 'Too many transfers: with $1 people owing or owed, $2 are enough'],
+  [/^Sobran transferencias: con (\d+) personas bastan (\d+)$/, 'Too many transfers: with $1 people, $2 are enough'],
   [/^Ya hay alguien que se llama «(.+)» en la cuenta$/, 'Someone called “$1” is already in the account'],
   [/^Ya hay una categoría «(.+)» en esta cuenta$/, 'There is already a “$1” category in this account'],
   [/^«(.+)» tiene cuenta en Luks: su nombre lo elige desde su perfil$/, '“$1” has a Luks account: they choose their name from their profile'],

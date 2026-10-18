@@ -242,6 +242,19 @@ export interface SettlementExpense {
   category_letter: string | null;
   category_tone: string | null;
   shares: { person_id: string; amount_cop: number }[];
+  /** Migración 400: cómo se dividió, la propina aparte y, si fue por consumo, qué pidió cada uno */
+  split_method?: 'equal' | 'percent' | 'exact' | 'items';
+  tip_cop?: number;
+  items?: SettlementItem[] | null;
+}
+
+/** Un ítem de un gasto dividido por consumo (sin nadie = entre todos los del gasto) */
+export interface SettlementItem {
+  name: string;
+  quantity: number;
+  total: number;
+  extra: boolean;
+  people: { id: string; units: number }[];
 }
 
 export interface SettlementTransfer {
@@ -269,6 +282,10 @@ export interface SettlementOverview {
   settlement: null | { id: string; created_at: string; created_by: string | null; transfers: SettlementTransfer[] };
   /** Lo que ya se pagó de liquidaciones que se reabrieron (migración 390) */
   payments?: SettlementPayment[];
+  /** Migración 400: si al liquidar cada quien le paga a quien pagó por él (si no, se cruzan las deudas) */
+  direct?: boolean;
+  /** Las transferencias directas, por pareja, como si se liquidara hoy */
+  direct_transfers?: { from: string; to: string; amount: number }[];
   settled_months: string[] | null;
 }
 

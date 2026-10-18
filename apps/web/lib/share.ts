@@ -3,8 +3,9 @@
 
 import { crearT, type Idioma, type T } from '@/lib/i18n';
 import { corto, DECIMALES, dinero, type Moneda } from '@/lib/moneda';
-import { minTransfers } from './settlement';
-import type { SettlementPerson, SettlementTransfer } from './types';
+import { reciboDe } from './recibo';
+import { aQuienPagoPor, minTransfers } from './settlement';
+import type { SettlementExpense, SettlementPerson, SettlementTransfer } from './types';
 
 const ES = crearT('es');
 
@@ -65,6 +66,7 @@ export function cobroMessage({
   accountName,
   link,
   creditorIsMe,
+  detalle = [],
   t = ES,
   moneda = 'COP',
 }: {
@@ -74,6 +76,8 @@ export function cobroMessage({
   accountName: string;
   link?: string | null;
   creditorIsMe: boolean;
+  /** Lo suyo, gasto por gasto (detalleCobro) */
+  detalle?: string[];
   t?: T;
   moneda?: Moneda;
 }) {
@@ -81,6 +85,8 @@ export function cobroMessage({
   const lineas = [
     creditorIsMe ? t('Hola {nombre} 👋 De «{cuenta}» me debes {monto}.', vars) : t('Hola {nombre} 👋 De «{cuenta}» le debes a {acreedor} {monto}.', vars),
   ];
+  if (detalle.length) lineas.push('', ...detalle);
+  if (link && detalle.length) lineas.push('');
   if (link) lineas.push(t('Acá ves cuánto puso cada uno y en qué se fue la plata: {link}', { link }));
   lineas.push('', `_${publicidad(t)}_`);
   return lineas.join('\n');
@@ -156,17 +162,120 @@ export function grupoMessage({
   return lineas.join('\n');
 }
 
-/** Quién le paga a quién: las que se guardaron al liquidar o, si no, el cálculo. */
-export function transfersFor(d: {
+type DatosLiquidar = {
   people: Pick<SettlementPerson, 'id' | 'name' | 'balance'>[];
-  settlement: { transfers: SettlementTransfer[] } | null;
-}): Transferencia[] {
+  expenses?: Pick<SettlementExpense, 'payer_person_id' | 'shares'>[];
+  direct?: boolean;
+  direct_transfers?: { from: string; to: string; amount: number }[];
+};
+
+/** Quién pagó algo de cada uno: deudor → los que pagaron gastos en los que tuvo parte */
+export function pagaronPorDe(expenses: Pick<SettlementExpense, 'payer_person_id' | 'shares'>[]) {
+  const out = new Map<string, Set<string>>();
+  for (const e of expenses) {
+    if (!e.payer_person_id) continue;
+    for (const s of e.shares) {
+      if (s.person_id === e.payer_person_id || s.amount_cop <= 0) continue;
+      if (!out.has(s.person_id)) out.set(s.person_id, new Set());
+      out.get(s.person_id)?.add(e.payer_person_id);
+    }
+  }
+  return out;
+}
+
+/**
+ * Cómo quedarían si se liquidara hoy (migración 400): cada quien le paga solo
+ * a quien pagó algo suyo, con pocas transferencias (si así no cuadra, pareja
+ * por pareja, como las calcula la base); o, si la cuenta cruza las deudas, el
+ * mínimo de transferencias.
+ */
+export function calcularTransferencias(d: DatosLiquidar) {
+  const saldos = d.people.map((p) => ({ id: p.id, name: p.name, balance: p.balance }));
+  if (d.direct !== false && d.direct_transfers) {
+    const directas = d.expenses ? aQuienPagoPor(saldos, pagaronPorDe(d.expenses)) : null;
+    return directas ?? d.direct_transfers.map((x) => ({ from: x.from, to: x.to, amount: Number(x.amount) }));
+  }
+  return minTransfers(saldos);
+}
+
+/** Se cruzan las deudas (la cuenta lo eligió, o la base todavía no trae las directas) */
+export const cruzaDeudas = (d: DatosLiquidar) => !(d.direct !== false && d.direct_transfers);
+
+/** Quién le paga a quién: las que se guardaron al liquidar o, si no, el cálculo. */
+export function transfersFor(d: DatosLiquidar & { settlement: { transfers: SettlementTransfer[] } | null }): Transferencia[] {
   if (d.settlement) return d.settlement.transfers;
   try {
-    return minTransfers(d.people.map((p) => ({ id: p.id, name: p.name, balance: p.balance }))).map((t) => ({ ...t, paid_at: null }));
+    return calcularTransferencias(d).map((t) => ({ ...t, paid_at: null }));
   } catch {
     return [];
   }
+}
+
+/**
+ * Para el mensaje de cobro: todo lo del deudor, gasto por gasto y con lo que
+ * pidió, y cómo se reparte lo que debe (si le paga a varios). Si le paga a
+ * alguien que no pagó nada suyo (se cruzaron las deudas), por qué.
+ *
+ *   🧾 *Lo tuyo:*
+ *   • Le Due Torri (pagó Daniel): *$165.000*
+ *     Coca Cola Zero ×2 $20.000 · Ravioli $90.000 · propina y servicio $55.000
+ *   • Bruna (pagó Santiago): *$30.000*
+ *   Le pagas $150.000 a Daniel y $45.000 a Santiago.
+ */
+export function detalleCobro({
+  expenses,
+  debtorId,
+  creditorId,
+  transfers,
+  nombre,
+  t = ES,
+  moneda = 'COP',
+}: {
+  expenses: Pick<SettlementExpense, 'merchant' | 'payer_person_id' | 'shares' | 'items'>[];
+  debtorId: string;
+  creditorId: string;
+  /** Todas las transferencias (se usan las del deudor) */
+  transfers: Pick<Transferencia, 'from' | 'to' | 'amount'>[];
+  nombre: (personId: string) => string;
+  t?: T;
+  moneda?: Moneda;
+}) {
+  const $ = (n: number) => dinero(n, moneda, t.idioma);
+  const gastos = expenses
+    .filter((e) => e.payer_person_id && e.payer_person_id !== debtorId)
+    .map((e) => ({ e, r: reciboDe(e, debtorId) }))
+    .filter((x) => x.r !== null);
+  if (!gastos.length) return [];
+  const lineas = [t('🧾 *Lo tuyo:*')];
+  const MAX = 6;
+  for (const { e, r } of gastos.slice(0, MAX)) {
+    if (!r) continue;
+    lineas.push(
+      `• ${t('{comercio} (pagó {nombre})', { comercio: sinFormato(e.merchant), nombre: sinFormato(nombre(e.payer_person_id as string)) })}: *${$(r.parte)}*`,
+    );
+    const partes = r.items.slice(0, 6).map((i) => {
+      const cuantas = i.units ? ` ×${i.units}` : i.entre > 1 ? ` (${t('entre {n}', { n: i.entre })})` : '';
+      return `${sinFormato(i.name)}${cuantas} ${$(i.amount)}`;
+    });
+    if (r.items.length > 6) partes.push('…');
+    if (r.items.length && r.resto > r.items.length) partes.push(t('propina y servicio {monto}', { monto: $(r.resto) }));
+    if (partes.length) lineas.push(`   ${partes.join(' · ')}`);
+  }
+  if (gastos.length > MAX) lineas.push(t('… y {n} más en el link', { n: gastos.length - MAX }));
+
+  const suyas = transfers.filter((x) => x.from === debtorId);
+  const debe = suyas.reduce((s, x) => s + x.amount, 0);
+  const consumo = gastos.reduce((s, x) => s + (x.r?.parte ?? 0), 0);
+  // Lo que pagó por otros (o ya pagó) le baja lo que debe
+  if (consumo > debe) lineas.push(t('➖ {monto} de lo que tú pagaste por otros o ya pagaste', { monto: $(consumo - debe) }));
+  if (suyas.length > 1) {
+    const cada = suyas.map((x) => t('{monto} a {nombre}', { monto: $(x.amount), nombre: sinFormato(nombre(x.to)) }));
+    lineas.push(t('Le pagas {lista}.', { lista: cada.length > 1 ? `${cada.slice(0, -1).join(', ')}${t(' y ')}${cada.at(-1)}` : cada[0] }));
+  }
+  if (!gastos.some((x) => x.e.payer_person_id === creditorId)) {
+    lineas.push(t('Se cruzaron las deudas para hacer menos transferencias: por eso le pagas a {nombre}.', { nombre: sinFormato(nombre(creditorId)) }));
+  }
+  return lineas;
 }
 
 /** Lo de una persona: a quién le paga y quién le paga a ella. */

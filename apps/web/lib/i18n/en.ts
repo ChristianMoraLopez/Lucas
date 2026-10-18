@@ -1841,5 +1841,34 @@ export const EN: Record<string, string> = {
   'Ya pueden cerrar el paseo (después no entran más gastos) o dejarlo así: si llega otro gasto, se reabre solo.':
     'You can close the trip now (no more expenses after that) or leave it as is: if another expense comes in, it reopens on its own.',
 
+  // ---------- Liquidar directo y lo de cada uno ----------
+  'A quien pagó': 'To whoever paid',
+  'Cruzar deudas': 'Net out debts',
+  'Cómo se paga': 'How to pay up',
+  'Se cruzan las deudas para hacer menos transferencias: puede que le pagues a alguien que no pagó lo tuyo.':
+    "Debts are netted out for fewer transfers: you may end up paying someone who didn't pay for your stuff.",
+  'Lo que pediste en {comercio}': 'What you ordered at {comercio}',
+  '{n} tuyas': '{n} yours',
+  'Propina, servicio y lo que no está en los ítems': 'Tip, service and anything not in the items',
+  'Alguien puso más por ti': 'Someone chipped in more for you',
+  '🧾 *Lo tuyo:*': '🧾 *Your share:*',
+  'propina y servicio {monto}': 'tip and service {monto}',
+  '… y {n} más en el link': '… and {n} more in the link',
+  'Se cruzaron las deudas para hacer menos transferencias: por eso le pagas a {nombre}.':
+    "Debts were netted out for fewer transfers: that's why you pay {nombre}.",
+
+  // ---------- Liquidar a quien pagó por cada uno ----------
+  'Cada quien le paga solo a alguien que pagó algo suyo.': 'Everyone only pays someone who paid for something of theirs.',
+  'Cruzando deudas serían {n} en vez de {m}.': 'Netting out debts would take {n} instead of {m}.',
+  'Cada quien le paga solo a alguien que pagó algo suyo, con las menos transferencias que se pueda.':
+    'Everyone only pays someone who paid for something of theirs, with as few transfers as possible.',
+  '{comercio} (pagó {nombre})': '{comercio} ({nombre} paid)',
+  '➖ {monto} de lo que tú pagaste por otros o ya pagaste': '➖ {monto} from what you paid for others or already paid',
+  '{monto} a {nombre}': '{monto} to {nombre}',
+  'Le pagas {lista}.': 'You pay {lista}.',
+
+  // ---------- Liquidar a quien pagó por cada uno ----------
+  '1 tuya': '1 yours',
+
   // ⟨más⟩
 };

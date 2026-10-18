@@ -12,7 +12,8 @@ import { formatDay, formatRange, monthName } from '@/lib/dates';
 import { COOKIE_IDIOMA, crearT, esIdioma, type T } from '@/lib/i18n';
 import { rico } from '@/lib/i18n/rico';
 import { corto, dinero, esMoneda, type Moneda } from '@/lib/moneda';
-import { personView, publicidad, transfersFor } from '@/lib/share';
+import { reciboDe } from '@/lib/recibo';
+import { cruzaDeudas, personView, publicidad, transfersFor } from '@/lib/share';
 import { asTone, plural, type SharedOverview } from '@/lib/types';
 import { createClient } from '@/utils/supabase/server';
 
@@ -266,6 +267,13 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
               <h2 id="sh-ts" className="lu-title">
                 {t('¿Quién le paga a quién?')}
               </h2>
+              {ts.length > 0 && !liquidada && (
+                <p className="lu-small lu-muted" style={{ margin: 0 }}>
+                  {cruzaDeudas(d)
+                    ? t('Se cruzan las deudas para hacer menos transferencias: puede que le pagues a alguien que no pagó lo tuyo.')
+                    : t('Cada quien le paga solo a alguien que pagó algo suyo.')}
+                </p>
+              )}
               {ts.length ? (
                 <ol className="st-list">
                   {ts.map((x) => (
@@ -329,6 +337,7 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
                 <ul className="sh-gastos">
                   {gastos.map((e) => {
                     const parte = yo ? (e.shares.find((x) => x.person_id === yo.id)?.amount_cop ?? 0) : null;
+                    const recibo = yo ? reciboDe(e, yo.id) : null;
                     return (
                       <li key={e.id} className="sh-gasto">
                         {e.category ? (
@@ -349,6 +358,32 @@ export default async function CuentasCompartidas({ params, searchParams }: PageP
                             {parte !== null ? (parte ? t('tu parte {monto}', { monto: fmt(parte) }) : t('no te toca')) : t('entre {n}', { n: e.shares.length })}
                           </span>
                         </span>
+                        {recibo && recibo.items.length > 0 && (
+                          <ul className="sh-items" aria-label={t('Lo que pediste en {comercio}', { comercio: e.merchant })}>
+                            {recibo.items.map((i, k) => (
+                              // biome-ignore lint/suspicious/noArrayIndexKey: dos ítems pueden llamarse igual
+                              <li key={`${i.name}-${k}`} className="sh-items__li">
+                                <span>
+                                  {i.name}
+                                  <span className="lu-muted">
+                                    {i.units
+                                      ? ` · ${i.units === 1 ? t('1 tuya') : t('{n} tuyas', { n: i.units })}`
+                                      : i.entre > 1
+                                        ? ` · ${t('entre {n}', { n: i.entre })}`
+                                        : ''}
+                                  </span>
+                                </span>
+                                <span className="lu-num">{fmt(i.amount)}</span>
+                              </li>
+                            ))}
+                            {Math.abs(recibo.resto) > recibo.items.length && (
+                              <li className="sh-items__li sh-items__resto">
+                                <span>{recibo.resto > 0 ? t('Propina, servicio y lo que no está en los ítems') : t('Alguien puso más por ti')}</span>
+                                <span className="lu-num">{recibo.resto > 0 ? fmt(recibo.resto) : `−${fmt(-recibo.resto)}`}</span>
+                              </li>
+                            )}
+                          </ul>
+                        )}
                       </li>
                     );
                   })}
