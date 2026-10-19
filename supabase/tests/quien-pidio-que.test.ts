@@ -129,9 +129,10 @@ describe('¿quién pidió qué?', () => {
       // Santi: 2 de las 3 Coca Colas y la pizza; Caro: la otra Coca Cola y la pasta
       const santi = await responder(tx, SANTI_WA, [{ n: 1, units: 2 }, { n: 3 }]);
       expect(santi).toMatchObject({ ok: true, name: 'Santi', merchant: 'Le Due Torri', sin_nadie: 1 });
+      // Con lo suyo de cada ítem en plata (la 500): por ahora es el único que pidió de los dos
       expect(santi.mios).toEqual([
-        { n: 1, name: 'Coca Cola', quantity: 3, units: 2 },
-        { n: 3, name: 'Pizza', quantity: 1, units: 1 },
+        { n: 1, name: 'Coca Cola', quantity: 3, units: 2, amount: 30_000 },
+        { n: 3, name: 'Pizza', quantity: 1, units: 1, amount: 120_000 },
       ]);
       const caro = await responder(tx, CARO_WA, [{ n: 1, units: 1 }, { n: 2 }]);
       expect(caro).toMatchObject({ ok: true, sin_nadie: 0 });
@@ -145,6 +146,73 @@ describe('¿quién pidió qué?', () => {
       const ahora = await partes(tx, id);
       expect(Object.values(ahora).reduce((s, v) => s + v, 0)).toBe(330_000);
       expect(ahora[SANTI]).toBe(148_500);
+    });
+  });
+
+  it('la respuesta trae lo de cada ítem en plata, la fecha y su chat privado si ya le escribió (la 500)', async () => {
+    await as(db, null, async (tx) => {
+      const { id } = await llegaLaCuenta(tx);
+      const p = (await servicio<Pregunta[]>(tx, 'select public.connector_items_por_preguntar() as r')).find((x) => x.expense_id === id) as Pregunta;
+      await preguntar(tx, p);
+      const santi = await responder(tx, SANTI_WA, [{ n: 1, units: 2 }, { n: 3 }]);
+      expect(santi).toMatchObject({ ok: true, expense_id: id, account_id: PASEO, account_name: 'Paseo Santa Marta', total: 330_000, privado: null });
+      expect((santi.mios as { name: string; amount: number }[]).map((i) => [i.name, Number(i.amount)])).toEqual([
+        ['Coca Cola', 30_000],
+        ['Pizza', 120_000],
+      ]);
+      // Con su chat privado abierto con Mister Luks, se lo dice
+      await tx.exec('reset role');
+      const { conn } = await one<{ conn: string }>(tx, `select id as conn from public.whatsapp_connections where kind = 'contador' limit 1`);
+      await servicio(tx, 'select public.connector_private_chat($1, $2) as r', [conn, `${SANTI_WA}@s.whatsapp.net`]);
+      const otra = await responder(tx, SANTI_WA, [{ n: 1, units: 2 }]);
+      expect(otra.privado).toBe(`${SANTI_WA}@s.whatsapp.net`);
+    });
+  });
+
+  it('«la 1 son 3»: cambia la cantidad del ítem, no el total', async () => {
+    await as(db, null, async (tx) => {
+      const { id } = await llegaLaCuenta(tx, [
+        ['Limonada', 1, 17_100],
+        ['Pasta', 1, 150_000],
+      ]);
+      const p = (await servicio<Pregunta[]>(tx, 'select public.connector_items_por_preguntar() as r')).find((x) => x.expense_id === id) as Pregunta;
+      await preguntar(tx, p);
+      const r = await servicio<Record<string, unknown>>(tx, 'select public.connector_items_cantidad($1, $2, $3, $3, null, null, 1, 3) as r', [
+        GRUPO,
+        'WA-LISTA',
+        SANTI_WA,
+      ]);
+      expect(r).toMatchObject({ ok: true, n: 1, item: 'Limonada', total: 17_100 });
+      expect(Number(r.quantity)).toBe(3);
+      expect(
+        await one(
+          tx,
+          `select quantity::int as q, unit_price_cop::int as u, total_cop::int as t from public.expense_items where expense_id = $1 and name = 'Limonada'`,
+          [id],
+        ),
+      ).toEqual({
+        q: 3,
+        u: 5_700,
+        t: 17_100,
+      });
+      expect(await servicio(tx, 'select public.connector_items_cantidad($1, $2, $3, $3, null, null, 9, 3) as r', [GRUPO, 'WA-LISTA', SANTI_WA])).toMatchObject({
+        ok: false,
+        reason: 'no_existe',
+      });
+      expect(await servicio(tx, 'select public.connector_items_cantidad($1, $2, $3, $3, null, null, 1, 3) as r', [GRUPO, 'OTRA', SANTI_WA])).toEqual({
+        ok: false,
+        reason: 'no_es_pregunta',
+      });
+    });
+  });
+
+  it('el worker sabe la moneda de los recibos de estos días del viaje (la 500)', async () => {
+    await as(db, null, async (tx) => {
+      const { id } = await llegaLaCuenta(tx);
+      await tx.query(`update public.expenses set original_currency = 'CLP', original_total = 100000, fx_rate = 3.24 where id = $1`, [id]);
+      const { message_id } = await one<{ message_id: string }>(tx, 'select message_id from public.expenses where id = $1', [id]);
+      const ctx = await servicio<{ account: { moneda_del_viaje: string | null } }>(tx, 'select public.worker_message_context($1) as r', [message_id]);
+      expect(ctx.account.moneda_del_viaje).toBe('CLP');
     });
   });
 

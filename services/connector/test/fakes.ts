@@ -10,6 +10,7 @@ import type {
   ImportResult,
   IngestCheck,
   IngestInput,
+  ItemsCantidad,
   ItemsPregunta,
   ItemsRespuesta,
   KeyItem,
@@ -239,6 +240,15 @@ export class FakeStore implements Store {
     if (!lista) return { ok: false, reason: 'no_es_pregunta' };
     this.respuestas.push({ jid, quotedId, sender: sender.id, claims });
     return this.respuestaItems ?? { ok: false, reason: 'no_te_conozco', language: 'es', account_name: 'Paseo' };
+  }
+  /** «la 1 son 3»: lo que se pidió y lo que responde la base (la pone cada prueba) */
+  cantidades: { jid: string; quotedId: string; n: number; cantidad: number }[] = [];
+  respuestaCantidad: ItemsCantidad | null = null;
+  async itemsCantidad(jid: string, quotedId: string, _sender: Sender, n: number, cantidad: number): Promise<ItemsCantidad> {
+    const lista = [...this.listas.values()].find((l) => l.chat === jid && this.outbox.find((o) => o.dedupe_key === l.dedupe)?.waId === quotedId);
+    if (!lista) return { ok: false, reason: 'no_es_pregunta' };
+    this.cantidades.push({ jid, quotedId, n, cantidad });
+    return this.respuestaCantidad ?? { ok: false, reason: 'no_existe', language: 'es', total_items: lista.items.length };
   }
   /** Lo que debe cada quien de las liquidaciones (`wa`: su número) y lo que ya marcó «ya pagué» */
   deudas: (Transferencia & { wa: string; to_private_jid: string | null; group_jid: string | null })[] = [];

@@ -129,12 +129,17 @@ def detectar_moneda(
     mensaje: str | None,
     cuenta: str,
     qr_dian: bool = False,
+    viaje: str | None = None,
 ) -> Deteccion | None:
     """
     La moneda del recibo si es otra que la de la cuenta (y hay cómo saberlo);
-    None si es la de la cuenta o no se sabe.
+    None si es la de la cuenta o no se sabe. `viaje`: la moneda de los recibos
+    de estos días en la cuenta (worker_message_context); vale para una foto o
+    un PDF que no dice nada («MISTICO … LIMONADA 3 17.100» en un viaje a Chile).
     """
     d = _del_mensaje(mensaje) or _del_documento(documento, qr_dian)
+    if d is None and documento and viaje:
+        d = Deteccion(viaje.upper(), "los recibos anteriores del viaje")
     if d is None or d.moneda == (cuenta or "COP").upper():
         return None
     return d

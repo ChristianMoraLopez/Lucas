@@ -6,7 +6,7 @@ from lucas_worker.extract.cascade import Extraction
 from lucas_worker.extract.qr_dian import DianQr
 from lucas_worker.extract.rules import analyze_document, analyze_message
 from lucas_worker.llm.schema import ReceiptExtraction
-from lucas_worker.validate import AccountWindow, reconcile
+from lucas_worker.validate import AccountWindow, _este_anio, reconcile
 
 from .conftest import HOY
 
@@ -88,3 +88,13 @@ def test_mensaje_de_texto_reglas_primero():
     d = reconcile(ex, None, today=HOY, received=HOY, account=HOGAR)
     assert (d.total_cop, d.expense_date, d.merchant) == (12_000, date(2026, 9, 29), "Hielo")
     assert d.confidence["total"] == 0.84  # como el procesador simulado cuando solo hay reglas
+
+
+def test_un_recibo_con_el_anio_anterior_de_hace_unos_dias_es_de_este_anio():
+    # «18-10-2025» en un recibo que llega el 19-10-2026: el reloj de la caja (o el OCR) se equivocó de año
+    assert _este_anio(date(2025, 10, 18), date(2026, 10, 19)) == date(2026, 10, 18)
+    # Uno de verdad viejo, o de días después, queda como dice
+    assert _este_anio(date(2025, 6, 2), date(2026, 10, 19)) == date(2025, 6, 2)
+    assert _este_anio(date(2025, 10, 25), date(2026, 10, 19)) == date(2025, 10, 25)
+    assert _este_anio(date(2026, 10, 18), date(2026, 10, 19)) == date(2026, 10, 18)
+    assert _este_anio(None, date(2026, 10, 19)) is None

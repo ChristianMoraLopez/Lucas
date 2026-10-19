@@ -1,5 +1,5 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
-import { contestar, leerRespuesta } from './items.js';
+import { confirmacionPrivada, contestar, contestarCantidad, leerCantidad, leerRespuesta, linkDividir, respuestaConfirmacion, siONo } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
 import { elegirPagos, PAGOS } from './pagos.js';
@@ -81,6 +81,8 @@ const nombreSeguro = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0,
 const tramo = (d: Date, minutos: number) => Math.floor(d.getTime() / (minutos * 60_000));
 /** La lista de cuentas que se le mandó por privado sirve para responder con el número durante este tiempo */
 const LISTA_MS = 30 * 60_000;
+/** Lo suyo de una lista de ítems se puede confirmar o corregir por privado durante este tiempo */
+const CONFIRMAR_MS = 12 * 60 * 60_000;
 
 /** El chat privado de quien escribe (con su número, o su LID si WhatsApp no deja ver el número) */
 const privadoDe = (m: IncomingMessage) =>
@@ -102,8 +104,13 @@ function idiomaDelGrupo(members: GroupMember[]): Idioma {
 export class Ingestor {
   /** El número de Mister Luks (y su LID): lo que escribe no es un gasto aunque lo lea otra sesión */
   #misterLuks = new Set<string>();
+  get #web() {
+    return this.mister.webUrl ?? 'https://mrluks.com';
+  }
   /** Por privado: la lista de cuentas que se le mandó a cada chat, para responder con el número */
   #listas = new Map<string, { ids: string[]; intencion: Intencion; hasta: number }>();
+  /** Por privado: lo suyo de una lista de ítems, esperando «sí», «no» o los números para corregir */
+  #confirmaciones = new Map<string, { jid: string; lista: string; idioma: Idioma; nombre: string; comercio: string; link: string | null; hasta: number }>();
 
   constructor(
     private readonly store: Store,
@@ -357,12 +364,81 @@ export class Ingestor {
       return 'ayuda';
     }
 
+    // Lo suyo de una lista de ítems: «sí», «no» o los números para corregir
+    if (!m.media) {
+      const confirmacion = await this.#confirmacion(m, texto);
+      if (confirmacion) return confirmacion;
+    }
+
     // Lo suyo: «qué debo», «de qué», «mis cuentas», «mis gastos», o el número de la lista
     if (!m.media) {
       const suyo = await this.#loSuyo(m, texto, primeraVez);
       if (suyo) return suyo;
     }
     return primeraVez ? 'bienvenida' : 'privado';
+  }
+
+  /** «la 1 son 3» respondiendo la lista (en el grupo, o por privado sobre lo que confirma): la cantidad, sin cambiar el total */
+  async #cantidad(jid: string, lista: string, m: IncomingMessage, c: { n: number; cantidad: number }, responderEn: string): Promise<Outcome | null> {
+    let r: Awaited<ReturnType<Store['itemsCantidad']>>;
+    try {
+      r = await this.store.itemsCantidad(jid, lista, m.sender, c.n, c.cantidad);
+    } catch (e) {
+      // Sin la migración 500 todavía: sigue como cualquier otro mensaje
+      this.log.warn({ err: (e as Error).message }, 'No se pudo cambiar la cantidad del ítem');
+      return null;
+    }
+    if (!r.ok && r.reason === 'no_es_pregunta') return null;
+    const salen: OutboxItem[] = [{ chat_jid: responderEn, reason: 'answer', body: contestarCantidad(r), dedupe_key: `answer:${responderEn}:${m.messageId}` }];
+    // Si fue por privado, en el grupo también se ve
+    if (r.ok && responderEn !== jid) salen.push({ chat_jid: jid, reason: 'answer', body: contestarCantidad(r), dedupe_key: `answer:${jid}:${m.messageId}` });
+    await this.#encolar(salen);
+    this.log.info({ group: jid, n: c.n, cantidad: c.cantidad, ok: r.ok, sender: maskWaId(m.sender.id) }, '¿Cuántas trae el ítem?');
+    return `items:${r.ok ? 'cantidad' : r.reason}`;
+  }
+
+  /**
+   * Por privado (migración 500): le llegó lo suyo de una lista de ítems. «Sí»
+   * lo deja así; «no», que diga cómo fue (o el link para arreglarlo en la
+   * app); con los números, lo cambia como si respondiera la lista en el grupo
+   * (y allá se ve). null si no hay nada esperando o no era para esto.
+   */
+  async #confirmacion(m: IncomingMessage, texto: string): Promise<Outcome | null> {
+    const c = this.#confirmaciones.get(m.chatId);
+    if (!c) return null;
+    if (c.hasta < Date.now()) {
+      this.#confirmaciones.delete(m.chatId);
+      return null;
+    }
+    const responder = (body: string, chat = m.chatId) => ({ chat_jid: chat, reason: 'answer' as const, body, dedupe_key: `answer:${chat}:${m.messageId}` });
+    const modo = siONo(texto);
+    if (modo) {
+      if (modo === 'si') this.#confirmaciones.delete(m.chatId);
+      await this.#encolar([responder(respuestaConfirmacion(modo, c))]);
+      return `items:${modo === 'si' ? 'confirmado' : 'no'}`;
+    }
+    // «la 1 son 3» también por privado (y en el grupo se ve)
+    const cuantas = leerCantidad(texto);
+    if (cuantas) return this.#cantidad(c.jid, c.lista, m, cuantas, m.chatId);
+    const respuesta = leerRespuesta(texto);
+    if (!respuesta) return null;
+    let r: Awaited<ReturnType<Store['itemsRespuesta']>>;
+    try {
+      r = await this.store.itemsRespuesta(c.jid, c.lista, m.sender, respuesta.claims);
+    } catch (e) {
+      this.log.warn({ err: (e as Error).message }, 'No se pudo corregir lo suyo por privado');
+      return null;
+    }
+    if (!r.ok && r.reason === 'no_es_pregunta') return null;
+    if (!r.ok) {
+      await this.#encolar([responder(contestar(r))]);
+      return `items:${r.reason}`;
+    }
+    // Lo nuevo por privado (para confirmar otra vez) y la línea en el grupo, como si lo hubiera respondido allá
+    c.hasta = Date.now() + CONFIRMAR_MS;
+    await this.#encolar([responder(confirmacionPrivada(r)), responder(contestar(r), c.jid)]);
+    this.log.info({ group: c.jid, claims: respuesta.claims.length, sender: maskWaId(m.sender.id) }, '¿Quién pidió qué? (corregido por privado)');
+    return 'items:corregido';
   }
 
   /**
@@ -414,6 +490,7 @@ export class Ingestor {
     if (!cuenta) {
       const nombre = primerNombre(cuentas.find((c) => c.me)?.me?.name ?? m.sender.name);
       this.#listas.set(m.chatId, { ids: cuentas.map((c) => c.account.id ?? ''), intencion: que, hasta: ahora + LISTA_MS });
+      this.#confirmaciones.delete(m.chatId);
       await responder(PRIVADO.lista(cuentas, nombre, idioma));
       this.log.info({ chat: maskWaId(m.chatId), cuentas: cuentas.length, intent: que }, 'Sus cuentas, por privado');
       return 'suyo:lista';
@@ -524,12 +601,31 @@ export class Ingestor {
    */
   async #items(m: IncomingMessage): Promise<Outcome | null> {
     const texto = aMisterLuks(m, this.#misterLuks)?.texto ?? m.text ?? '';
+    // «la 1 son 3»: cuántas trae un ítem (antes que los números de lo suyo)
+    const cuantas = m.quotedId ? leerCantidad(texto) : null;
+    if (cuantas && m.quotedId) return this.#cantidad(m.chatId, m.quotedId, m, cuantas, m.chatId);
     const respuesta = leerRespuesta(texto);
     if (!respuesta || !m.quotedId) return null;
     const r = await this.store.itemsRespuesta(m.chatId, m.quotedId, m.sender, respuesta.claims);
     if (!r.ok && r.reason === 'no_es_pregunta') return null;
-    const body = contestar(r);
-    if (body) await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+    // Si ya le escribió a Mister Luks, lo suyo le llega por privado para que lo confirme
+    const privado = r.ok && r.privado ? r.privado : null;
+    const body = contestar(r, Boolean(privado));
+    const salen: OutboxItem[] = body ? [{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }] : [];
+    if (r.ok && privado) {
+      salen.push({ chat_jid: privado, reason: 'answer', body: confirmacionPrivada(r), dedupe_key: `items-privado:${privado}:${m.messageId}` });
+      this.#listas.delete(privado);
+      this.#confirmaciones.set(privado, {
+        jid: m.chatId,
+        lista: m.quotedId,
+        idioma: r.language === 'en' ? 'en' : 'es',
+        nombre: primerNombre(r.name),
+        comercio: r.merchant,
+        link: r.account_id && r.expense_id ? linkDividir(this.#web, r.account_id, r.expense_id) : null,
+        hasta: Date.now() + CONFIRMAR_MS,
+      });
+    }
+    if (salen.length) await this.#encolar(salen);
     this.log.info(
       { group: m.chatId, ok: r.ok, reason: r.ok ? undefined : r.reason, claims: respuesta.claims.length, sender: maskWaId(m.sender.id) },
       '¿Quién pidió qué?',

@@ -24,7 +24,7 @@ const cuantos = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? un
 /** «en octubre» en un hogar; nada en un evento (es todo el evento) */
 const periodo = (d: Numeros, idioma: Idioma) =>
   d.account.month ? ` ${idioma === 'en' ? 'in' : 'en'} ${MESES[idioma][Number(d.account.month.slice(5, 7)) - 1]}` : '';
-const dia = (iso: string, idioma: Idioma) => {
+export const dia = (iso: string, idioma: Idioma) => {
   const n = Number(iso.slice(8, 10));
   const m = CORTOS[idioma][Number(iso.slice(5, 7)) - 1];
   return idioma === 'en' ? `${m} ${n}` : `${n} ${m}`;

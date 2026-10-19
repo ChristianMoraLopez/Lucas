@@ -121,6 +121,27 @@ TOTAL $ 122.180
 SA-CREDITO S 122.180
 El IVA de esta boleta es $ 19.508"""
 
+# «PRODUCTO CANT TOTAL»: la cantidad va pegada al nombre y el valor es el del renglón
+CUENTA_MISTICO = """MISTICO
+18-10-2025 14:01:23 MAC-IVER 366 SIG CENTRO N.Pers: 7
+MESA: 200
+GARZON: JEAMPIER
+PRODUCTO CANT TOTAL
+LIMONADA GEN/MENT 3 17.100
+L.IMONADA 1 4.400
+CUSQUEÑA MICHELADA 1 5.600
+VITAL SIN GAS 350CC 1 3.100
+CAUSA ACEVICHADA 1 12.000
+PAPAS HUANCAINA 8.500
+AJI GALLINA 2 23.000
+ARROZ CHAUFA MARISCO 1 16.800
+ARROZ CHAUFA CARNE 1 15.800
+CABRITO NORTEÑA 1 17.900
+FETUCHIN HUANC LOM SALTD 1 17.200
+COCA ZERO 350CC 1 3.500
+TOTAL 144.900
+PROPINA SUGERIDA 14.490"""
+
 CUENTA_BRUNA = """Mesa Fecha 17/10/2026
 Garzon 167
 Comanda: 166169 BRUNA
@@ -235,6 +256,20 @@ def test_cuenta_chilena_con_la_cantidad_primero_y_el_precio_pegado():
         ("Mistral Nobel", 2, 7_500, 15_000),
         ("Pisco Sourcatedr", 6, 7_950, 47_700),
     ]
+
+
+def test_cuenta_chilena_con_la_cantidad_despues_del_nombre_y_el_total_del_renglon():
+    # «LIMONADA GEN/MENT 3 17.100»: son 3 limonadas que valen 17.100 entre las tres (no cada una)
+    items = _tabla(CUENTA_MISTICO, 159_390)
+    assert items[:3] == [
+        ("Limonada Gen/ment", 3, 5_700, 17_100),
+        ("L.imonada", 1, 4_400, 4_400),
+        ("Cusqueña Michelada", 1, 5_600, 5_600),
+    ]
+    assert ("Aji Gallina", 2, 11_500, 23_000) in items
+    assert ("Papas Huancaina", 1, 8_500, 8_500) in items
+    assert ("Vital Sin Gas 350cc", 1, 3_100, 3_100) in items
+    assert sum(t for *_, t in items) == 144_900
 
 
 def test_un_comprobante_de_banco_no_tiene_items():

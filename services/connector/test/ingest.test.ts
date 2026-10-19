@@ -715,6 +715,73 @@ describe('¿quién pidió qué?', () => {
     expect(store.messages.size).toBe(0);
   });
 
+  it('si ya le escribió por privado, lo suyo le llega allá para confirmarlo: «no» y los números lo corrigen, «sí» lo deja', async () => {
+    store.presentes.add(`${PRIVADO}|contador`);
+    store.respuestaItems = {
+      ok: true,
+      language: 'es',
+      currency: 'COP',
+      merchant: 'Le Due Torri',
+      name: 'Mafe Cárdenas',
+      parte: 95_000,
+      mios: [
+        { n: 1, name: 'Coca Cola Zero', quantity: 3, units: 2, amount: 20_000 },
+        { n: 3, name: 'Filete Grill', quantity: 1, units: 1, amount: 64_000 },
+      ],
+      sin_nadie: 2,
+      expense_id: 'g1',
+      account_id: 'dc',
+      account_name: 'DaniChile',
+      expense_date: '2026-10-18',
+      total: 330_000,
+      privado: PRIVADO,
+    };
+    expect(await ing.onMessage(contador, wa, m({ text: '1x2, 3', quotedFrom: LUKS, quotedId: 'WA-LISTA' }))).toBe('items:ok');
+    expect(bandeja(GRUPO).at(-1)?.body).toContain('📩 Te mandé el detalle por privado para que lo confirmes.');
+    expect(bandeja(PRIVADO).at(-1)?.body).toBe(
+      [
+        '🧾 *Le Due Torri* · 18 oct · «DaniChile»',
+        'Mafe, esto es lo tuyo:',
+        '• Coca Cola Zero (2 de 3): $20.000',
+        '• Filete Grill: $64.000',
+        '• Tu parte de lo que nadie ha dicho, la propina y el servicio: $11.000',
+        'Total: *$95.000*',
+        '',
+        '¿Está bien? Respóndeme *sí* o *no*.',
+        '',
+        '📊 Más detalle en mrluks.com',
+      ].join('\n'),
+    );
+
+    // «no»: cómo corregirlo
+    expect(await ing.onMessage(contador, wa, privado({ text: 'No' }))).toBe('items:no');
+    expect(bandeja(PRIVADO).at(-1)?.body).toBe(
+      '👌 Dime aquí cómo fue, con los números de la lista (por ejemplo «1x2, 3»), y lo cambio. Si algo no es tuyo, quítalo en la app: https://mrluks.com/c/dc/gastos/g1/dividir',
+    );
+    // Con los números, como si respondiera la lista en el grupo (y allá se ve)
+    expect(await ing.onMessage(contador, wa, privado({ text: '1x1' }))).toBe('items:corregido');
+    expect(store.respuestas.at(-1)).toEqual({ jid: GRUPO, quotedId: 'WA-LISTA', sender: '573016667788', claims: [{ n: 1, units: 1 }] });
+    expect(bandeja(GRUPO).at(-1)?.body).toContain('✅ Anotado: Mafe →');
+    expect(bandeja(PRIVADO).at(-1)?.body).toContain('¿Está bien? Respóndeme *sí* o *no*.');
+    // «sí»: queda así, y ya no espera nada
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Sí' }))).toBe('items:confirmado');
+    expect(bandeja(PRIVADO).at(-1)?.body).toBe('✅ Listo, Mafe: así queda en «Le Due Torri».');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'sí' }))).not.toBe('items:confirmado');
+    for (const o of bandeja(PRIVADO)) expect(o.reason === 'welcome' || esMensajeDeLuks(o.body ?? '') || !/\$/.test(o.body ?? '')).toBe(true);
+  });
+
+  it('«la 1 son 3» respondiendo la lista: cuántas trae, sin cambiar el total (no son números de lo suyo)', async () => {
+    store.respuestaCantidad = { ok: true, language: 'es', currency: 'CLP', merchant: 'Místico', n: 1, item: 'Limonada Gen/ment', quantity: 3, total: 17_100 };
+    expect(await ing.onMessage(contador, wa, m({ text: 'la 1 son 3', quotedFrom: LUKS, quotedId: 'WA-LISTA' }))).toBe('items:cantidad');
+    expect(store.cantidades).toEqual([{ jid: GRUPO, quotedId: 'WA-LISTA', n: 1, cantidad: 3 }]);
+    expect(store.respuestas).toEqual([]);
+    expect(bandeja(GRUPO).at(-1)?.body).toBe(
+      '✅ Anotado: «Limonada Gen/ment» son 3 · $17.100 en total ($5.700 c/u). Ahora cada quien dice «1x1» si fue una de las 3.',
+    );
+    // Sin citar la lista, no es para eso
+    expect(await ing.onMessage(contador, wa, m({ text: 'la 1 son 3' }))).not.toBe('items:cantidad');
+  });
+
   it('un «1» que responde otro mensaje de Mister Luks no es de la lista', async () => {
     expect(await ing.onMessage(contador, wa, m({ text: '1', quotedFrom: LUKS, quotedId: 'OTRO' }))).not.toBe('items:ok');
     expect(store.respuestas).toEqual([]);

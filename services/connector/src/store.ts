@@ -155,13 +155,34 @@ export type ItemsRespuesta =
       name: string;
       /** Lo que le toca de la cuenta, ya con la propina */
       parte: number;
-      mios: { n: number; name: string; quantity: number; units: number }[];
+      /** amount: lo suyo del ítem en plata (migración 500) */
+      mios: { n: number; name: string; quantity: number; units: number; amount?: number }[];
       /** Cuántos ítems no ha dicho nadie */
       sin_nadie: number;
+      /** Migración 500: para mandarle lo suyo por privado y que lo confirme */
+      expense_id?: string;
+      account_id?: string;
+      account_name?: string;
+      expense_date?: string;
+      total?: number;
+      /** Su chat privado con Mister Luks (solo si ya le escribió) */
+      privado?: string | null;
     }
   | {
       ok: false;
       reason: 'no_es_pregunta' | 'liquidado' | 'no_te_conozco' | 'cambio' | 'fijos' | 'no_existe';
+      language?: Idioma | null;
+      merchant?: string;
+      account_name?: string;
+      total_items?: number;
+    };
+
+/** connector_items_cantidad (migración 500): «la 1 son 3» respondiendo la lista */
+export type ItemsCantidad =
+  | { ok: true; language: Idioma | null; currency: Moneda; merchant: string; n: number; item: string; quantity: number; total: number }
+  | {
+      ok: false;
+      reason: 'no_es_pregunta' | 'liquidado' | 'no_te_conozco' | 'cambio' | 'no_existe' | 'cantidad';
       language?: Idioma | null;
       merchant?: string;
       account_name?: string;
@@ -398,6 +419,8 @@ export interface Store {
   decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva'): Promise<DecisionLiquidada>;
   /** Alguien respondió la lista (citándola) con los números de lo suyo */
   itemsRespuesta(jid: string, quotedId: string, sender: Sender, claims: { n: number; units?: number }[]): Promise<ItemsRespuesta>;
+  /** «la 1 son 3»: cuántas unidades trae un ítem de la lista, sin cambiar el total (migración 500) */
+  itemsCantidad(jid: string, quotedId: string, sender: Sender, n: number, cantidad: number): Promise<ItemsCantidad>;
   ingest(input: IngestInput): Promise<IngestCheck>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
@@ -700,6 +723,19 @@ export class SupabaseStore implements Store {
       p_lid: sender.lid ?? null,
       p_name: sender.name,
       p_modo: modo,
+    });
+  }
+
+  itemsCantidad(jid: string, quotedId: string, sender: Sender, n: number, cantidad: number) {
+    return this.#rpc<ItemsCantidad>('connector_items_cantidad', {
+      p_jid: jid,
+      p_quoted_wa_id: quotedId,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+      p_n: n,
+      p_cantidad: cantidad,
     });
   }
 

@@ -150,12 +150,27 @@ def _suma_items(llm: ReceiptExtraction | None) -> int | None:
 # ---------------------------------------------------------------------------
 
 
+def _este_anio(d: date | None, received: date) -> date | None:
+    """
+    Un recibo impreso con el año anterior (el reloj de la caja, o el OCR que
+    leyó 2025 por 2026) pero del mismo día y mes de hace unos días: es de este
+    año. Un recibo de verdad de hace un año casi nunca llega días después.
+    """
+    if d is None or d.year != received.year - 1:
+        return d
+    try:
+        este = d.replace(year=received.year)
+    except ValueError:  # 29 de febrero
+        return d
+    return este if 0 <= (received - este).days <= 10 else d
+
+
 def _fecha(ex: Extraction, llm: ReceiptExtraction | None, today: date, received: date) -> tuple[date, float, str]:
     if ex.qr and ex.qr.issued_on and ex.qr.issued_on <= today + timedelta(days=1):
         return ex.qr.issued_on, 0.99, "qr"
     piso = today - timedelta(days=MAX_DIAS_ATRAS)
-    por_reglas = best_date(ex.hints.dates + ex.caption_hints.dates, today)
-    del_llm = llm.parsed_date if llm else None
+    por_reglas = _este_anio(best_date(ex.hints.dates + ex.caption_hints.dates, today), received)
+    del_llm = _este_anio(llm.parsed_date if llm else None, received)
     if del_llm and not (piso <= del_llm <= today + timedelta(days=1)):
         del_llm = None
     if por_reglas and del_llm == por_reglas:

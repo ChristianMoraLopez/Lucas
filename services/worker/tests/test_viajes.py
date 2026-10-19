@@ -107,6 +107,21 @@ def test_el_qr_de_la_dian_dice_pesos_colombianos():
     assert d is not None and d.moneda == "COP" and "DIAN" in d.razon
 
 
+def test_sin_pistas_vale_la_moneda_de_los_recibos_del_viaje():
+    # «MISTICO … LIMONADA 3 17.100» no dice de dónde es; los recibos de estos días eran chilenos
+    d = detectar_moneda(
+        documento="MISTICO\nPRODUCTO CANT TOTAL\nLIMONADA 3 17.100\nTOTAL 17.100",
+        mensaje=None,
+        cuenta="COP",
+        viaje="CLP",
+    )
+    assert d is not None and d.moneda == "CLP" and "viaje" in d.razon
+    # Lo que dice el papel o el mensaje gana; y un mensaje escrito no es un recibo del viaje
+    assert detectar_moneda(documento="TOTAL 11.300", mensaje=None, cuenta="COP", qr_dian=True, viaje="CLP") is None
+    assert detectar_moneda(documento=None, mensaje="mercado 45 lucas", cuenta="COP", viaje="CLP") is None
+    assert detectar_moneda(documento="TOTAL 17.100", mensaje=None, cuenta="CLP", viaje="CLP") is None
+
+
 def test_la_razon_dice_por_que():
     d = detectar_moneda(documento=BOLETA_CHILE, mensaje=None, cuenta="COP")
     assert d is not None and "RUT chileno" in d.razon and "SII" in d.razon

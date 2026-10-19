@@ -272,6 +272,8 @@ class MessageProcessor:
             mensaje=ex.text if kind == "text" else caption,
             cuenta=cuenta,
             qr_dian=ex.qr is not None,
+            # Sin pistas en una foto o un PDF: la moneda de los recibos de estos días del viaje
+            viaje=acc.get("moneda_del_viaje"),
         )
         moneda = deteccion.moneda if deteccion else cuenta
         if moneda != cuenta:

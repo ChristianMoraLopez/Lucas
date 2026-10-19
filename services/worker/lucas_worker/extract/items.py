@@ -21,6 +21,9 @@ Los recibos colombianos imprimen los ítems de muchas formas:
     CANT ARTICULO                       (la cantidad primero; el precio a
     6 2X PISCO SOURCATEDR47,700          veces pegado al nombre)
 
+    PRODUCTO CANT TOTAL                 (la cantidad después del nombre y el
+    LIMONADA GEN/MENT 3 17.100           total del renglón: 3 limonadas)
+
 Se recorre de arriba hacia abajo hasta la primera línea de TOTAL: cada línea
 con plata cierra un ítem con el nombre que venía en las líneas anteriores (o
 en la misma). Solo cuentan como plata los números con forma de plata
@@ -57,6 +60,11 @@ _CANTIDAD_DECIMAL = re.compile(r"^\s*(\d{1,3})[.,]000\b")
 _CANTIDAD_PRIMERO = re.compile(r"^\s*(\d{1,3})\s+(?=\S*[A-Za-zÁÉÍÓÚÑáéíóúñ])")
 # El precio pegado al nombre al final de la línea: «PISCO SOURCATEDR47,700»
 _PRECIO_PEGADO = re.compile(r"(?<=[A-Za-zÁÉÍÓÚÑáéíóúñ])(?=\d{1,3}(?:[.,]\d{3})+\s*$)")
+# En tablas con la cantidad después del nombre («PRODUCTO CANT TOTAL»): «LIMONADA GEN/MENT 3»
+_CANTIDAD_AL_FINAL = re.compile(r"(?<=\S)\s+(\d{1,3})\s*$")
+# Las palabras que nombran la columna del producto en la fila de títulos
+_COLUMNA_NOMBRE = {"producto", "productos", "descripcion", "detalle", "articulo", "nombre", "item"}
+_COLUMNA_CANTIDAD = {"cant", "cantidad", "cnt", "ctd", "qty"}
 # Promociones al empezar el nombre: «2X PISCO SOUR», «2x1 HAMBURGUESA»
 _PROMO = re.compile(r"^\d+[xX]\d*\s+")
 # Donde terminan los ítems
@@ -148,15 +156,19 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
     nombre: list[str] = []
     con_titulos = False
     cantidad_primero = False
+    cantidad_al_final = False
     for cruda in (texto or "").splitlines():
         linea = cruda.strip()
         if not linea:
             continue
         if _es_titulo(linea):
             con_titulos = True
-            # «CANT ARTICULO …»: cada fila empieza por la cantidad
-            primera = re.findall(r"[a-z]+", strip_accents(linea).lower())[0]
-            cantidad_primero = primera in {"cant", "cantidad", "cnt", "ctd", "qty"}
+            # «CANT ARTICULO …»: cada fila empieza por la cantidad; «PRODUCTO CANT TOTAL»: va después del nombre
+            palabras = re.findall(r"[a-z]+", strip_accents(linea).lower())
+            cantidad_primero = palabras[0] in _COLUMNA_CANTIDAD
+            col_nombre = next((k for k, p in enumerate(palabras) if p in _COLUMNA_NOMBRE), None)
+            col_cantidad = next((k for k, p in enumerate(palabras) if p in _COLUMNA_CANTIDAD), None)
+            cantidad_al_final = col_nombre is not None and col_cantidad is not None and col_cantidad > col_nombre
             nombre = []
             items = []  # lo de antes de los títulos era el encabezado
             continue
@@ -188,7 +200,16 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
         por = _POR.match(resto)
         cantidad_fila = None if por or cantidad_inicio or not cantidad_primero else _CANTIDAD_PRIMERO.match(resto)
         desde = por.end() if por else cantidad_fila.end() if cantidad_fila else 0
-        texto_linea = _letras(_PROMO.sub("", resto[desde : montos[0][1]].strip()))
+        antes_del_monto = resto[desde : montos[0][1]].strip()
+        # «LIMONADA GEN/MENT 3 17.100» con la cantidad después del nombre: ese 3 es la cantidad
+        cantidad_final = (
+            None
+            if por or cantidad_fila or cantidad_inicio or not cantidad_al_final
+            else _CANTIDAD_AL_FINAL.search(antes_del_monto)
+        )
+        if cantidad_final:
+            antes_del_monto = antes_del_monto[: cantidad_final.start()]
+        texto_linea = _letras(_PROMO.sub("", antes_del_monto))
         # «2 × 5.000 10.000» es solo del último renglón con letras de arriba (puede haber un código de barras en medio)
         con_letras = [p for p in nombre if re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}", p)]
         partes = con_letras[-1:] if por else [*nombre]
@@ -206,6 +227,8 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
             cantidad = float(por.group(1))
         elif cantidad_fila and int(cantidad_fila.group(1)) > 0:
             cantidad = float(cantidad_fila.group(1))
+        elif cantidad_final and int(cantidad_final.group(1)) > 0:
+            cantidad = float(cantidad_final.group(1))
         elif cantidad_txt:
             cantidad = float(cantidad_txt.group(1))
         elif unitario and total > unitario and total % unitario == 0 and total // unitario <= 50:

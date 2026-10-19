@@ -220,10 +220,11 @@ function Editor({
     const tiene = it.people.includes(id);
     cambiarItem(it.key, tiene ? { people: it.people.filter((p) => p !== id), units: sinUnidades(it.units, id) } : { people: [...it.people, id] });
   };
-  // «Coca-Cola × 3»: la cantidad cambia el total (el precio de cada una se queda)
+  // «Limonada × 3»: la factura trae el valor del renglón (las tres juntas), así que la
+  // cantidad no cambia el total; cambia lo de cada una («$5.700 c/u»)
   const cambiarCantidad = (it: Item, cantidad: number) => {
     const n = Math.min(99, Math.max(1, cantidad));
-    cambiarItem(it.key, { quantity: n, total: it.total > 0 ? Math.round((it.total / it.quantity) * n) : it.total });
+    cambiarItem(it.key, { quantity: n });
   };
   const cambiarUnidades = (it: Item, id: string, n: number) =>
     cambiarItem(it.key, { units: n <= 1 ? sinUnidades(it.units, id) : { ...it.units, [id]: Math.min(99, n) } });
