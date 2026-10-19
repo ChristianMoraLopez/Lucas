@@ -230,6 +230,8 @@ export interface QuestionMe {
   expenses: { merchant: string; total: number; date: string }[];
   /** Los gastos donde tuvo parte, con los ítems: por qué debe (migración 470; sin ella no viene) */
   consumo?: (GastoConItems & { merchant: string; payer_person_id: string | null; payer_name: string | null })[];
+  /** Lo que pagó, con lo de cada uno: de qué le pagan (migración 490; sin ella no viene) */
+  pagados?: (GastoConItems & { merchant: string; payer_person_id: string | null })[];
 }
 
 /**

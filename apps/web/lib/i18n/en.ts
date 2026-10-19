@@ -1891,5 +1891,13 @@ export const EN: Record<string, string> = {
     'Privately to {n} of {total} (those who already messaged Mister Luks); everyone else, in the group.',
   'Solo quien administra la cuenta los prende o los apaga.': 'Only account admins can turn them on or off.',
 
+  // ---------- Un gasto que llegó a un paseo liquidado (migración 490) ----------
+  'Llegó un gasto nuevo por WhatsApp': 'A new expense came in on WhatsApp',
+  '«{cuenta}» ya está liquidada y llegó por WhatsApp: {gastos}': '“{cuenta}” is already settled and this came in on WhatsApp: {gastos}',
+  'Lo mandó {quien}': 'Sent by {quien}',
+  '¿Qué hago?': 'What should I do?',
+  'Reabrir y sumarlo': 'Reopen and add it',
+  'Anotarlo en «{cuenta}»': 'Log it in “{cuenta}”',
+
   // ⟨más⟩
 };

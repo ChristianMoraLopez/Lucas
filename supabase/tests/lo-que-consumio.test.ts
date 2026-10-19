@@ -11,6 +11,7 @@ beforeAll(async () => {
 
 const JID = '120363000000000888@g.us';
 const MARI_WA = '573000000088';
+const DAN_WA = '573000000077';
 
 interface Consumo {
   merchant: string;
@@ -86,7 +87,7 @@ async function paseo(tx: Transaction) {
     JID,
     cuenta,
   ]);
-  await tx.query('insert into public.person_whatsapp_ids (person_id, wa_id) values ($1, $2)', [P.mari, MARI_WA]);
+  await tx.query('insert into public.person_whatsapp_ids (person_id, wa_id) values ($1, $2), ($3, $4)', [P.mari, MARI_WA, P.dan, DAN_WA]);
   return { cuenta, P };
 }
 
@@ -110,6 +111,19 @@ describe('lo que consumió', () => {
       ]);
       expect(Number(torri.shares.find((s) => s.person_id === P.mari)?.amount_cop)).toBe(165_000);
       expect(r.me.consumo.find((e) => e.merchant === 'Bruna')?.items).toBeNull();
+    });
+  });
+
+  it('a quien pagó, lo que pagó con lo de cada uno (la 490): para decirle de qué le pagan', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const { P } = await paseo(tx);
+      await tx.exec('set local role service_role');
+      const { r } = await one<{ r: { me: { id: string; pagados: Consumo[] } } }>(tx, 'select public.connector_question($1, $2) as r', [JID, DAN_WA]);
+      expect(r.me.id).toBe(P.dan);
+      expect(r.me.pagados.map((e) => e.merchant).sort()).toEqual(['Le Due Torri', 'Taxi']);
+      const torri = r.me.pagados.find((e) => e.merchant === 'Le Due Torri') as Consumo;
+      expect(Number(torri.shares.find((s) => s.person_id === P.mari)?.amount_cop)).toBe(165_000);
+      expect(torri.items?.find((i) => i.name === 'Coca Cola Zero')?.people.find((x) => x.id === P.mari)).toMatchObject({ units: 2 });
     });
   });
 

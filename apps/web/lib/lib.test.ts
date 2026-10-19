@@ -97,7 +97,9 @@ describe('invitaciones', () => {
     expect(link).toBe('https://lucas.co/e/PASEO-7K2Q');
     expect(displayLink(link)).toBe('lucas.co/e/PASEO-7K2Q');
     expect(inviteMessage({ accountName: 'Paseo Santa Marta', code: 'PASEO-7K2Q', link, name: 'Caro' })).toContain('Caro, entra a «Paseo Santa Marta»');
-    expect(whatsappUrl('hola parce', '+57 300 222 4471')).toBe('https://wa.me/573002224471?text=hola%20parce');
+    expect(whatsappUrl('hola parce', '+57 300 222 4471')).toBe('https://api.whatsapp.com/send?phone=573002224471&text=hola%20parce');
+    // Los emojis van tal cual (wa.me los dañaba al redirigir)
+    expect(whatsappUrl('Hola 👋 🧾')).toBe('https://api.whatsapp.com/send?text=Hola%20%F0%9F%91%8B%20%F0%9F%A7%BE');
   });
   it('el texto bajo el código', () => {
     expect(inviteHint(inv, () => '5 oct')).toBe('Vence el 5 oct · sirve para 10 personas más');

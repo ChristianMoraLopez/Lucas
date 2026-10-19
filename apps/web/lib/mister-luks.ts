@@ -14,8 +14,8 @@ export function vcard(telefono: string): string {
 
 export const vcardHref = (telefono: string) => `data:text/vcard;charset=utf-8,${encodeURIComponent(vcard(telefono))}`;
 
-/** Abre el chat con Mister Luks con el saludo ya escrito */
-export const chatHref = (telefono: string, saludo: string) => `https://wa.me/${telefono}?text=${encodeURIComponent(saludo)}`;
+/** Abre el chat con Mister Luks con el saludo ya escrito (por api.whatsapp.com: wa.me daña los emojis) */
+export const chatHref = (telefono: string, saludo: string) => `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(saludo)}`;
 
 /** La guía en imagen (vertical, para mandar por WhatsApp) y en PDF, en public/guia/ */
 export const archivosGuia = (idioma: Idioma) => ({ imagen: `/guia/luks-guia-${idioma}.png`, pdf: `/guia/luks-guia-${idioma}.pdf` });

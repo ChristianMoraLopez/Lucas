@@ -1,4 +1,4 @@
-import { loSuyo } from './cobros.js';
+import { enUnaLinea, loSuyo } from './cobros.js';
 import { minTransfers } from './liquidacion.js';
 import type { QuestionData, QuestionMe } from './store.js';
 import { formatCOP, type Idioma, type Intencion } from './text.js';
@@ -143,14 +143,19 @@ export const RESPUESTA = {
         ? `🙌 ${nombre}, “${d.account.name}” was already settled${periodo(d, idioma)} and you have nothing pending.`
         : `🙌 ${nombre}, «${d.account.name}» ya se liquidó${periodo(d, idioma)} y no te queda nada pendiente.`;
     }
-    const detalle = pendientes.map((t) =>
+    // A quien le pagan, de qué: lo que pidió cada uno en lo que pagó (como mucho 3 gastos por persona)
+    const deQue = (deId: string) => {
+      const lineas = (me.pagados ?? []).map((e) => enUnaLinea({ ...e, payer_name: null }, deId, d.account.currency, idioma)).filter((l): l is string => !!l);
+      const mas = lineas.length - 3;
+      return [
+        ...lineas.slice(0, 3).map((l) => `   ↳ ${l}`),
+        ...(mas > 0 ? [en ? `   ↳ … and ${mas} more at mrluks.com` : `   ↳ … y ${mas} más en mrluks.com`] : []),
+      ];
+    };
+    const detalle = pendientes.flatMap((t) =>
       t.deId === me.id
-        ? en
-          ? `• You pay ${t.a} *${plata(t.monto)}*`
-          : `• Le pagas a ${t.a} *${plata(t.monto)}*`
-        : en
-          ? `• ${t.de} pays you *${plata(t.monto)}*`
-          : `• ${t.de} te paga *${plata(t.monto)}*`,
+        ? [en ? `• You pay ${t.a} *${plata(t.monto)}*` : `• Le pagas a ${t.a} *${plata(t.monto)}*`]
+        : [en ? `• ${t.de} pays you *${plata(t.monto)}*` : `• ${t.de} te paga *${plata(t.monto)}*`, ...deQue(t.deId)],
     );
     const puso = en
       ? `you put in *${plata(Number(p.paid))}* and your share is *${plata(Number(p.share))}*`

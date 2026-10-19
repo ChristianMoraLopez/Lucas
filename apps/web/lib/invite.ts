@@ -21,10 +21,14 @@ export function inviteMessage({ accountName, code, link, name, t = ES }: { accou
     : t('Entren a «{cuenta}» en Luks para ver y dividir los gastos. Código: {codigo} · {link}', vars);
 }
 
-/** Abre WhatsApp con el mensaje listo; con número, directo a esa persona. */
+/**
+ * Abre WhatsApp con el mensaje listo; con número, directo a esa persona. Por
+ * api.whatsapp.com y no por wa.me: al redirigir, wa.me daña los emojis (👋, 🧾)
+ * y llegan como «�».
+ */
 export function whatsappUrl(text: string, phone?: string) {
   const to = phone ? phone.replace(/\D/g, '') : '';
-  return `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
+  return `https://api.whatsapp.com/send?${to ? `phone=${to}&` : ''}text=${encodeURIComponent(text)}`;
 }
 
 /** Texto bajo el código: 'Vence el 5 oct · sirve para 10 personas más' */

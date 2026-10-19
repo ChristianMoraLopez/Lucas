@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { GastoEnEspera } from '@/components/gasto-en-espera';
 import { Guia } from '@/components/guia';
 import { useT } from '@/components/idioma';
 import { LogoLink } from '@/components/logo-link';
@@ -182,6 +183,8 @@ export function AccountShell({
         }
         barEnd={<MenuPrincipal nombre={nombre} guia />}
       >
+        {/* Un gasto que llegó por WhatsApp a un paseo liquidado: reabrir o cuenta nueva, también desde aquí */}
+        <GastoEnEspera accountId={account.id} />
         {children}
       </AppShell>
     </MonedaProvider>
