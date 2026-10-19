@@ -60,11 +60,12 @@ export function contestarDecision(r: DecisionLiquidada, webUrl: string): string 
         ? `🆕 Done, ${nombre}: I opened “${r.cuenta}”${lista ? ` and logged ${lista} there` : ''}.${sigue} “${r.anterior}” stays as it was.`
         : `🆕 Listo, ${nombre}: abrí «${r.cuenta}»${lista ? ` y ahí anoté ${lista}` : ''}.${sigue} «${r.anterior}» queda como estaba.`;
   // Si no sigue la lista de ítems, el link para revisarlo y repartirlo en la app
-  const link = conItems
-    ? null
-    : nuevos.length === 1 && nuevos[0].expense_id
-      ? linkDividir(webUrl, r.account_id, nuevos[0].expense_id)
-      : `${webUrl}/c/${r.account_id}/gastos`;
+  const link =
+    conItems || !r.account_id
+      ? null
+      : nuevos.length === 1 && nuevos[0].expense_id
+        ? linkDividir(webUrl, r.account_id, nuevos[0].expense_id)
+        : `${webUrl}/c/${r.account_id}/gastos`;
   const revisar = link
     ? en
       ? `\nIf something isn’t right, review and split it here: ${link}`

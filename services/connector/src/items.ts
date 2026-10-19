@@ -48,10 +48,15 @@ export function mensajeItems(p: ItemsPregunta, webUrl: string): string {
     '',
     `${ejemplo} ${reparto}`,
     '',
-    en
-      ? `If something isn’t right, finish reviewing and splitting it here: ${linkDividir(webUrl, p.account.id, p.expense_id)}`
-      : `Lo que no quede bien, terminen de revisarlo y repartirlo aquí: ${linkDividir(webUrl, p.account.id, p.expense_id)}`,
-    '',
+    // Sin la 460 en la base no llega la cuenta: la lista sale sin el link
+    ...(p.account.id
+      ? [
+          en
+            ? `If something isn’t right, finish reviewing and splitting it here: ${linkDividir(webUrl, p.account.id, p.expense_id)}`
+            : `Lo que no quede bien, terminen de revisarlo y repartirlo aquí: ${linkDividir(webUrl, p.account.id, p.expense_id)}`,
+          '',
+        ]
+      : []),
     FIRMA[idioma],
   ].join('\n');
 }

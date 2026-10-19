@@ -45,6 +45,10 @@ describe('la lista', () => {
     expect(en).toContain('Who had what? Reply to *this message*');
     expect(en).toContain('What nobody claims is split among everyone.');
     expect(en).toContain('If something isn’t right, finish reviewing and splitting it here: https://mrluks.com/c/dc/gastos/g1/dividir');
+    // Si la base todavía no dice de qué cuenta es, sale sin el link
+    const sinCuenta = mensajeItems({ ...CUENTA, account: { ...CUENTA.account, id: undefined as unknown as string } }, WEB);
+    expect(sinCuenta).not.toContain('http');
+    expect(sinCuenta).toContain('según lo que consumió cada uno.\n\n📊 Más detalle en mrluks.com');
   });
 });
 

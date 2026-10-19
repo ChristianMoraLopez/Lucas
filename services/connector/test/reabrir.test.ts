@@ -61,6 +61,8 @@ describe('lo que contesta Mister Luks', () => {
     expect(contestarDecision(dos, WEB)).toContain('aquí: https://mrluks.com/c/dc/gastos\n');
     // Con la lista de ítems, el link va en la lista
     expect(contestarDecision({ ...base, modo: 'reabrir' as const, cuenta: 'DaniChile' }, WEB)).not.toContain('/c/dc/gastos');
+    // Sin la cuenta (base sin la 450 al día), sin link
+    expect(contestarDecision({ ...uno, account_id: undefined as unknown as string }, WEB)).not.toContain('http');
   });
 
   it('una cuenta cerrada solo admite cuenta nueva', () => {
