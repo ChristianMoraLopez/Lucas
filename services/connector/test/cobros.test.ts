@@ -119,13 +119,32 @@ describe('avisos de cobro', () => {
       [cobro(), cobro({ transfer_id: 't2', from: { id: 'chris', name: 'Christian' }, to: { id: 'santi', name: 'Santiago' }, amount: 30_000 })],
       WEB_URL,
     );
-    expect(m.split('\n').slice(0, 3)).toEqual([
+    // Debajo de cada deuda, qué pidió en lo que pagó el otro y cuánto costó
+    expect(m.split('\n').slice(0, 5)).toEqual([
       '💸 Ya liquidamos «DaniChile». Falta por pagar:',
       '• Marimari Gómez → Daniel: *$165.000*',
+      '   ↳ Le Due Torri: Coca Cola Zero (2 de 3) $20.000 · Ravioli $90.000 · propina $55.000 = $165.000',
       '• Christian → Santiago: *$30.000*',
+      '   ↳ Bruna (entre 6): $30.000',
     ]);
     expect(m).toContain('Cada uno ve lo suyo, ítem por ítem, aquí: https://mrluks.com/r/TokenDeLaCuenta12345678');
     expect(m).toContain('Cuando paguen, escríbanme «luks ya le pagué a Daniel» y lo marco ✅');
+  });
+
+  it('en el grupo, si se cruzaron las deudas, lo de cada uno va una sola vez', () => {
+    // Marimari le paga a Santiago y a David, que no pagaron nada de lo suyo
+    const m = mensajeGrupo(
+      [cobro({ to: { id: 'david', name: 'David' }, amount: 100_000 }), cobro({ transfer_id: 't2', to: { id: 'chris', name: 'Christian' }, amount: 95_000 })],
+      WEB_URL,
+    );
+    expect(m.split('\n').slice(1, 6)).toEqual([
+      '• Marimari Gómez → David: *$100.000*',
+      '   ↳ Le Due Torri: Coca Cola Zero (2 de 3) $20.000 · Ravioli $90.000 · propina $55.000 = $165.000',
+      '   ↳ Bruna (entre 6): $30.000',
+      '• Marimari Gómez → Christian: *$95.000*',
+      '',
+    ]);
+    expect(esMensajeDeLuks(m)).toBe(true);
   });
 
   it('una vuelta: por privado a quien ya le escribió, el resto en el grupo, y no se repite', async () => {

@@ -1,3 +1,4 @@
+import { loSuyo } from './cobros.js';
 import { minTransfers } from './liquidacion.js';
 import type { QuestionData, QuestionMe } from './store.js';
 import { formatCOP, type Idioma } from './text.js';
@@ -166,7 +167,10 @@ export const RESPUESTA = {
           : en
             ? `🙌 ${nombre}, you’re all square in “${d.account.name}”${periodo(d, idioma)}.`
             : `🙌 ${nombre}, en «${d.account.name}»${periodo(d, idioma)} estás a paz y salvo.`;
-    return `${cabeza}${detalle.length ? `\n${detalle.join('\n')}` : ''}${incompletos(d, idioma)}\n\n${FIRMA[idioma]}`;
+    // Si debe, por qué: lo que pidió en cada gasto y cuánto costó
+    const suyo = saldo < 0 && me.consumo?.length ? loSuyo(me.consumo, me.id, d.account.currency, idioma).lineas : [];
+    const porQue = suyo.length ? `\n\n${en ? '🧾 *Your share, item by item:*' : '🧾 *Lo tuyo, ítem por ítem:*'}\n${suyo.join('\n')}` : '';
+    return `${cabeza}${detalle.length ? `\n${detalle.join('\n')}` : ''}${porQue}${incompletos(d, idioma)}\n\n${FIRMA[idioma]}`;
   },
 
   /** «mis gastos» */

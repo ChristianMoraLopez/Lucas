@@ -137,6 +137,68 @@ describe('las respuestas', () => {
     );
   });
 
+  it('«cuánto debo», con lo que consumió (la 470): qué pidió en cada gasto y cuánto costó', () => {
+    const me: NonNullable<Numeros['me']> = {
+      ...(NUMEROS.me as NonNullable<Numeros['me']>),
+      consumo: [
+        {
+          merchant: 'Trattoria',
+          payer_person_id: 'v',
+          payer_name: 'Valeria',
+          shares: [
+            { person_id: 'm', amount_cop: 300_000 },
+            { person_id: 'v', amount_cop: 100_000 },
+          ],
+          items: [
+            { name: 'Pizza', quantity: 1, total: 180_000, people: [{ id: 'm', units: 1 }] },
+            {
+              name: 'Vino',
+              quantity: 2,
+              total: 160_000,
+              people: [
+                { id: 'm', units: 1 },
+                { id: 'v', units: 1 },
+              ],
+            },
+            { name: 'Pasta', quantity: 1, total: 60_000, people: [{ id: 'v', units: 1 }] },
+          ],
+        },
+        {
+          merchant: 'Arepas',
+          payer_person_id: 'm',
+          payer_name: 'Mafe Cárdenas',
+          shares: [
+            { person_id: 'm', amount_cop: 200_000 },
+            { person_id: 'v', amount_cop: 0 },
+          ],
+          items: null,
+        },
+      ],
+    };
+    expect(RESPUESTA.miSaldo(NUMEROS, me, 'es')).toBe(
+      [
+        '💸 Mafe, en «Paseo» pusiste *$200.000* y te tocan *$500.000*: debes *$300.000*.',
+        '• Le pagas a Valeria *$300.000*',
+        '',
+        '🧾 *Lo tuyo, ítem por ítem:*',
+        '',
+        '*Trattoria* (pagó Valeria)',
+        '• Pizza: $180.000',
+        '• Vino (1 de 2): $80.000',
+        '• Propina y servicio: $40.000',
+        'Total: *$300.000*',
+        '',
+        '*Arepas* (lo pagaste tú)',
+        '• Tu parte: $200.000',
+        '',
+        '📊 Más detalle en mrluks.com',
+      ].join('\n'),
+    );
+    // A quien le deben no se le explica nada (y sin la 470 sale como antes)
+    const vale = { ...me, id: 'v', name: 'Valeria' };
+    expect(RESPUESTA.miSaldo(NUMEROS, vale, 'es')).not.toContain('ítem por ítem');
+  });
+
   it('«mis gastos»: lo que pagó (los últimos)', () => {
     expect(RESPUESTA.misGastos(NUMEROS, NUMEROS.me as NonNullable<Numeros['me']>, 'es')).toBe(
       '🧾 Mafe, en «Paseo» pagaste *$200.000* en 2 gastos:\n• Arepas · $80.000 (27 sep)\n• Lancha · $120.000 (26 sep)\n\n📊 Más detalle en mrluks.com',

@@ -1,7 +1,7 @@
 import type { Logger } from './log.js';
-import { reciboDe } from './recibo.js';
+import { type GastoConItems, type LineaRecibo, reciboDe } from './recibo.js';
 import type { Cobro, OutboxItem, Store } from './store.js';
-import { formatCOP, type Idioma } from './text.js';
+import { formatCOP, type Idioma, type Moneda } from './text.js';
 
 /*
  * Avisos de cobro (migración 410): si la cuenta los tiene prendidos, apenas se
@@ -19,6 +19,9 @@ import { formatCOP, type Idioma } from './text.js';
 const FIRMA: Record<Idioma, string> = { es: '📊 Más detalle en mrluks.com', en: '📊 More detail at mrluks.com' };
 const MAX_GASTOS = 6;
 const MAX_ITEMS = 12;
+/** En el grupo, cuántos ítems por gasto y cuántos gastos por deuda */
+const MAX_EN_LINEA = 4;
+const MAX_GASTOS_GRUPO = 3;
 
 /** Los nombres van tal cual, sin los signos con que WhatsApp pone negrilla, cursiva o tachado */
 const limpio = (s: string | null | undefined) => (s ?? '').replace(/[*_~`]/g, '').trim();
@@ -41,18 +44,43 @@ function linkDe(c: Cobro, webUrl: string, persona: string | null) {
   return `${webUrl}/r/${c.token}${s ? `?${s}` : ''}`;
 }
 
-/** Lo que le tocó a quien debe, gasto por gasto e ítem por ítem */
-function detalle(c: Cobro, idioma: Idioma) {
+/** Un gasto con sus ítems, con quién lo pagó (connector_cobros, connector_question) */
+export type GastoDeAlguien = GastoConItems & { merchant: string; payer_person_id: string | null; payer_name: string | null };
+
+/** «Coca Cola (2 de 3)», «Pizza (entre 3)» */
+function cuantasDe(i: LineaRecibo, idioma: Idioma) {
   const en = idioma === 'en';
-  const $ = (n: number) => formatCOP(n, c.account.currency, idioma);
+  return i.units ? (en ? `${i.units} of ${i.de}` : `${i.units} de ${i.de}`) : i.entre > 1 ? (en ? `among ${i.entre}` : `entre ${i.entre}`) : '';
+}
+
+/** Lo que le tocó a alguien, gasto por gasto e ítem por ítem: lo que pidió y cuánto costó */
+export function loSuyo(gastos: GastoDeAlguien[], personId: string, moneda: Moneda, idioma: Idioma) {
+  const en = idioma === 'en';
+  const $ = (n: number) => formatCOP(n, moneda, idioma);
   const lineas: string[] = [];
   let consumo = 0;
-  for (const [k, e] of c.expenses.entries()) {
-    const r = reciboDe(e, c.from.id);
+  let mostrados = 0;
+  let sinMostrar = 0;
+  for (const e of gastos) {
+    const r = reciboDe(e, personId);
     if (!r) continue;
     consumo += r.parte;
-    if (k >= MAX_GASTOS) continue;
-    lineas.push('', en ? `*${limpio(e.merchant)}* (${limpio(e.payer_name)} paid)` : `*${limpio(e.merchant)}* (pagó ${limpio(e.payer_name)})`);
+    if (mostrados >= MAX_GASTOS) {
+      sinMostrar++;
+      continue;
+    }
+    mostrados++;
+    const quien =
+      e.payer_person_id === personId
+        ? en
+          ? ' (you paid)'
+          : ' (lo pagaste tú)'
+        : e.payer_name
+          ? en
+            ? ` (${limpio(e.payer_name)} paid)`
+            : ` (pagó ${limpio(e.payer_name)})`
+          : '';
+    lineas.push('', `*${limpio(e.merchant)}*${quien}`);
     if (!r.items.length) {
       const entre = e.shares.filter((x) => Number(x.amount_cop) > 0).length;
       const parte = en ? (entre > 1 ? `Your share (among ${entre})` : 'Your share') : entre > 1 ? `Tu parte (entre ${entre})` : 'Tu parte';
@@ -60,7 +88,7 @@ function detalle(c: Cobro, idioma: Idioma) {
       continue;
     }
     for (const i of r.items.slice(0, MAX_ITEMS)) {
-      const cuantas = i.units ? (en ? `${i.units} of ${i.de}` : `${i.units} de ${i.de}`) : i.entre > 1 ? (en ? `among ${i.entre}` : `entre ${i.entre}`) : '';
+      const cuantas = cuantasDe(i, idioma);
       lineas.push(`• ${limpio(i.name)}${cuantas ? ` (${cuantas})` : ''}: ${$(i.amount)}`);
     }
     if (r.items.length > MAX_ITEMS) {
@@ -76,11 +104,28 @@ function detalle(c: Cobro, idioma: Idioma) {
     }
     lineas.push(`Total: *${$(r.parte)}*`);
   }
-  if (c.expenses.length > MAX_GASTOS) {
-    const mas = c.expenses.length - MAX_GASTOS;
-    lineas.push('', en ? `… and ${mas} more in the link` : `… y ${mas} más en el link`);
-  }
+  if (sinMostrar) lineas.push('', en ? `… and ${sinMostrar} more in the link` : `… y ${sinMostrar} más en el link`);
   return { lineas, consumo };
+}
+
+/** En una línea, para el grupo: «Le Due Torri: Ravioli $48.633 · Coca Cola (1 de 3) $10.000 · propina $6.000 = $64.633» */
+export function enUnaLinea(e: GastoDeAlguien, personId: string, moneda: Moneda, idioma: Idioma): string | null {
+  const en = idioma === 'en';
+  const $ = (n: number) => formatCOP(n, moneda, idioma);
+  const r = reciboDe(e, personId);
+  if (!r) return null;
+  const comercio = limpio(e.merchant);
+  if (!r.items.length) {
+    const entre = e.shares.filter((x) => Number(x.amount_cop) > 0).length;
+    return entre > 1 ? `${comercio} (${en ? 'among' : 'entre'} ${entre}): ${$(r.parte)}` : `${comercio}: ${$(r.parte)}`;
+  }
+  const partes = r.items.slice(0, MAX_EN_LINEA).map((i) => {
+    const cuantas = cuantasDe(i, idioma);
+    return `${limpio(i.name)}${cuantas ? ` (${cuantas})` : ''} ${$(i.amount)}`;
+  });
+  if (r.items.length > MAX_EN_LINEA) partes.push(en ? `+${r.items.length - MAX_EN_LINEA} more` : `+${r.items.length - MAX_EN_LINEA} más`);
+  if (r.resto > r.items.length) partes.push(`${en ? 'tip' : 'propina'} ${$(r.resto)}`);
+  return `${comercio}: ${partes.join(' · ')} = ${$(r.parte)}`;
 }
 
 /** El mensaje por privado a quien debe: cuánto, a quién y por qué */
@@ -111,7 +156,7 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
         : `💸 Hola ${nombre} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
   ];
 
-  const { lineas: suyo, consumo } = detalle(c, idioma);
+  const { lineas: suyo, consumo } = loSuyo(c.expenses, c.from.id, c.account.currency, idioma);
   if (suyo.length) lineas.push('', en ? '🧾 *Your share, item by item:*' : '🧾 *Lo tuyo, ítem por ítem:*', ...suyo);
 
   const cierre: string[] = [];
@@ -167,8 +212,21 @@ export function mensajeGrupo(cs: Cobro[], webUrl: string): string {
       : en
         ? `💸 “${cuenta}” was settled. Still to pay:`
         : `💸 Ya liquidamos «${cuenta}». Falta por pagar:`,
-    ...cs.map((x) => `• ${limpio(x.from.name)} → ${limpio(x.to.name)}: *${$(Number(x.amount))}*`),
   ];
+  // Debajo de cada deuda, qué pidió cada uno en lo que pagó el otro (si se cruzaron las deudas, todo lo suyo una vez)
+  const yaDetallados = new Set<string>();
+  for (const x of cs) {
+    lineas.push(`• ${limpio(x.from.name)} → ${limpio(x.to.name)}: *${$(Number(x.amount))}*`);
+    const delOtro = x.expenses.filter((e) => e.payer_person_id === x.to.id);
+    const gastos = delOtro.length ? delOtro : yaDetallados.has(x.from.id) ? [] : x.expenses;
+    yaDetallados.add(x.from.id);
+    const suyas = gastos.map((e) => enUnaLinea(e, x.from.id, c.account.currency, idioma)).filter((l): l is string => !!l);
+    for (const l of suyas.slice(0, MAX_GASTOS_GRUPO)) lineas.push(`   ↳ ${l}`);
+    if (suyas.length > MAX_GASTOS_GRUPO) {
+      const mas = suyas.length - MAX_GASTOS_GRUPO;
+      lineas.push(en ? `   ↳ … and ${mas} more in the link` : `   ↳ … y ${mas} más en el link`);
+    }
+  }
   const link = linkDe(c, webUrl, null);
   if (link) lineas.push('', en ? `Everyone can see their share, item by item, here: ${link}` : `Cada uno ve lo suyo, ítem por ítem, aquí: ${link}`);
   const a1 = primerNombre(c.to.name);

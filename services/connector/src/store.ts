@@ -228,6 +228,8 @@ export interface QuestionMe {
   paid_count: number;
   /** Los últimos 5 que pagó */
   expenses: { merchant: string; total: number; date: string }[];
+  /** Los gastos donde tuvo parte, con los ítems: por qué debe (migración 470; sin ella no viene) */
+  consumo?: (GastoConItems & { merchant: string; payer_person_id: string | null; payer_name: string | null })[];
 }
 
 /**
