@@ -146,7 +146,7 @@ const REGLAS: [Intencion, RegExp][] = [
   ],
   [
     'mi_saldo',
-    /\b(?:cuanto (?:debo|le debo|me deben|me toca(?: pagar| poner)?|tengo que (?:pagar|poner)|pago yo)|mi saldo|como voy|how much do i owe|what do i owe|my balance|how much am i owed|how much do (?:they|people) owe me)\b/,
+    /\b(?:cuanto (?:debo|le debo|me deben|me toca(?: pagar| poner)?|tengo que (?:pagar|poner)|pago yo)|(?:que|por que|de que|en que) (?:le |les )?debo|de que (?:es|son) (?:lo que debo|la deuda|mi deuda)|mi saldo|mi deuda|como voy|how much do i owe|what do i owe|why do i owe|my balance|how much am i owed|how much do (?:they|people) owe me)\b/,
   ],
   [
     'mis_gastos',
@@ -175,6 +175,21 @@ export function intencionDe(texto: string | null | undefined): Intencion | null 
   // «¿ya le pagué a Santiago?» pregunta cómo va, no avisa que pagó
   return i === 'ya_pague' && /[?¿]/.test(texto ?? '') ? 'mi_saldo' : i;
 }
+
+/** Por privado, un saludo o «mis cuentas»: la lista de sus cuentas (frases cortas) */
+export function esMenu(texto: string | null | undefined): boolean {
+  const t = plano(texto ?? '');
+  return (
+    t.split(' ').length <= 6 &&
+    /^(?:hola+|holi|buenas|buen(?:os)? dias?|buenas (?:tardes|noches)|hey|hi|hello|menu|opciones|(?:mis|las) cuentas|en que cuentas estoy|cuentas|resumen|estado de cuenta|que (?:hay|tengo)|my accounts|accounts|summary|status)\b/.test(
+      t,
+    )
+  );
+}
+
+/** ¿Pregunta algo? («?», o empieza por qué, cuánto, cómo…) */
+export const pareceUnaPregunta = (texto: string | null | undefined) =>
+  /[?¿]/.test(texto ?? '') || /^(?:que|cuanto|cuanta|como|cuando|donde|quien|por que|what|how|who|why|when|where)\b/.test(plano(texto ?? ''));
 
 /** «privado» o «aquí» a secas: la respuesta a «¿te lo mando por privado o aquí?» */
 export function canalDe(texto: string | null | undefined): 'privado' | 'aqui' | null {
@@ -339,8 +354,8 @@ export function listaNombres(nombres: string[], idioma: Idioma): string {
 export const MISTER = {
   bienvenida: (idioma: Idioma) =>
     idioma === 'en'
-      ? 'Hi! 👋 I’m *Mister Luks*, the one who keeps the books at Luks 🧾✨\n\nHere’s how I work:\n1️⃣ Add me to your WhatsApp group (or send me the group link right here and I’ll join on my own).\n2️⃣ Send receipt photos, PDFs or messages like “taxi $45”.\n3️⃣ I log them, split them and tell everyone who pays whom 🤝\n\nHere’s the guide 👇 If you need it again, just type “help”.'
-      : '¡Hola! 👋 Soy *Mister Luks*, el que lleva las cuentas en Luks 🧾✨\n\nAsí funciono:\n1️⃣ Agrégame a tu grupo de WhatsApp (o mándame aquí el link del grupo y entro solito).\n2️⃣ Manden fotos de recibos, PDFs o mensajes como «taxi 45 lucas».\n3️⃣ Yo los anoto, los divido y les digo quién le paga a quién 🤝\n\nTe dejo la guía 👇 Si la necesitas otra vez, escríbeme «ayuda».',
+      ? 'Hi! 👋 I’m *Mister Luks*, the one who keeps the books at Luks 🧾✨\n\nHere’s how I work:\n1️⃣ Add me to your WhatsApp group (or send me the group link right here and I’ll join on my own).\n2️⃣ Send receipt photos, PDFs or messages like “taxi $45”.\n3️⃣ I log them, split them and tell everyone who pays whom 🤝\n4️⃣ Right here, ask me “what do I owe” or “my accounts” and I’ll tell you your share, item by item.\n\nHere’s the guide 👇 If you need it again, just type “help”.'
+      : '¡Hola! 👋 Soy *Mister Luks*, el que lleva las cuentas en Luks 🧾✨\n\nAsí funciono:\n1️⃣ Agrégame a tu grupo de WhatsApp (o mándame aquí el link del grupo y entro solito).\n2️⃣ Manden fotos de recibos, PDFs o mensajes como «taxi 45 lucas».\n3️⃣ Yo los anoto, los divido y les digo quién le paga a quién 🤝\n4️⃣ Aquí por privado pregúntame «qué debo» o «mis cuentas» y te cuento lo tuyo, ítem por ítem.\n\nTe dejo la guía 👇 Si la necesitas otra vez, escríbeme «ayuda».',
   guia: (idioma: Idioma) =>
     idioma === 'en'
       ? '📘 Here’s the Mister Luks guide. The full one is at mrluks.com/guia 😉'

@@ -2,9 +2,10 @@ import sharp from 'sharp';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { IncomingMessage } from '../src/connector.js';
 import { Ingestor } from '../src/ingest.js';
-import { PREGUNTAS } from '../src/preguntas.js';
+import { PRIVADO as POR_PRIVADO, PREGUNTAS } from '../src/preguntas.js';
 import { RateLimiter } from '../src/replies.js';
-import { LINK_GRUPO, MISTER, MSG, PREGUNTA_DESDE_CUANDO } from '../src/text.js';
+import type { NumerosDeCuenta } from '../src/store.js';
+import { esMensajeDeLuks, LINK_GRUPO, MISTER, MSG, PREGUNTA_DESDE_CUANDO } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
 const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxChatBytes: 50 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
@@ -773,5 +774,152 @@ describe('¿reabrir o cuenta nueva?', () => {
     store.preguntaReabrir = null;
     expect(await ing.onMessage(contador, wa, m({ text: '1' }))).toBe('ignorado:desde_cuando');
     expect(store.decisiones).toEqual([]);
+  });
+});
+
+describe('por privado, lo de cada quien (migración 480)', () => {
+  // DaniChile ya se liquidó: Mafe le debe a Daniel lo que pidió en Le Due Torri
+  const DANICHILE: NumerosDeCuenta = {
+    account: { id: 'dc', name: 'DaniChile', type: 'evento', status: 'settling', currency: 'COP', language: 'es', month: null },
+    optout: false,
+    total: 300_000,
+    count: 1,
+    pending: 0,
+    incomplete: 0,
+    people: [
+      { id: 'dan', name: 'Daniel', paid: 300_000, share: 100_000, balance: 200_000 },
+      { id: 'mafe', name: 'Mafe Cárdenas', paid: 0, share: 200_000, balance: -200_000 },
+    ],
+    settlement: [{ from: 'Mafe Cárdenas', to: 'Daniel', from_id: 'mafe', to_id: 'dan', amount: 200_000, paid: false }],
+    direct: true,
+    direct_transfers: null,
+    me: {
+      id: 'mafe',
+      name: 'Mafe Cárdenas',
+      paid_total: 0,
+      paid_count: 0,
+      expenses: [],
+      consumo: [
+        {
+          merchant: 'Le Due Torri',
+          payer_person_id: 'dan',
+          payer_name: 'Daniel',
+          shares: [
+            { person_id: 'mafe', amount_cop: 200_000 },
+            { person_id: 'dan', amount_cop: 100_000 },
+          ],
+          items: [
+            { name: 'Ravioli', quantity: 1, total: 180_000, people: [{ id: 'mafe', units: 1 }] },
+            { name: 'Pizza', quantity: 1, total: 100_000, people: [{ id: 'dan', units: 1 }] },
+          ],
+        },
+      ],
+    },
+  };
+  // En la Casa (octubre) a Mafe le deben
+  const CASA: NumerosDeCuenta = {
+    account: { id: 'casa', name: 'Casa', type: 'hogar', status: 'active', currency: 'COP', language: 'es', month: '2026-10-01' },
+    optout: false,
+    total: 50_000,
+    count: 1,
+    pending: 0,
+    incomplete: 0,
+    people: [
+      { id: 'mafe2', name: 'Mafe Cárdenas', paid: 50_000, share: 25_000, balance: 25_000 },
+      { id: 'vale', name: 'Valeria', paid: 0, share: 25_000, balance: -25_000 },
+    ],
+    settlement: null,
+    direct: false,
+    me: {
+      id: 'mafe2',
+      name: 'Mafe Cárdenas',
+      paid_total: 50_000,
+      paid_count: 1,
+      expenses: [{ merchant: 'Mercado', total: 50_000, date: '2026-10-02' }],
+      consumo: [],
+    },
+  };
+  const ultimo = () => bandeja(PRIVADO).at(-1)?.body ?? '';
+
+  beforeEach(async () => {
+    // Ya le había escrito (la bienvenida ya salió)
+    await ing.onMessage(contador, wa, privado({ text: 'gracias' }));
+  });
+
+  it('en una sola cuenta, «qué debo» le cuenta todo: a quién, qué pidió, cuánto costó y cómo marcarlo pagado', async () => {
+    store.misCuentasDe.set('573016667788', [DANICHILE]);
+    expect(await ing.onMessage(contador, wa, privado({ text: '¿Qué debo?' }))).toBe('suyo:mi_saldo');
+    expect(ultimo()).toBe(
+      [
+        '💸 Mafe, en «DaniChile» pusiste *$0* y te tocan *$200.000*: debes *$200.000*.',
+        '• Le pagas a Daniel *$200.000*',
+        '',
+        '🧾 *Lo tuyo, ítem por ítem:*',
+        '',
+        '*Le Due Torri* (pagó Daniel)',
+        '• Ravioli: $180.000',
+        '• Propina y servicio: $20.000',
+        'Total: *$200.000*',
+        '',
+        'Cuando le pagues, escríbeme *ya le pagué a Daniel* y lo marco ✅',
+        '',
+        '📊 Más detalle en mrluks.com',
+      ].join('\n'),
+    );
+    // Un saludo, también
+    expect(await ing.onMessage(contador, wa, privado({ text: 'hola luks' }))).toBe('suyo:mi_saldo');
+  });
+
+  it('en varias, la lista con cómo va en cada una; con el número, el detalle', async () => {
+    store.misCuentasDe.set('573016667788', [DANICHILE, CASA]);
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Hola' }))).toBe('suyo:lista');
+    expect(ultimo()).toBe(
+      [
+        '📒 Mafe, estás en 2 cuentas:',
+        '1. *DaniChile*: debes *$200.000*',
+        '2. *Casa* (octubre): te deben *$25.000*',
+        '',
+        'Respóndeme con el número y te cuento todo: qué pediste, cuánto costó y a quién le pagas.',
+        '',
+        '📊 Más detalle en mrluks.com',
+      ].join('\n'),
+    );
+    expect(await ing.onMessage(contador, wa, privado({ text: '2' }))).toBe('suyo:mi_saldo');
+    expect(ultimo()).toContain('🙌 Mafe, en «Casa» en octubre pusiste *$50.000* y te tocan *$25.000*: te deben *$25.000*.');
+    expect(ultimo()).toContain('• Valeria te paga *$25.000*');
+    expect(ultimo().endsWith('↩️ Para ver otra de tus cuentas, respóndeme *mis cuentas*.\n\n📊 Más detalle en mrluks.com')).toBe(true);
+
+    // Otra pregunta: la lista otra vez, y el número responde eso
+    expect(await ing.onMessage(contador, wa, privado({ text: 'mis gastos' }))).toBe('suyo:lista');
+    expect(await ing.onMessage(contador, wa, privado({ text: '1️⃣' }))).toBe('suyo:mis_gastos');
+    expect(ultimo()).toContain('🧾 Mafe, en «DaniChile» no has pagado gastos.');
+    // Un número que no está en la lista: la lista otra vez
+    expect(await ing.onMessage(contador, wa, privado({ text: '7' }))).toBe('suyo:lista');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'mis cuentas' }))).toBe('suyo:lista');
+  });
+
+  it('a quien no está en ninguna cuenta se lo dice; lo que no entiende, solo si pregunta algo', async () => {
+    expect(await ing.onMessage(contador, wa, privado({ text: 'cuánto debo' }))).toBe('suyo:no_te_encuentro');
+    expect(ultimo()).toBe(POR_PRIVADO.noTeEncuentro('es'));
+    expect(await ing.onMessage(contador, wa, privado({ text: '¿y el clima?' }))).toBe('suyo:no_entendi');
+    expect(await ing.onMessage(contador, wa, privado({ text: '¿y mañana?' }))).toBe('suyo:no_entendi');
+    expect(bandeja(PRIVADO).filter((o) => o.body === POR_PRIVADO.noEntendi('es'))).toHaveLength(1);
+    // Sin lista, un número no es nada; y «ok» tampoco
+    expect(await ing.onMessage(contador, wa, privado({ text: '2' }))).toBe('privado');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'ok' }))).toBe('privado');
+  });
+
+  it('si la base todavía no lo tiene (sin la 480), por privado sigue como antes', async () => {
+    store.misCuentas = async () => {
+      throw new Error('function connector_mis_cuentas does not exist');
+    };
+    expect(await ing.onMessage(contador, wa, privado({ text: '¿qué debo?' }))).toBe('privado');
+  });
+
+  it('nada de lo que responde se anota como gasto', async () => {
+    store.misCuentasDe.set('573016667788', [DANICHILE, CASA]);
+    await ing.onMessage(contador, wa, privado({ text: 'hola' }));
+    await ing.onMessage(contador, wa, privado({ text: '1' }));
+    for (const o of bandeja(PRIVADO).slice(-2)) expect(esMensajeDeLuks(o.body)).toBe(true);
   });
 });

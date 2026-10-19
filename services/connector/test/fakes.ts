@@ -14,6 +14,8 @@ import type {
   ItemsRespuesta,
   KeyItem,
   LinkResult,
+  MisCuentas,
+  NumerosDeCuenta,
   OutboxItem,
   OutboxPending,
   PendientesResult,
@@ -356,6 +358,11 @@ export class FakeStore implements Store {
     const base = { identity_id: `i-${sender.id}`, pref: this.prefs.get(sender.id ?? '') ?? null, contador_en_grupo: this.presentes.has(`${jid}|contador`) };
     if (!this.groups.get(jid)?.account_id || !this.numeros) return { ...base, ok: false, reason: 'sin_cuenta' };
     return { ...base, ...this.numeros, optout: this.optouts.has(`${jid}|${sender.id}`) };
+  }
+  /** Por privado, las cuentas de cada quien (por su número) */
+  misCuentasDe = new Map<string, NumerosDeCuenta[]>();
+  async misCuentas(_jid: string, sender: Sender): Promise<MisCuentas> {
+    return { identity_id: `i-${sender.id}`, cuentas: this.misCuentasDe.get(sender.id ?? '') ?? [] };
   }
   async answerPref(jid: string, sender: Sender, mode: 'privado' | 'aqui', onlyPending: boolean) {
     const id = sender.id ?? '';

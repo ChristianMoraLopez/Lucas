@@ -3,7 +3,7 @@ import { contestar, leerRespuesta } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
 import { elegirPagos, PAGOS } from './pagos.js';
-import { PREGUNTAS, primerNombre, RESPUESTA } from './preguntas.js';
+import { antesDeLaFirma, type Numeros, PREGUNTAS, PRIVADAS, PRIVADO, primerNombre, RESPUESTA } from './preguntas.js';
 import type { Clasificador } from './qwen.js';
 import { contestarDecision, leerDecision } from './reabrir.js';
 import type { RateLimiter } from './replies.js';
@@ -12,16 +12,19 @@ import {
   aMisterLuks,
   canalDe,
   esMensajeDeLuks,
+  esMenu,
   esPedidoDeAyuda,
   esSoyYo,
   guia,
   type Idioma,
+  type Intencion,
   idiomaDeNumero,
   intencionDe,
   looksLikeExpense,
   MISTER,
   MSG,
   nombreDelChat,
+  pareceUnaPregunta,
   parseHistoria,
   parseInviteLink,
   parseLinkCommand,
@@ -48,6 +51,7 @@ export type Outcome =
   | 'chat_importado'
   | 'chat_muy_pesado'
   | `pregunta:${string}`
+  | `suyo:${string}`
   | `pago:${string}`
   | `items:${string}`
   | `reabrir:${string}`
@@ -75,6 +79,8 @@ const mes = (d: Date) => d.toISOString().slice(0, 7);
 const nombreSeguro = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
 /** El tramo de tiempo del mensaje: lo mismo dentro del tramo no se responde dos veces */
 const tramo = (d: Date, minutos: number) => Math.floor(d.getTime() / (minutos * 60_000));
+/** La lista de cuentas que se le mandó por privado sirve para responder con el número durante este tiempo */
+const LISTA_MS = 30 * 60_000;
 
 /** El chat privado de quien escribe (con su número, o su LID si WhatsApp no deja ver el número) */
 const privadoDe = (m: IncomingMessage) =>
@@ -96,6 +102,8 @@ function idiomaDelGrupo(members: GroupMember[]): Idioma {
 export class Ingestor {
   /** El número de Mister Luks (y su LID): lo que escribe no es un gasto aunque lo lea otra sesión */
   #misterLuks = new Set<string>();
+  /** Por privado: la lista de cuentas que se le mandó a cada chat, para responder con el número */
+  #listas = new Map<string, { ids: string[]; intencion: Intencion; hasta: number }>();
 
   constructor(
     private readonly store: Store,
@@ -348,7 +356,84 @@ export class Ingestor {
       ]);
       return 'ayuda';
     }
+
+    // Lo suyo: «qué debo», «de qué», «mis cuentas», «mis gastos», o el número de la lista
+    if (!m.media) {
+      const suyo = await this.#loSuyo(m, texto, primeraVez);
+      if (suyo) return suyo;
+    }
     return primeraVez ? 'bienvenida' : 'privado';
+  }
+
+  /**
+   * Por privado (migración 480), lo de cada quien en todas sus cuentas: si
+   * está en una, se lo cuenta todo (cuánto debe, a quién, qué pidió y cuánto
+   * costó); si está en varias, la lista con cómo va en cada una y responde con
+   * el número (la lista sirve 30 minutos). Un saludo también muestra la lista.
+   * null si no era para esto (sigue como cualquier mensaje por privado).
+   */
+  async #loSuyo(m: IncomingMessage, texto: string, primeraVez: boolean): Promise<Outcome | null> {
+    const ahora = Date.now();
+    const lista = this.#listas.get(m.chatId);
+    if (lista && lista.hasta < ahora) this.#listas.delete(m.chatId);
+    const numero = /^\s*(\d{1,2})\uFE0F?\u20E3?\s*[.!)]*\s*$/.exec(texto)?.[1];
+    const conLista = Boolean(numero && lista && lista.hasta >= ahora);
+    const elegida = conLista && lista ? lista.ids[Number(numero) - 1] : undefined;
+    // Un saludo, «mis cuentas» o un número que no está en la lista: la lista
+    const saludo = !elegida && (esMenu(texto) || conLista);
+    let intencion: Intencion | null = elegida && lista ? lista.intencion : intencionDe(texto);
+    if (!elegida && !intencion && !saludo && pareceUnaPregunta(texto) && this.mister.clasificar) intencion = await this.mister.clasificar(texto);
+    if (intencion && !PRIVADAS.includes(intencion)) return null;
+    const idioma = idiomaDeNumero(m.sender.phone);
+    const responder = async (body: string, clave = m.messageId) => {
+      await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${clave}` }]);
+    };
+    if (!intencion && !saludo) {
+      // Lo que no se entiende solo se contesta si pregunta algo (un «gracias» no), y como mucho cada 10 minutos
+      if (primeraVez || !pareceUnaPregunta(texto)) return null;
+      await responder(PRIVADO.noEntendi(idioma), `no_entendi:${tramo(m.sentAt, 10)}`);
+      return 'suyo:no_entendi';
+    }
+
+    let d: Awaited<ReturnType<Store['misCuentas']>>;
+    try {
+      d = await this.store.misCuentas(m.chatId, m.sender);
+    } catch (e) {
+      // Sin la 480 en la base, por privado sigue como antes
+      this.log.warn({ err: e }, 'No se pudieron leer las cuentas por privado');
+      return null;
+    }
+    const cuentas: Numeros[] = d.cuentas.map((c) => ({ ...c, ok: true, identity_id: d.identity_id, pref: null, contador_en_grupo: false }));
+    if (!cuentas.length) {
+      if (primeraVez) return null;
+      await responder(PRIVADO.noTeEncuentro(idioma));
+      return 'suyo:no_te_encuentro';
+    }
+    const cuenta = elegida ? cuentas.find((c) => c.account.id === elegida) : cuentas.length === 1 ? cuentas[0] : undefined;
+    const que = intencion ?? 'mi_saldo';
+    if (!cuenta) {
+      const nombre = primerNombre(cuentas.find((c) => c.me)?.me?.name ?? m.sender.name);
+      this.#listas.set(m.chatId, { ids: cuentas.map((c) => c.account.id ?? ''), intencion: que, hasta: ahora + LISTA_MS });
+      await responder(PRIVADO.lista(cuentas, nombre, idioma));
+      this.log.info({ chat: maskWaId(m.chatId), cuentas: cuentas.length, intent: que }, 'Sus cuentas, por privado');
+      return 'suyo:lista';
+    }
+
+    const enCuenta: Idioma = cuenta.account.language ?? idioma;
+    const me = cuenta.me;
+    let body = !me
+      ? PREGUNTAS.noTeConozco(enCuenta, cuenta.account.name)
+      : que === 'mis_gastos'
+        ? RESPUESTA.misGastos(cuenta, me, enCuenta)
+        : que === 'total'
+          ? RESPUESTA.total(cuenta, enCuenta)
+          : que === 'deudas'
+            ? RESPUESTA.deudas(cuenta, enCuenta)
+            : RESPUESTA.miSaldo(cuenta, me, enCuenta, true);
+    if (cuentas.length > 1) body = antesDeLaFirma(body, PRIVADO.otraCuenta(enCuenta));
+    await responder(body);
+    this.log.info({ chat: maskWaId(m.chatId), intent: que }, 'Lo suyo, por privado');
+    return `suyo:${que}`;
   }
 
   /**

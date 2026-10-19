@@ -243,26 +243,32 @@ export type QuestionData = {
   pref: 'privado' | 'aqui' | null;
   /** Si Mister Luks está en el grupo (si no, lo lee solo un WhatsApp vinculado) */
   contador_en_grupo: boolean;
-} & (
-  | { ok: false; reason: 'sin_cuenta' }
-  | {
-      ok: true;
-      account: { name: string; type: 'hogar' | 'evento'; status: string; currency: Moneda; language: Idioma | null; month: string | null };
-      optout: boolean;
-      total: number;
-      count: number;
-      pending: number;
-      /** Sin quién pagó o mal divididos: no entran en los saldos */
-      incomplete: number;
-      people: { id: string; name: string; paid: number; share: number; balance: number }[];
-      /** Si el período ya se liquidó, sus transferencias */
-      settlement: { from: string; to: string; from_id: string; to_id: string; amount: number; paid: boolean }[] | null;
-      /** Migración 400: si se liquida «a quien pagó por cada uno», cómo quedarían hoy (null si se cruzan las deudas) */
-      direct?: boolean;
-      direct_transfers?: { from: string; to: string; from_id: string; to_id: string; amount: number }[] | null;
-      me: QuestionMe | null;
-    }
-);
+} & ({ ok: false; reason: 'sin_cuenta' } | ({ ok: true } & NumerosDeCuenta));
+
+/** Los números de una cuenta para responder (numeros_para_luks, migración 480; antes, dentro de connector_question) */
+export interface NumerosDeCuenta {
+  /** id: desde la 480 */
+  account: { id?: string; name: string; type: 'hogar' | 'evento'; status: string; currency: Moneda; language: Idioma | null; month: string | null };
+  optout: boolean;
+  total: number;
+  count: number;
+  pending: number;
+  /** Sin quién pagó o mal divididos: no entran en los saldos */
+  incomplete: number;
+  people: { id: string; name: string; paid: number; share: number; balance: number }[];
+  /** Si el período ya se liquidó, sus transferencias */
+  settlement: { from: string; to: string; from_id: string; to_id: string; amount: number; paid: boolean }[] | null;
+  /** Migración 400: si se liquida «a quien pagó por cada uno», cómo quedarían hoy (null si se cruzan las deudas) */
+  direct?: boolean;
+  direct_transfers?: { from: string; to: string; from_id: string; to_id: string; amount: number }[] | null;
+  me: QuestionMe | null;
+}
+
+/** connector_mis_cuentas (migración 480): por privado, las cuentas de quien escribe, primero donde le falta pagar */
+export interface MisCuentas {
+  identity_id: string;
+  cuentas: NumerosDeCuenta[];
+}
 
 export interface IngestCheck {
   ingest: boolean;
@@ -359,6 +365,8 @@ export interface Store {
   shouldIngest(jid: string, waMessageId: string, sentAt: Date, senderWaId?: string | null): Promise<IngestCheck>;
   /** Una pregunta a Mister Luks: los números de la cuenta del grupo y lo de quien pregunta (null si no es un grupo) */
   question(jid: string, sender: Sender): Promise<QuestionData | null>;
+  /** Por privado: las cuentas de quien escribe, con sus números (migración 480) */
+  misCuentas(jid: string, sender: Sender): Promise<MisCuentas>;
   /** «privado» o «aquí»; con onlyPending, solo si había una pregunta suya esperando en ese grupo */
   answerPref(
     jid: string,
@@ -611,6 +619,16 @@ export class SupabaseStore implements Store {
       p_name: sender.name,
     });
     return 'identity_id' in r ? r : null;
+  }
+
+  misCuentas(jid: string, sender: Sender) {
+    return this.#rpc<MisCuentas>('connector_mis_cuentas', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+    });
   }
 
   answerPref(jid: string, sender: Sender, mode: 'privado' | 'aqui', onlyPending: boolean) {

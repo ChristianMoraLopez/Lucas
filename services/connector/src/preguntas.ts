@@ -1,7 +1,7 @@
 import { loSuyo } from './cobros.js';
 import { minTransfers } from './liquidacion.js';
 import type { QuestionData, QuestionMe } from './store.js';
-import { formatCOP, type Idioma } from './text.js';
+import { formatCOP, type Idioma, type Intencion } from './text.js';
 
 /* Lo que responde Mister Luks cuando le preguntan (fase 7). Los números vienen
    de la base (connector_question, migración 350); aquí solo se escriben. Las
@@ -129,7 +129,7 @@ export const RESPUESTA = {
   },
 
   /** «cuánto debo», «cuánto me deben» */
-  miSaldo: (d: Numeros, me: QuestionMe, idioma: Idioma) => {
+  miSaldo: (d: Numeros, me: QuestionMe, idioma: Idioma, privado = false) => {
     const en = idioma === 'en';
     const plata = (n: number) => formatCOP(n, d.account.currency, idioma);
     const nombre = primerNombre(me.name);
@@ -170,7 +170,15 @@ export const RESPUESTA = {
     // Si debe, por qué: lo que pidió en cada gasto y cuánto costó
     const suyo = saldo < 0 && me.consumo?.length ? loSuyo(me.consumo, me.id, d.account.currency, idioma).lineas : [];
     const porQue = suyo.length ? `\n\n${en ? '🧾 *Your share, item by item:*' : '🧾 *Lo tuyo, ítem por ítem:*'}\n${suyo.join('\n')}` : '';
-    return `${cabeza}${detalle.length ? `\n${detalle.join('\n')}` : ''}${porQue}${incompletos(d, idioma)}\n\n${FIRMA[idioma]}`;
+    // Por privado, cómo marcar lo pagado (si ya se liquidó y le falta pagar)
+    const a1 = liquidado ? pendientes.find((t) => t.deId === me.id)?.a : undefined;
+    const marcar =
+      privado && a1
+        ? en
+          ? `\n\nWhen you pay, tell me *I paid ${primerNombre(a1)}* and I’ll mark it ✅`
+          : `\n\nCuando le pagues, escríbeme *ya le pagué a ${primerNombre(a1)}* y lo marco ✅`
+        : '';
+    return `${cabeza}${detalle.length ? `\n${detalle.join('\n')}` : ''}${porQue}${marcar}${incompletos(d, idioma)}\n\n${FIRMA[idioma]}`;
   },
 
   /** «mis gastos» */
@@ -190,6 +198,55 @@ export const RESPUESTA = {
       ? `🧾 ${nombre}, in “${d.account.name}” you paid *${plata(Number(me.paid_total))}*${periodo(d, idioma)} across ${cuantos(me.paid_count, 'expense', 'expenses')}:\n${lineas.join('\n')}${mas}\n\n${FIRMA.en}`
       : `🧾 ${nombre}, en «${d.account.name}» pagaste *${plata(Number(me.paid_total))}*${periodo(d, idioma)} en ${cuantos(me.paid_count, 'gasto', 'gastos')}:\n${lineas.join('\n')}${mas}\n\n${FIRMA.es}`;
   },
+};
+
+/** Lo que se puede preguntar por privado de cada cuenta */
+export const PRIVADAS: readonly Intencion[] = ['mi_saldo', 'mis_gastos', 'total', 'deudas'];
+
+/** Con la firma de último (así lo reconoce es_mensaje_de_luks) */
+export function antesDeLaFirma(texto: string, extra: string): string {
+  const i = texto.lastIndexOf('\n\n📊');
+  return i < 0 ? `${texto}${extra}` : `${texto.slice(0, i)}${extra}${texto.slice(i)}`;
+}
+
+/**
+ * Por privado (migración 480): lo de cada quien en todas sus cuentas. Si está
+ * en varias, la lista con cómo va en cada una, y responde con el número.
+ */
+export const PRIVADO = {
+  /** Cómo va en una cuenta: lo que le falta pagar o cobrar */
+  estado: (d: Numeros, meId: string, idioma: Idioma) => {
+    const en = idioma === 'en';
+    const plata = (n: number) => formatCOP(n, d.account.currency, idioma);
+    const { liquidado, lista } = deudasDe(d);
+    const pendientes = lista.filter((t) => !t.pagada);
+    const debe = pendientes.filter((t) => t.deId === meId).reduce((s, t) => s + t.monto, 0);
+    const leDeben = pendientes.filter((t) => t.aId === meId).reduce((s, t) => s + t.monto, 0);
+    if (debe > 0) return en ? `you owe *${plata(debe)}*` : `debes *${plata(debe)}*`;
+    if (leDeben > 0) return en ? `you’re owed *${plata(leDeben)}*` : `te deben *${plata(leDeben)}*`;
+    if (liquidado) return en ? 'all paid ✅' : 'ya está todo pago ✅';
+    return en ? 'all square' : 'a paz y salvo';
+  },
+  lista: (cuentas: Numeros[], nombre: string, idioma: Idioma) => {
+    const en = idioma === 'en';
+    const lineas = cuentas.map((d, k) => {
+      const mes = d.account.month ? ` (${MESES[idioma][Number(d.account.month.slice(5, 7)) - 1]})` : '';
+      return `${k + 1}. *${d.account.name}*${mes}: ${d.me ? PRIVADO.estado(d, d.me.id, idioma) : '—'}`;
+    });
+    return en
+      ? `📒 ${nombre}, you’re in ${cuentas.length} accounts:\n${lineas.join('\n')}\n\nReply with the number and I’ll tell you everything: what you had, what it cost and who you pay.\n\n${FIRMA.en}`
+      : `📒 ${nombre}, estás en ${cuentas.length} cuentas:\n${lineas.join('\n')}\n\nRespóndeme con el número y te cuento todo: qué pediste, cuánto costó y a quién le pagas.\n\n${FIRMA.es}`;
+  },
+  otraCuenta: (idioma: Idioma) =>
+    idioma === 'en' ? '\n\n↩️ To see another of your accounts, reply *my accounts*.' : '\n\n↩️ Para ver otra de tus cuentas, respóndeme *mis cuentas*.',
+  noTeEncuentro: (idioma: Idioma) =>
+    idioma === 'en'
+      ? '🤔 I can’t find you in any Luks account with this number. When you’re in a group with Mister Luks and expenses get logged, I’ll tell you your share here.'
+      : '🤔 No te encuentro en ninguna cuenta de Luks con este número. Cuando estés en un grupo con Mister Luks y anoten gastos, aquí te cuento lo tuyo.',
+  noEntendi: (idioma: Idioma) =>
+    idioma === 'en'
+      ? '🤔 I didn’t get that. Ask me “what do I owe”, “my accounts” or “my expenses”; and when you pay someone, tell me “I paid …”.'
+      : '🤔 No te entendí. Pregúntame «qué debo», «mis cuentas» o «mis gastos»; y cuando le pagues a alguien, dime «ya le pagué a …».',
 };
 
 /** Lo demás que dice cuando le preguntan */
