@@ -6915,3 +6915,185 @@ a.gr-fila:focus-visible {
 .st-avisos__sw {
   justify-content: flex-start;
 }
+
+/* ---------- Liquidar: una tarjeta por persona (abre tu nombre: a quién le pagas y por qué) ---------- */
+.st-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.st-c {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.st-c.is-mia {
+  border-color: var(--morado);
+}
+.st-c.is-done {
+  box-shadow: none;
+}
+.st-c__s {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+}
+.st-c__s::-webkit-details-marker {
+  display: none;
+}
+.st-c__s:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: -2px;
+}
+.st-c.is-mia .st-c__s {
+  background: var(--morado-suave);
+}
+.st-c__who {
+  display: grid;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 22px;
+}
+.st-c__who b {
+  font-weight: 800;
+}
+.st-c__sub {
+  font-size: 13px;
+  line-height: 18px;
+}
+.st-c__bal {
+  display: grid;
+  justify-items: end;
+  font-size: 12px;
+}
+.st-c__ok {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--verde);
+}
+.st-c__chev {
+  width: 10px;
+  height: 10px;
+  border-right: 2.5px solid var(--tinta-2);
+  border-bottom: 2.5px solid var(--tinta-2);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 0.2s ease;
+}
+.st-c__d[open] .st-c__chev {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+.st-c__body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--borde);
+}
+.st-c__nota {
+  margin: 0;
+}
+/* Cada persona a quien le paga */
+.st-d {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--superficie-2);
+}
+.st-d.is-pagada,
+.st-d.is-ya_pagada {
+  background: var(--verde-suave);
+}
+.st-d.is-a_mano {
+  background: none;
+  border: 1px dashed var(--borde);
+}
+.st-d__head {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.st-d__who {
+  display: grid;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 20px;
+}
+.st-d__who b {
+  font-weight: 800;
+}
+.st-d__amt {
+  justify-self: end;
+}
+/* Sin las áreas de la lista de transferencias (grid-area: act crearía columnas de más) */
+.st-d .st-d__act {
+  grid-area: auto;
+  min-height: 0;
+  min-width: 0;
+}
+/* Sobre el fondo de la deuda, el botón de WhatsApp se vería apagado */
+.st-d .st-d__act .lu-btn--secondary {
+  background: var(--superficie);
+}
+.st-d__gastos {
+  padding: var(--space-2) 0 0;
+  background: none;
+}
+.st-d .st-d__gastos .sh-items {
+  background: var(--superficie);
+}
+.st-d__ajuste {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--borde);
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+.st-d--cobros {
+  background: none;
+  padding: 0;
+}
+.st-d__h {
+  margin: 0;
+}
+.st-c__cobros {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.st-c__li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 14px;
+}
+.st-c__cobro {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@container app (max-width: 420px) {
+  .st-c__s {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .st-c__chev {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-c__chev {
+    transition: none;
+  }
+}

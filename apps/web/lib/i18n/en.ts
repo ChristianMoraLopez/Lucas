@@ -1867,6 +1867,29 @@ export const EN: Record<string, string> = {
 
   // ---------- Liquidar por ítem ----------
   'Le tocó': 'Their share',
+  'lo pagó {nombre}': 'paid by {nombre}',
+  // Liquidar, una tarjeta por persona (por-persona.tsx)
+  'le paga a {lista}': 'pays {lista}',
+  'ya le pagó a {lista}': 'already paid {lista}',
+  '{n} le pagan': '{n} pay them',
+  'le falta pagar': 'still owes',
+  'ya pagó todo': 'paid it all',
+  'Se cruzaron las deudas para hacer menos transferencias: puede que le pague a alguien que no pagó lo suyo.':
+    'Debts were netted to make fewer transfers: they may pay someone who didn’t pay for their share.',
+  'Le pagan': 'Paying them',
+  'pagada {fecha}': 'paid {fecha}',
+  'falta pagarle': 'still to pay',
+  'así quedaría': 'how it would be',
+  pagada: 'paid',
+  'ya se lo pagó': 'already paid',
+  'a mano: se cruza con lo que {nombre} le debía': 'even: it cancels out with what {nombre} owed them',
+  'A {nombre}': 'To {nombre}',
+  'Por qué': 'Why',
+  'Menos lo que {nombre} le debía': 'Minus what {nombre} owed them',
+  'Menos lo que ya le pagó': 'Minus what they already paid',
+  'Más lo que {nombre} ya le había pagado': 'Plus what {nombre} had already paid them',
+  '{nombre} no pagó nada suyo: se cruzaron las deudas para hacer menos transferencias.':
+    '{nombre} didn’t pay for anything of theirs: debts were netted to make fewer transfers.',
   'No le tocó nada.': 'Nothing to pay.',
   'Lo que pidió {nombre} en {comercio}': 'What {nombre} ordered at {comercio}',
   'Lo que otro puso de más': 'What someone else chipped in',

@@ -13,6 +13,7 @@ import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
 import { copiar, copiarLuego } from '@/lib/clipboard';
 import { formatDay, formatRange, monthName } from '@/lib/dates';
+import { porPersona } from '@/lib/deudas';
 import { humanError } from '@/lib/errors';
 import type { T } from '@/lib/i18n';
 import { rico } from '@/lib/i18n/rico';
@@ -24,6 +25,7 @@ import { minTransfers } from '@/lib/settlement';
 import { calcularTransferencias, cobroMessage, cruzaDeudas, detalleCobro, displayShare, grupoMessage, sharedLink } from '@/lib/share';
 import { type AvisosDeCobro, asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
+import { PorPersona } from './por-persona';
 
 type Accion = 'liquidar' | 'reabrir' | 'cerrar';
 
@@ -110,6 +112,8 @@ export function SettleScreen({
   const transfers: SettlementTransfer[] = s
     ? s.transfers
     : calculo.transfers.map((x, i) => ({ id: `previa-${i}`, from: x.from, to: x.to, amount: x.amount, paid_at: null, paid_by: null }));
+  // Una tarjeta por persona: a quién le paga, cuánto y por qué
+  const tarjetas = porPersona({ people: d.people, expenses: d.expenses, transfers, payments: d.payments, cruza, yo: d.my_person_id });
   const total = d.people.reduce((sum, p) => sum + p.paid, 0);
   const pagadas = transfers.filter((x) => x.paid_at).length;
   const pendiente = transfers.reduce((sum, x) => sum + (x.paid_at ? 0 : x.amount), 0);
@@ -172,6 +176,38 @@ export function SettleScreen({
       {x.to === d.my_person_id ? t('Cobrarle por WhatsApp') : t('Recordarle por WhatsApp')}
     </a>
   );
+  // Los botones de cada transferencia, en la tarjeta de quien paga
+  const acciones = (x: SettlementTransfer, i: number) =>
+    !s ? (
+      puedeCobrar(x) && botonCobrar(x)
+    ) : (
+      <>
+        {puedeCobrar(x) && botonCobrar(x)}
+        {x.paid_at ? (
+          <>
+            <Sticker tone="pagado" rotate={i % 2 ? 5 : -5} sub={formatDay(new Date(x.paid_at), undefined, t.idioma)} />
+            {puedeMarcar(x) && (
+              <button type="button" className="st-undo" onClick={() => marcar(x, false)} disabled={busy === x.id}>
+                {t('deshacer')}
+              </button>
+            )}
+          </>
+        ) : puedeMarcar(x) ? (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              lanzarChispas(e);
+              marcar(x, true);
+            }}
+            disabled={busy === x.id}
+          >
+            {busy === x.id ? t('Guardando…') : t('Marcar pagada')}
+          </Button>
+        ) : (
+          <span className="lu-small lu-muted">{t('Sin pagar')}</span>
+        )}
+      </>
+    );
 
   // Para todo el grupo: cuánto fue y quién le paga a quién, en un solo mensaje
   const mensajeGrupo = (tk: string | null) =>
@@ -325,62 +361,8 @@ export function SettleScreen({
             </p>
           </div>
         )}
-        {transfers.length > 0 ? (
-          <ol className="st-list lu-stagger" aria-label={s ? t('Transferencias') : t('Así quedarían las transferencias')}>
-            {transfers.map((x, i) => {
-              const de = people.get(x.from);
-              const para = people.get(x.to);
-              return (
-                <li
-                  key={x.id}
-                  className={`st-t${x.paid_at ? ' is-paid' : ''}${s ? '' : ' is-previa'}${!s && puedeCobrar(x) ? ' has-act' : ''}`}
-                  style={{ '--i': i } as React.CSSProperties}
-                >
-                  <div className="st-pair" aria-hidden="true">
-                    <Avatar name={nombre(x.from)} tone={asTone(de?.tone, nombre(x.from))} registered={de?.registered} size="sm" />
-                    <svg className="st-arrow" viewBox="0 0 40 16" aria-hidden="true">
-                      <path d="M2 8h32M28 3l6 5-6 5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <Avatar name={nombre(x.to)} tone={asTone(para?.tone, nombre(x.to))} registered={para?.registered} size="sm" />
-                  </div>
-                  <div className="st-txt">
-                    <span className="st-sent">{rico(t('{de} le paga a {para}'), { de: <b>{nombre(x.from)}</b>, para: <b>{nombre(x.to)}</b> })}</span>
-                    <span className="st-lucas">{$.corto(x.amount)}</span>
-                  </div>
-                  <Amount value={x.amount} size="lg" className="st-amt" />
-                  {!s && puedeCobrar(x) && <div className="st-act">{botonCobrar(x)}</div>}
-                  {s && (
-                    <div className="st-act">
-                      {puedeCobrar(x) && botonCobrar(x)}
-                      {x.paid_at ? (
-                        <>
-                          <Sticker tone="pagado" rotate={i % 2 ? 5 : -5} sub={formatDay(new Date(x.paid_at), undefined, t.idioma)} />
-                          {puedeMarcar(x) && (
-                            <button type="button" className="st-undo" onClick={() => marcar(x, false)} disabled={busy === x.id}>
-                              {t('deshacer')}
-                            </button>
-                          )}
-                        </>
-                      ) : puedeMarcar(x) ? (
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            lanzarChispas(e);
-                            marcar(x, true);
-                          }}
-                          disabled={busy === x.id}
-                        >
-                          {busy === x.id ? t('Guardando…') : t('Marcar pagada')}
-                        </Button>
-                      ) : (
-                        <span className="lu-small lu-muted">{t('Sin pagar')}</span>
-                      )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
+        {tarjetas.length > 0 && (transfers.length > 0 || (d.payments?.length ?? 0) > 0) ? (
+          <PorPersona tarjetas={tarjetas} people={people} yo={d.my_person_id} cruza={cruza} liquidada={Boolean(s)} acciones={acciones} />
         ) : (
           total > 0 && (
             <div className="st-cero">
@@ -443,7 +425,7 @@ export function SettleScreen({
         </p>
         <ul className="st-pp lu-stagger">
           {d.people.map((p, i) => (
-            <Persona key={p.id} i={i} p={p} yo={p.id === d.my_person_id} gastos={d.expenses} />
+            <Persona key={p.id} i={i} p={p} yo={p.id === d.my_person_id} gastos={d.expenses} nombre={nombre} />
           ))}
         </ul>
       </section>
@@ -803,7 +785,19 @@ function MesNav({ accountId, mes, hoy, liquidados }: { accountId: string; mes: s
 }
 
 /** Una persona: lo que pagó, lo que le tocaba y su saldo; al tocarla, qué pagó y qué le tocó (ítem por ítem). */
-function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boolean; gastos: SettlementOverview['expenses'] }) {
+function Persona({
+  p,
+  i,
+  yo,
+  gastos,
+  nombre,
+}: {
+  p: SettlementPerson;
+  i: number;
+  yo: boolean;
+  gastos: SettlementOverview['expenses'];
+  nombre: (id: string | null) => string;
+}) {
   const t = useT();
   const formatCOP = useDinero().fmt;
   const pago = gastos.filter((e) => e.payer_person_id === p.id);
@@ -864,7 +858,11 @@ function Persona({ p, i, yo, gastos }: { p: SettlementPerson; i: number; yo: boo
                   {tag(e)}
                   <span className="st-p__m">
                     {e.merchant}
-                    <span className="lu-muted"> · {formatDay(e.expense_date, undefined, t.idioma)}</span>
+                    <span className="lu-muted">
+                      {' · '}
+                      {formatDay(e.expense_date, undefined, t.idioma)}
+                      {e.payer_person_id && e.payer_person_id !== p.id ? ` · ${t('lo pagó {nombre}', { nombre: nombre(e.payer_person_id) })}` : ''}
+                    </span>
                   </span>
                   <Amount value={r.parte} size="sm" />
                   <ItemsDeUno recibo={r} label={t('Lo que pidió {nombre} en {comercio}', { nombre: p.name, comercio: e.merchant })} fmt={formatCOP} t={t} />
