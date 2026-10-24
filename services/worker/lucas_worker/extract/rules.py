@@ -316,7 +316,11 @@ def analyze_document(text: str | None, today: date) -> Hints:
                 h.subtotal = montos[-1]
             continue
         if _TOTAL.search(n) and not _NO_TOTAL.search(n):
-            for v in _montos_de_linea(lines, i)[-1:]:
+            # «TOTAL 4» es cuántos ítems, no plata; el valor puede haber quedado en la línea de arriba
+            montos = [v for v in _montos_de_linea(lines, i) if v >= 50]
+            if not montos and i > 0 and not re.search(r"[^\W\d_]", lines[i - 1]):
+                montos = [v for v in find_amounts(lines[i - 1]) if v >= 50]
+            for v in montos[-1:]:
                 if v not in h.total_candidates:
                     h.total_candidates.append(v)
             continue

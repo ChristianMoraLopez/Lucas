@@ -157,6 +157,44 @@ TOTAL A PAGAR S 62,700
 10 % PropSugerida S 6,270
 TOTAL + PROPINA S 68,970"""
 
+# El OCR revuelve las filas «# CANT UN DESCRIPCION VALOR»: el número de la fila,
+# dos ítems en un renglón y el valor del segundo en el renglón del primero
+CUENTA_TAAMI = """GRANDES CONTRIBUYENTES A.C. 5611
+ICA
+CATERING N.I.T. 830.081.427-9 TAAMI
+CATERING
+CL 98 A 60 53
+TPV POS30001
+Cajero
+Fecha :2026/10/24 Hora:
+COMPROBANTE DE FACTURA ELECTRONICA: E2FE8444
+Vendedor : 7558 MONTANA BERNAL CLAUDIA M
+Condicion de Pago:CTD CONTADO
+Medio de Pago:TARJETA MASTERC 11
+Notas:
+Telefono:
+Contacto:
+Direccion:
+Cliente : CONSUMIDOR FINAL
+Nit/C.C::22222222222
+Direccion:
+Telefono :
+1 UN PIZZA PEPEPRONI 34,000.00 36,000.00
+2 1 UN PIZZA GUANCIALE 2 UN COCA COLA ZERO 15,000.00
+3 1 UN COCA COLA NORMAL 7,500.00
+4
+$92,500.00
+TOTAL 4
+TOTAL ITEMS..
+Motivo : VENTAS CATERING
+-- DETALLE DE VALORES ]-
+Vta Gravada (*)..... 85,648.15
+Impuestos al consumo.. 6,851.85
+IFORMACION TRIBUTARIA V1r_Base Vir_Impto.
+Descripcion
+ICO 8% SERVICIOS 85,648.15 6,851.85
+Medio De Pago:TARJETA $92,500.00"""
+
 NU_EXTRANJERO = """nU
 Comprobante de
 transacción
@@ -270,6 +308,17 @@ def test_cuenta_chilena_con_la_cantidad_despues_del_nombre_y_el_total_del_renglo
     assert ("Papas Huancaina", 1, 8_500, 8_500) in items
     assert ("Vital Sin Gas 350cc", 1, 3_100, 3_100) in items
     assert sum(t for *_, t in items) == 144_900
+
+
+def test_filas_revueltas_con_cantidad_y_unidad():
+    # «1 UN» abre cada ítem; el NIT del encabezado («830.081.427-9») no es plata
+    # y el total impreso al final de la tabla no es otro ítem
+    assert _tabla(CUENTA_TAAMI, 92_500) == [
+        ("Pizza Pepeproni", 1, 34_000, 34_000),
+        ("Pizza Guanciale", 1, 36_000, 36_000),
+        ("Coca Cola Zero", 2, 7_500, 15_000),
+        ("Coca Cola Normal", 1, 7_500, 7_500),
+    ]
 
 
 def test_un_comprobante_de_banco_no_tiene_items():

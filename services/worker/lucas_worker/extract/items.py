@@ -24,6 +24,10 @@ Los recibos colombianos imprimen los ítems de muchas formas:
     PRODUCTO CANT TOTAL                 (la cantidad después del nombre y el
     LIMONADA GEN/MENT 3 17.100           total del renglón: 3 limonadas)
 
+    1 UN PIZZA PEPERONI 34,000 36,000   (# CANT UN DESCRIPCION VALOR, con las
+    2 1 UN PIZZA GUANCIALE 2 UN COCA…    filas revueltas por el OCR: cada «1 UN»
+                                         abre un ítem y los valores van en orden)
+
 Se recorre de arriba hacia abajo hasta la primera línea de TOTAL: cada línea
 con plata cierra un ítem con el nombre que venía en las líneas anteriores (o
 en la misma). Solo cuentan como plata los números con forma de plata
@@ -43,11 +47,11 @@ from .numbers import con_centavos, parse_number, strip_accents
 # Plata: con separador de miles (y centavos opcionales), con «$» adelante o
 # con centavos («18000.00»)
 _PLATA = re.compile(
-    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{3,7}[.,]\d{2})(?![\d:]|[.,]\d)"
+    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{3,7}[.,]\d{2})(?![\d:]|[.,]\d|-\d(?!\d))"
 )
 # En dólares o bolivianos los precios chicos también llevan centavos: «BURGER 12.50»
 _PLATA_CENTAVOS = re.compile(
-    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{1,7}[.,]\d{2})(?![\d:]|[.,]\d)"
+    r"(?<![\w.,])(\$\s?\d[\d.,]*\d|\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,3}\s\d{3}[.,]\d{2}|\d{1,7}[.,]\d{2})(?![\d:]|[.,]\d|-\d(?!\d))"
 )
 # «2 x», «2 ×», «1 X», «1@» al empezar la línea de valores
 _POR = re.compile(r"^\s*(\d{1,3})\s*[x×X*@]\s*")
@@ -65,6 +69,12 @@ _CANTIDAD_AL_FINAL = re.compile(r"(?<=\S)\s+(\d{1,3})\s*$")
 # Las palabras que nombran la columna del producto en la fila de títulos
 _COLUMNA_NOMBRE = {"producto", "productos", "descripcion", "detalle", "articulo", "nombre", "item"}
 _COLUMNA_CANTIDAD = {"cant", "cantidad", "cnt", "ctd", "qty"}
+# El NIT del comercio («N.I.T. 830.081.427-9») no es plata
+_NIT = re.compile(r"\bN\.?\s?I\.?\s?T\.?\s*[:.]?\s*\d{1,3}(?:[.\s]?\d{3}){2,3}(?:\s*-\s*\d)?", re.IGNORECASE)
+# «1 UN», «2 UND», «3 UNID»: la cantidad y la unidad abren un ítem (# CANT UN DESCRIPCION VALOR)
+_UNIDAD = re.compile(
+    r"(?<![\d.,])(\d{1,3})\s+(?:UN|UND|UNID|UNIDAD|UNIDADES)\.?\s+(?=\S*[A-Za-zÁÉÍÓÚÑáéíóúñ])", re.IGNORECASE
+)
 # Promociones al empezar el nombre: «2X PISCO SOUR», «2x1 HAMBURGUESA»
 _PROMO = re.compile(r"^\d+[xX]\d*\s+")
 # Donde terminan los ítems
@@ -110,7 +120,10 @@ def _plata(token: str) -> int | None:
 def _montos(linea: str) -> list[tuple[int, int, int]]:
     """(valor, inicio, fin) de cada monto de la línea."""
     out = []
+    nits = [(n.start(), n.end()) for n in _NIT.finditer(linea)]
     for m in (_PLATA_CENTAVOS if con_centavos() else _PLATA).finditer(linea):
+        if any(a <= m.start() < b for a, b in nits):
+            continue
         v = _plata(m.group(1))
         if v is not None and v >= 50:
             out.append((v, m.start(), m.end()))
@@ -241,19 +254,78 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
     return items, con_titulos
 
 
+def leer_por_unidades(texto: str | None) -> list[ItemLeido]:
+    """
+    «# CANT UN DESCRIPCION VALOR» con las filas revueltas por el OCR:
+
+        1 UN PIZZA PEPEPRONI 34,000.00 36,000.00
+        2 1 UN PIZZA GUANCIALE 2 UN COCA COLA ZERO 15,000.00
+        3 1 UN COCA COLA NORMAL 7,500.00
+
+    Cada «1 UN» abre un ítem (cantidad y nombre) y los valores, en orden, son
+    los de cada uno: uno por ítem (el del renglón) o dos (unitario y total).
+    Si no son tantos como los ítems, no hay ítems.
+    """
+    lineas = [ln.strip() for ln in (texto or "").splitlines() if ln.strip()]
+    inicio = next((k for k, ln in enumerate(lineas) if _UNIDAD.search(ln)), None)
+    if inicio is None:
+        return []
+    bloque: list[str] = []
+    for ln in lineas[inicio:]:
+        if _FIN.search(strip_accents(ln)):
+            break
+        bloque.append(ln)
+    junto = " ".join(bloque)
+    marcas = list(_UNIDAD.finditer(junto))
+    if len(marcas) < 2:
+        return []
+    montos = [v for v, *_ in _montos(junto[marcas[0].end() :])]
+    n = len(marcas)
+    # El total del recibo impreso al final de la tabla («$92,500.00») no es un ítem
+    if len(montos) in {n + 1, 2 * n + 1} and abs(montos[-1] - sum(montos[-1 - n : -1])) <= n:
+        montos = montos[:-1]
+    if len(montos) == n:
+        totales: list[int] = montos
+        unitarios: list[int | None] = [None] * n
+    elif len(montos) == 2 * n:
+        unitarios, totales = list(montos[0::2]), montos[1::2]
+    else:
+        return []
+
+    items = []
+    for k, marca in enumerate(marcas):
+        fin = marcas[k + 1].start() if k + 1 < n else len(junto)
+        pedazo = junto[marca.end() : fin]
+        for _, a, b in reversed(_montos(pedazo)):
+            pedazo = pedazo[:a] + " " + pedazo[b:]
+        # El número de la fila que sigue («… COCA COLA ZERO 3»)
+        pedazo = re.sub(r"(\s+\d{1,2})+\s*$", "", pedazo)
+        nombre = _bonito(_letras(pedazo))
+        if not re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}", nombre):
+            return []
+        cantidad = float(marca.group(1)) or 1.0
+        unitario = unitarios[k] or round(totales[k] / cantidad)
+        items.append(ItemLeido(nombre, cantidad, unitario, totales[k]))
+    return items
+
+
 def items_del_recibo(texto: str | None, total: int) -> list[ItemLeido]:
     """Los ítems si cuadran con el total (o le falta poco: propina, servicio)."""
-    if _COMPROBANTE.search(texto or ""):
+    if _COMPROBANTE.search(texto or "") or total <= 0:
         return []
+    candidatos = []
     items, con_titulos = leer_items(texto)
-    if not items or total <= 0:
-        return []
     # Un solo «ítem» sin tabla suele ser el monto de un comprobante («Valor $9.806»)
-    if len(items) == 1 and not con_titulos:
+    if items and (len(items) > 1 or con_titulos):
+        candidatos.append(items)
+    if por_unidades := leer_por_unidades(texto):
+        candidatos.append(por_unidades)
+    candidatos = [c for c in candidatos if items_cuadran([i.total_cop for i in c], total)]
+    if not candidatos:
         return []
-    if not items_cuadran([i.total_cop for i in items], total):
-        return []
-    return items[:60]
+    # Si las dos lecturas cuadran, la que más se acerca al total
+    mejor = min(candidatos, key=lambda c: abs(total - sum(i.total_cop for i in c)))
+    return mejor[:60]
 
 
 def items_cuadran(totales: list[int], total: int) -> bool:

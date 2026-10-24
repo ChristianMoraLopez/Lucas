@@ -55,9 +55,13 @@ _SUFIJO_LEGAL = re.compile(
 )
 
 
+# El NIT copiado con el nombre: «CATERING N.I.T. 830.081.427-9 TAAMI»
+_NIT_EN_NOMBRE = re.compile(r"\bN\.?\s?I\.?\s?T\.?\s*[:.]?\s*\d{1,3}(?:[.\s]?\d{3}){2,3}(?:\s*-\s*\d)?", re.IGNORECASE)
+
+
 def _bonito(nombre: str) -> str:
     """«PANADERIA LA ESPIGA S.A.S.» → «Panaderia La Espiga» (el OCR suele leer todo en mayúsculas)."""
-    nombre = " ".join(nombre.split()).strip(" ,:;-*")
+    nombre = " ".join(_NIT_EN_NOMBRE.sub(" ", nombre).split()).strip(" ,:;-*")
     anterior = None
     while anterior != nombre:  # «ENERGÍA DEL CARIBE S.A. E.S.P.» tiene dos
         anterior = nombre
@@ -101,6 +105,9 @@ def _total_documento(ex: Extraction, llm: ReceiptExtraction | None, notes: list[
     q = ex.quality
     h = ex.hints
     del_llm = llm.total_cop if llm else None
+    # «TOTAL 4» copiado por el LLM: cuántos ítems, no el total
+    if del_llm is not None and del_llm < 50:
+        del_llm = None
     candidatos = h.total_candidates
 
     if ex.qr and ex.qr.total:

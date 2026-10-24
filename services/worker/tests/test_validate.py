@@ -81,6 +81,27 @@ def test_comercio_del_llm_que_aparece_en_el_recibo():
     assert inventado.confidence["merchant"] < 0.75
 
 
+def test_el_nit_que_el_llm_copio_con_el_nombre_no_queda_en_el_comercio():
+    from .test_items import CUENTA_TAAMI
+
+    d = reconcile(
+        doc(CUENTA_TAAMI),
+        llm(merchant="CATERING N.I.T. 830.081.427-9 TAAMI", total_cop=4),
+        today=HOY,
+        received=HOY,
+        account=HOGAR,
+    )
+    assert d.merchant == "Catering Taami"
+    # «TOTAL 4» es cuántos ítems son; el total es el de la tabla, y los ítems salen
+    assert d.total_cop == 92_500
+    assert [(i.name, i.total_cop) for i in d.items] == [
+        ("Pizza Pepeproni", 34_000),
+        ("Pizza Guanciale", 36_000),
+        ("Coca Cola Zero", 15_000),
+        ("Coca Cola Normal", 7_500),
+    ]
+
+
 def test_mensaje_de_texto_reglas_primero():
     ex = Extraction(
         kind="text", method="text", text="hielo 12 lucas ayer", hints=analyze_message("hielo 12 lucas ayer", HOY)
