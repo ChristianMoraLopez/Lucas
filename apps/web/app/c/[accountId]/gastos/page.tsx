@@ -40,6 +40,9 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   const busqueda = normalizarBusqueda(q);
   const cat = uuidOrNull(sp.cat);
   const quien = uuidOrNull(sp.quien);
+  // ?orden= antiguos, mayor o menor (sin él, los más recientes primero)
+  const orden: Orden = ORDENES.includes(sp.orden as Orden) ? (sp.orden as Orden) : 'recientes';
+  const porValor = orden === 'mayor' || orden === 'menor';
   const { supabase } = await requireUser(`/c/${accountId}/gastos`);
   const t = await getT();
 
@@ -60,9 +63,9 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
       'id, merchant, expense_date, created_at, total_cop, status, corrected_by, category_id, categories(name, letter, tone), people!expenses_payer_person_id_fkey(display_name, tone, claimed_by), messages(kind), expense_splits(person_id), original_currency, original_total',
     )
     .eq('account_id', accountId)
-    .order('expense_date', { ascending: false })
-    .order('created_at', { ascending: false })
     .limit(TOPE);
+  if (porValor) query = query.order('total_cop', { ascending: orden === 'menor' });
+  query = query.order('expense_date', { ascending: orden === 'antiguos' }).order('created_at', { ascending: orden === 'antiguos' });
   if (soloPendientes) query = query.eq('status', 'pending_review');
   if (mes) query = query.gte('expense_date', `${mes}-01`).lt('expense_date', mesSiguiente(mes));
   if (busqueda) query = query.ilike('merchant_normalized', `%${busqueda}%`);
@@ -72,15 +75,16 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   if (error) throw error;
   const rows = (data ?? []) as unknown as Row[];
 
-  // Agrupados por mes: «Septiembre 2026 · $2.395.200»
+  // Por fecha, agrupados por mes: «Septiembre 2026 · $2.395.200». Por valor, una sola lista
   const grupos = new Map<string, Row[]>();
   for (const r of rows) {
-    const k = r.expense_date.slice(0, 7);
+    const k = porValor ? orden : r.expense_date.slice(0, 7);
     grupos.set(k, [...(grupos.get(k) ?? []), r]);
   }
+  const titulo = (k: string) => (k === 'mayor' ? t('De mayor a menor valor') : k === 'menor' ? t('De menor a mayor valor') : `${mesLargo(k)} ${k.slice(0, 4)}`);
   const hoy = todayInBogota();
   const base = `/c/${accountId}/gastos`;
-  const filtrando = Boolean(busqueda || cat || quien || mes || soloPendientes);
+  const filtrando = Boolean(busqueda || cat || quien || mes || soloPendientes || orden !== 'recientes');
   const fmt = (n: number) => dinero(n, moneda, t.idioma);
   // Viendo una categoría: su detalle arriba (cuánto, cuántos y quién pagó)
   const categoria = cat ? (cats ?? []).find((c) => c.id === cat) : undefined;
@@ -94,7 +98,15 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   ].sort((a, b) => b[1].total - a[1].total);
   const conFiltros = (o: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const todos = { q, cat: cat ?? '', quien: quien ?? '', mes: mes ?? '', ver: soloPendientes ? 'pendientes' : '', ...o };
+    const todos = {
+      q,
+      cat: cat ?? '',
+      quien: quien ?? '',
+      mes: mes ?? '',
+      ver: soloPendientes ? 'pendientes' : '',
+      orden: orden === 'recientes' ? '' : orden,
+      ...o,
+    };
     for (const [k, v] of Object.entries(todos)) if (v) p.set(k, v);
     const s = p.toString();
     return s ? `${base}?${s}` : base;
@@ -119,7 +131,7 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
       </header>
 
       <GastosFiltros
-        filtros={{ q, cat: cat ?? '', quien: quien ?? '', mes: mes ?? '', ver: soloPendientes ? 'pendientes' : '' }}
+        filtros={{ q, cat: cat ?? '', quien: quien ?? '', mes: mes ?? '', ver: soloPendientes ? 'pendientes' : '', orden: orden === 'recientes' ? '' : orden }}
         categorias={(cats ?? []) as { id: string; name: string }[]}
         personas={(gente ?? []).map((p) => ({ id: p.id as string, name: p.display_name as string }))}
         meses={meses}
@@ -189,11 +201,9 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
         </div>
       ) : (
         [...grupos.entries()].map(([mes, lista]) => (
-          <section key={mes} className="gs-month" aria-label={`${mesLargo(mes)} ${mes.slice(0, 4)}`}>
+          <section key={mes} className="gs-month" aria-label={titulo(mes)}>
             <div className="gs-month__head">
-              <h2 className="lu-title">
-                {mesLargo(mes)} {mes.slice(0, 4)}
-              </h2>
+              <h2 className="lu-title">{titulo(mes)}</h2>
               <span className="lu-amount lu-amount--sm">
                 {dinero(
                   lista.reduce((s, r) => s + r.total_cop, 0),
@@ -270,7 +280,11 @@ export default async function GastosPage({ params, searchParams }: PageProps<'/c
   );
 }
 
-/** Cuántos gastos muestra la lista como máximo (los más recientes) */
+/** Cómo se ordena la lista: por fecha (los más recientes o los más antiguos primero) o por valor */
+const ORDENES = ['recientes', 'antiguos', 'mayor', 'menor'] as const;
+type Orden = (typeof ORDENES)[number];
+
+/** Cuántos gastos muestra la lista como máximo (los primeros según el orden) */
 const TOPE = 300;
 
 /** «2026-09» → «2026-10-01» (primer día del mes siguiente) */

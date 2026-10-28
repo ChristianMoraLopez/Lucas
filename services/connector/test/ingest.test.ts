@@ -800,6 +800,54 @@ describe('¿quién pidió qué?', () => {
   });
 });
 
+describe('«luks elimina este gasto»', () => {
+  const LUKS = '573337627471';
+  beforeEach(async () => {
+    ing.setMisterLuks([LUKS]);
+    await enlazado();
+  });
+
+  it('citando el mensaje del gasto lo elimina y Mister Luks lo cuenta', async () => {
+    store.eliminar = {
+      ok: true,
+      language: 'es',
+      currency: 'COP',
+      account_id: PASEO,
+      account_name: 'Paseo',
+      name: 'Mafe',
+      gastos: [{ merchant: 'Arepas', total: 5000 }],
+    };
+    expect(await ing.onMessage(contador, wa, m({ text: 'mrluks elimina este gasto', quotedFrom: '573016667788', quotedId: 'WA-RECIBO' }))).toBe('eliminar:ok');
+    expect(store.eliminados).toEqual([{ jid: GRUPO, quotedId: 'WA-RECIBO', sender: '573016667788' }]);
+    expect(bandeja(GRUPO).at(-1)?.body).toContain('🗑️ Listo, Mafe: eliminé *Arepas* ($5.000) de «Paseo».');
+    // Y no se encola como gasto
+    expect([...store.messages.values()].some((x) => x.text?.includes('elimina'))).toBe(false);
+  });
+
+  it('mencionándolo también', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: `@${LUKS} bórralo`, mentions: [LUKS], quotedFrom: '573016667788', quotedId: 'WA-RECIBO' }))).toBe(
+      'eliminar:no_es_gasto',
+    );
+  });
+
+  it('sin citar nada, explica cómo', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'luks elimina este gasto' }))).toBe('eliminar:sin_cita');
+    expect(bandeja(GRUPO).at(-1)?.body).toContain('dale *Responder*');
+  });
+
+  it('sin hablarle a Luks, «elimina este gasto» es charla', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'elimina este gasto', quotedFrom: '573016667788', quotedId: 'WA-RECIBO' }))).toBe('charla');
+    expect(store.eliminados).toEqual([]);
+  });
+
+  it('el WhatsApp vinculado de alguien no elimina (lo hace Mister Luks)', async () => {
+    expect(
+      await ing.onMessage(personal, new FakeConnector(personal), m({ sessionId: 'personal', text: 'luks elimina este gasto', quotedId: 'WA-RECIBO' })),
+    ).not.toMatch(/^eliminar/);
+    expect(store.eliminados).toEqual([]);
+  });
+});
+
 describe('¿reabrir o cuenta nueva?', () => {
   const LUKS = '573337627471';
   beforeEach(async () => {

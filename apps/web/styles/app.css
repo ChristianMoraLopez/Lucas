@@ -4042,7 +4042,7 @@ a.gr-fila:focus-visible {
 }
 .gf-sel {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
 }
 .gf-sel select {
@@ -4088,9 +4088,6 @@ a.gr-fila:focus-visible {
 @container app (max-width: 520px) {
   .gf-sel {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .gf-sel select:last-child {
-    grid-column: 1 / -1;
   }
 }
 

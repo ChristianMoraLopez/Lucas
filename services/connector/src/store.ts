@@ -206,6 +206,25 @@ export type DecisionLiquidada =
     }
   | { ok: false; reason: 'no_es_pregunta' | 'no_te_conozco' | 'cerrada'; language?: Idioma | null; account_name?: string };
 
+/** connector_eliminar_gasto: «luks elimina este gasto» citando el mensaje del gasto (migración 510) */
+export type EliminarGasto =
+  | {
+      ok: true;
+      language: Idioma | null;
+      currency: Moneda;
+      account_id: string;
+      account_name: string;
+      name: string | null;
+      gastos: { merchant: string; total: number }[];
+    }
+  | {
+      ok: false;
+      reason: 'sin_cita' | 'no_es_gasto' | 'procesando' | 'liquidado' | 'no_te_conozco' | 'no_puedes';
+      language?: Idioma | null;
+      account_name?: string;
+      name?: string | null;
+    };
+
 /** connector_soy_yo: si el número ya es de un usuario verificado (su primer nombre) y sus últimos 4 */
 export interface SoyYoResult {
   identity_id: string;
@@ -417,6 +436,8 @@ export interface Store {
   itemPromptGuardado(expenseId: string, itemIds: string[], chatJid: string, dedupeKey: string): Promise<void>;
   /** Respondieron la pregunta de un paseo liquidado: reabrirlo o anotar en una cuenta nueva (citándola o no) */
   decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva'): Promise<DecisionLiquidada>;
+  /** «luks elimina este gasto» citando su mensaje: lo elimina si quien lo pide puede (migración 510) */
+  eliminarGasto(jid: string, quotedId: string | null, sender: Sender): Promise<EliminarGasto>;
   /** Alguien respondió la lista (citándola) con los números de lo suyo */
   itemsRespuesta(jid: string, quotedId: string, sender: Sender, claims: { n: number; units?: number }[]): Promise<ItemsRespuesta>;
   /** «la 1 son 3»: cuántas unidades trae un ítem de la lista, sin cambiar el total (migración 500) */
@@ -723,6 +744,17 @@ export class SupabaseStore implements Store {
       p_lid: sender.lid ?? null,
       p_name: sender.name,
       p_modo: modo,
+    });
+  }
+
+  eliminarGasto(jid: string, quotedId: string | null, sender: Sender) {
+    return this.#rpc<EliminarGasto>('connector_eliminar_gasto', {
+      p_jid: jid,
+      p_quoted_wa_id: quotedId,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
     });
   }
 

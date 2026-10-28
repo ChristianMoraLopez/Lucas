@@ -15,12 +15,15 @@ export interface Filtros {
   quien: string;
   mes: string;
   ver: string;
+  /** antiguos, mayor o menor; vacío: los más recientes primero */
+  orden: string;
 }
 
 /**
- * Buscar y filtrar los gastos: por comercio (sin importar tildes), categoría,
- * quién pagó, mes y «por revisar». Todo queda en la URL (?q=&cat=&quien=&mes=)
- * para volver atrás o compartir la búsqueda; la página filtra en el servidor.
+ * Buscar, filtrar y ordenar los gastos: por comercio (sin importar tildes),
+ * categoría, quién pagó, mes y «por revisar»; por fecha o por valor, de arriba
+ * abajo o al revés. Todo queda en la URL (?q=&cat=&quien=&mes=&orden=) para
+ * volver atrás o compartir la búsqueda; la página filtra en el servidor.
  */
 export function GastosFiltros({
   filtros,
@@ -70,7 +73,12 @@ export function GastosFiltros({
     return () => clearTimeout(reloj);
   }, [q, filtros.q]);
 
-  const hay = Boolean(filtros.q || filtros.cat || filtros.quien || filtros.mes || filtros.ver);
+  const hay = Boolean(filtros.q || filtros.cat || filtros.quien || filtros.mes || filtros.ver || filtros.orden);
+  const primeros: Record<string, string> = {
+    antiguos: t('(los más antiguos)'),
+    mayor: t('(los de mayor valor)'),
+    menor: t('(los de menor valor)'),
+  };
   const quitar = () => {
     saltar.current = true;
     setQ('');
@@ -125,6 +133,12 @@ export function GastosFiltros({
             </option>
           ))}
         </select>
+        <select aria-label={t('Ordenar')} value={filtros.orden} onChange={(e) => ir({ orden: e.target.value })} className={filtros.orden ? 'is-on' : ''}>
+          <option value="">{t('Más recientes')}</option>
+          <option value="antiguos">{t('Más antiguos')}</option>
+          <option value="mayor">{t('Mayor valor')}</option>
+          <option value="menor">{t('Menor valor')}</option>
+        </select>
       </div>
 
       <div className="gf-foot">
@@ -138,7 +152,9 @@ export function GastosFiltros({
           ]}
         />
         <span className="lu-small lu-muted gf-n" aria-live="polite">
-          {buscando ? t('Buscando…') : `${plural(total, t('gasto'), t('gastos'))} · ${$.fmt(suma)}${tope ? ` ${t('(los más recientes)')}` : ''}`}
+          {buscando
+            ? t('Buscando…')
+            : `${plural(total, t('gasto'), t('gastos'))} · ${$.fmt(suma)}${tope ? ` ${primeros[filtros.orden] ?? t('(los más recientes)')}` : ''}`}
         </span>
         {hay && (
           <button type="button" className="gf-clear" onClick={quitar}>

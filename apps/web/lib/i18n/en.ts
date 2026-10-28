@@ -684,6 +684,16 @@ export const EN: Record<string, string> = {
   'Por revisar': 'To review',
   'Buscando…': 'Searching…',
   '(los más recientes)': '(most recent)',
+  '(los más antiguos)': '(oldest)',
+  '(los de mayor valor)': '(largest)',
+  '(los de menor valor)': '(smallest)',
+  Ordenar: 'Sort',
+  'Más recientes': 'Newest',
+  'Más antiguos': 'Oldest',
+  'Mayor valor': 'Largest amount',
+  'Menor valor': 'Smallest amount',
+  'De mayor a menor valor': 'Largest to smallest',
+  'De menor a mayor valor': 'Smallest to largest',
 
   // ---------- Gasto: detalle ----------
   '← Gastos': '← Expenses',

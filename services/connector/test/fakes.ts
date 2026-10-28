@@ -5,6 +5,7 @@ import type {
   DecisionLiquidada,
   DesdeCuando,
   DetectedResult,
+  EliminarGasto,
   GroupResult,
   HelloResult,
   ImportResult,
@@ -221,6 +222,13 @@ export class FakeStore implements Store {
     this.decisiones.push({ jid, quotedId, sender: sender.id, modo });
     q.resuelta = true;
     return this.decision ?? { ok: false, reason: 'no_te_conozco', language: 'es', account_name: 'Paseo' };
+  }
+  /** «luks elimina este gasto»: lo que se pidió y lo que contesta la base (la pone cada prueba) */
+  eliminados: { jid: string; quotedId: string | null; sender: string | null }[] = [];
+  eliminar: EliminarGasto = { ok: false, reason: 'no_es_gasto', language: 'es' };
+  async eliminarGasto(jid: string, quotedId: string | null, sender: Sender): Promise<EliminarGasto> {
+    this.eliminados.push({ jid, quotedId, sender: sender.id });
+    return quotedId ? this.eliminar : { ok: false, reason: 'sin_cita' };
   }
   /** ¿Quién pidió qué?: las cuentas por preguntar, las listas que quedaron en la bandeja y lo que respondieron */
   porPreguntar: ItemsPregunta[] = [];
