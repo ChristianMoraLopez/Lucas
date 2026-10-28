@@ -2,7 +2,7 @@ import type { PGlite, Transaction } from '@electric-sql/pglite';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { as, createDb, impersonate, one, PASEO, U } from './harness';
 
-// «luks elimina este gasto» citando el mensaje del gasto (00000000000510_eliminar_por_whatsapp.sql)
+// «luks elimina este gasto» citando el mensaje del gasto (00000000000520_eliminar_por_whatsapp.sql)
 
 let db: PGlite;
 beforeAll(async () => {

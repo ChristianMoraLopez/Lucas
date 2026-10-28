@@ -3,7 +3,7 @@ import type { EliminarGasto } from './store.js';
 import { formatCOP, type Idioma, plano } from './text.js';
 
 /*
- * «luks elimina este gasto» (migración 510): responden (citan) en el grupo el
+ * «luks elimina este gasto» (migración 520): responden (citan) en el grupo el
  * mensaje de un gasto y Mister Luks lo elimina, como «Eliminar» en la app.
  * Aquí se entiende el pedido y se escribe lo que contesta. Lo que trae montos
  * firma «Más detalle en mrluks.com»: así nadie lo anota como gasto.

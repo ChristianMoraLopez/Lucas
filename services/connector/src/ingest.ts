@@ -660,7 +660,7 @@ export class Ingestor {
   }
 
   /**
-   * «luks elimina este gasto» (migración 510): citan el mensaje del gasto (la
+   * «luks elimina este gasto» (migración 520): citan el mensaje del gasto (la
    * foto, el PDF, el texto o la lista de «¿quién pidió qué?») y la base lo
    * elimina si quien lo pide lo mandó, lo pagó o administra la cuenta. Sin cita,
    * Mister Luks explica cómo (como mucho una vez cada 10 minutos por grupo).

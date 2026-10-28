@@ -1,5 +1,5 @@
 -- ============================================================================
--- Lucas · 00000000000510_eliminar_por_whatsapp.sql
+-- Lucas · 00000000000520_eliminar_por_whatsapp.sql
 -- «luks elimina este gasto»: alguien responde (cita) en el grupo el mensaje de
 -- un gasto (la foto del recibo, el PDF, «fueron 5 lucas de arepa» o la lista
 -- de «¿quién pidió qué?» de Mister Luks) y el gasto se elimina, como
