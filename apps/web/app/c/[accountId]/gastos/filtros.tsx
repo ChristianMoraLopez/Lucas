@@ -6,7 +6,6 @@ import { useT } from '@/components/idioma';
 import { nombreCategoria } from '@/components/lucas-core';
 import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
-import { monthName } from '@/lib/dates';
 import { plural } from '@/lib/types';
 
 export interface Filtros {
@@ -29,7 +28,6 @@ export function GastosFiltros({
   filtros,
   categorias,
   personas,
-  meses,
   total,
   suma,
   tope,
@@ -37,8 +35,6 @@ export function GastosFiltros({
   filtros: Filtros;
   categorias: { id: string; name: string }[];
   personas: { id: string; name: string }[];
-  /** «2026-09», del más reciente al más viejo */
-  meses: string[];
   total: number;
   suma: number;
   /** Se llegó al máximo de gastos que muestra la lista */
@@ -96,8 +92,8 @@ export function GastosFiltros({
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={t('Buscar comercio: panadería, Uber, Éxito…')}
-          aria-label={t('Buscar por comercio')}
+          placeholder={t('Buscar comercio o valor: Uber, 105 mil…')}
+          aria-label={t('Buscar por comercio o valor')}
           enterKeyHint="search"
           maxLength={60}
         />
@@ -122,14 +118,6 @@ export function GastosFiltros({
           {personas.map((p) => (
             <option key={p.id} value={p.id}>
               {t('Pagó {nombre}', { nombre: p.name })}
-            </option>
-          ))}
-        </select>
-        <select aria-label={t('Mes')} value={filtros.mes} onChange={(e) => ir({ mes: e.target.value })} className={filtros.mes ? 'is-on' : ''}>
-          <option value="">{t('Mes')}</option>
-          {meses.map((m) => (
-            <option key={m} value={m}>
-              {monthName(`${m}-01`, t.idioma)} {m.slice(0, 4)}
             </option>
           ))}
         </select>

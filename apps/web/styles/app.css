@@ -2276,9 +2276,17 @@ a.ed-cat:focus-visible {
 }
 .gs-head {
   display: flex;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+.gs-head__t {
+  margin: 0;
+}
+.gs-acciones {
+  flex-wrap: nowrap;
+  align-items: center;
 }
 /* Viendo una categoría: cuánto, cuántos y quién pagó */
 .gs-cat {
@@ -2355,14 +2363,313 @@ a.ed-cat:focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
 }
+/* Cada mes se pliega (MesPlegable): así la lista no es infinita. El encabezado dice cuántos y cuánto */
+.gs-meses-lista {
+  display: grid;
+  gap: var(--space-3);
+}
 .gs-month {
   display: grid;
-  gap: var(--space-2);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  padding: 0 var(--space-4);
+  transition: border-color 150ms ease;
+}
+.gs-month.is-open {
+  border-color: color-mix(in srgb, var(--tinta-2) 35%, var(--borde));
 }
 .gs-month__head {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gs-month__head:focus-visible {
+  outline: 2px solid var(--foco, var(--morado));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.gs-month__t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+}
+.gs-month__h {
+  margin: 0;
+  font-size: 19px;
+  line-height: 24px;
+}
+.gs-month__head:hover .gs-month__h {
+  color: var(--morado);
+}
+.gs-month__chev {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--superficie-2);
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gs-month__cuerpo {
+  overflow: hidden;
+}
+.gs-month__cuerpo > .hd-recent {
+  border-top: 1px solid var(--borde);
+  padding-bottom: var(--space-2);
+}
+
+/* «¿Cuándo se fue?»: una barra por mes (MesesBarras), se toca para ver ese mes */
+.gm {
+  display: grid;
+  gap: var(--space-3);
+}
+.gm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.gm-head .lu-title {
+  margin: 0;
+}
+.gm-todos {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--borde);
+  color: var(--tinta);
+  text-decoration: none;
+  isolation: isolate;
+}
+.gm-todos.is-on {
+  border-color: transparent;
+  color: var(--on-verde);
+}
+.gm-todos__t {
+  font-weight: 700;
+  font-size: 14px;
+}
+.gm-todos__n {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.gm-pill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius-pill);
+  background: var(--verde);
+}
+.gm-pill--morado {
+  background: var(--morado);
+}
+.gm-pista {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(var(--space-4) * -1);
+  padding: 0 var(--space-4) 2px;
+  scroll-padding-inline: var(--space-4);
+}
+.gm-pista::-webkit-scrollbar {
+  display: none;
+}
+.gm-mes {
+  flex: 1 0 52px;
+  max-width: 88px;
+  display: grid;
+  grid-template-rows: auto 84px auto;
+  justify-items: center;
+  gap: 6px;
+  padding: 6px 2px;
+  border-radius: var(--radius-md);
+  color: var(--tinta);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-mes:hover {
+  background: var(--superficie-2);
+}
+.gm-mes:focus-visible {
+  outline: 2px solid var(--foco, var(--morado));
+  outline-offset: 2px;
+}
+.gm-mes__monto {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tinta-2);
+  white-space: nowrap;
+}
+.gm-mes.is-on .gm-mes__monto {
+  color: var(--tinta);
+}
+.gm-mes__carril {
+  position: relative;
+  width: 100%;
+  max-width: 34px;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 10px;
+  background: var(--superficie-2);
+}
+.gm-mes__barra {
+  width: 100%;
+  border-radius: 10px;
+  background: var(--tono-morado);
+  opacity: 0.55;
+}
+.gm-mes:hover .gm-mes__barra {
+  opacity: 0.85;
+}
+.gm-mes__barra--verde {
+  background: var(--verde);
+  opacity: 1;
+}
+.gm-mes__barra--morado {
+  background: var(--morado);
+  opacity: 1;
+}
+.gm-mes__nombre {
+  position: relative;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  isolation: isolate;
+}
+.gm-mes__t {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.gm-mes.is-on .gm-mes__nombre {
+  color: var(--on-verde);
+}
+/* En un paseo, la píldora es morada */
+.gm-todos.is-on:has(.gm-pill--morado),
+.gm-mes.is-on:has(.gm-pill--morado) .gm-mes__nombre {
+  color: var(--on-morado);
+}
+
+/* «¿En qué se fue?»: la barra por categoría y cada una para tocar */
+.gs-enque {
+  display: grid;
+  gap: var(--space-3);
+}
+.gs-enque .lu-title {
+  margin: 0;
+}
+.gs-reparto {
+  margin: 0;
+}
+.gs-reparto i {
+  flex: 0 1 0;
+  min-width: 6px;
+}
+.gs-enque__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.gs-enque__cat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-pill);
+  background: var(--superficie);
+  color: var(--tinta);
+  text-decoration: none;
+  font-size: 14px;
+  transition:
+    background 150ms ease,
+    transform 150ms ease;
+}
+a.gs-enque__cat:hover {
+  background: var(--superficie-2);
+}
+a.gs-enque__cat:active {
+  transform: scale(0.97);
+}
+.gs-enque__cat .lu-num {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* El billete: el sticker de «Revisar» lleva a los que faltan */
+.gs-bill-pend {
+  margin-left: auto;
+  text-decoration: none;
+}
+.gs-row__fin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.gs-row__st {
+  position: relative;
+  z-index: 1;
+  text-decoration: none;
+}
+
+/* Excel: la hoja que se llena (Lottie «exportar») mientras baja */
+.gs-excel {
+  gap: 6px;
+}
+.gs-excel__ico {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: -6px -2px -6px -6px;
+}
+.gs-excel__ico svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--verde);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gs-excel--listo {
+  color: var(--verde);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gs-month,
+  .gs-enque__cat {
+    transition: none;
+  }
 }
 /* Fila de gasto: el comercio es el enlace y su área cubre toda la fila */
 .gs-row {
@@ -4042,7 +4349,7 @@ a.gr-fila:focus-visible {
 }
 .gf-sel {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
 }
 .gf-sel select {
@@ -4088,6 +4395,9 @@ a.gr-fila:focus-visible {
 @container app (max-width: 520px) {
   .gf-sel {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .gf-sel select:last-child {
+    grid-column: 1 / -1;
   }
 }
 

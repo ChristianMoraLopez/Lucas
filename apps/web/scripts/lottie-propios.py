@@ -1,11 +1,12 @@
 """Lottie propios de Luks, dibujados con la paleta del kit (no vienen de LottieFiles).
 
-  python3 scripts/lottie-propios.py   # escribe public/lottie/{archivar,borrar,mister-luks,vincular-whatsapp}.lottie
+  python3 scripts/lottie-propios.py   # escribe public/lottie/{archivar,borrar,mister-luks,vincular-whatsapp,exportar}.lottie
 
 · archivar: una cuenta (un recibo) cae en una caja, la tapa se cierra y sale un chulo.
 · borrar: la papelera abre la tapa, el recibo cae, se cierra, se sacude y suelta polvito.
 · mister-luks: el ícono de Luks entra, cae la moneda y sale un globo de chat que termina en un chulo.
 · vincular-whatsapp: el celular con su código, una línea lo une con Luks y sale un chulo.
+· exportar: la hoja de Excel entra, sus filas se llenan una a una, el total se pinta y sale un chulo.
 """
 
 import json
@@ -26,6 +27,7 @@ MORADO_OSCURO = color("#4E22B8")
 MORADO_SUAVE = color("#ECE4FF")
 AMARILLO = color("#FFC53D")
 VERDE = color("#2BD48A")
+VERDE_MARCA = color("#0A7A4C")
 CORAL = color("#DB2F47")
 CORAL_OSCURO = color("#A8182F")
 CORAL_CLARO = color("#F06A7D")
@@ -613,6 +615,73 @@ def vincular_whatsapp():
     return lottie("vincular-whatsapp", 240, 240, op, [listo, enlace, luks, celular])
 
 
+def exportar():
+    """El Excel de Gastos: la hoja entra con rebote, cada fila se llena de izquierda
+    a derecha, el total queda resaltado en amarillo y sale el chulo."""
+    op = 62
+    hoja = capa(
+        20,
+        "hoja",
+        [
+            # Encabezado verde con sus títulos
+            rect(96, 64, 30, 6, 3, BLANCO),
+            rect(150, 64, 30, 6, 3, BLANCO),
+            rect(120, 64, 124, 26, 9, VERDE_MARCA),
+            # La columna de los montos
+            trazo([[134, 80], [134, 176]], LINEA, 2),
+            rect(120, 118, 136, 128, 16, BLANCO, (TINTA, 3)),
+        ],
+        [120, 118],
+        op,
+        s=anim([(0, [80, 80, 100], "rebote"), (10, [100, 100, 100])]),
+        o=anim([(0, 0, "sale"), (6, 100)]),
+    )
+    capas = []
+    # Cuatro filas: el comercio y su monto entran de izquierda a derecha, una tras otra
+    for n, y in enumerate((96, 116, 136)):
+        t0 = 9 + n * 5
+        for x, w, ind in ((92, 50, 10 + n * 2), (160, 34, 11 + n * 2)):
+            capas.append(
+                capa(
+                    ind,
+                    f"fila{n}",
+                    [rect(x, y, w, 7, 3.5, LINEA)],
+                    [x - w / 2, y],
+                    op,
+                    s=anim([(0, [0, 100, 100]), (t0, [0, 100, 100], "sale"), (t0 + 8, [100, 100, 100])]),
+                )
+            )
+    # El total: resaltado amarillo, como la cifra clave del kit
+    total = capa(
+        3,
+        "total",
+        [rect(92, 160, 44, 8, 4, TINTA), rect(160, 160, 40, 14, 7, AMARILLO)],
+        [120, 160],
+        op,
+        s=anim([(0, [0, 0, 100]), (26, [0, 0, 100], "rebote"), (34, [100, 100, 100])]),
+    )
+    listo = chulo(178, 182, 44, 36, op, 1)
+    sombra = capa(
+        2,
+        "sombra",
+        [
+            {
+                "ty": "gr",
+                "it": [
+                    {"ty": "el", "d": 1, "s": fijo([128, 12]), "p": fijo([120, 206])},
+                    {"ty": "fl", "c": fijo(TINTA), "o": fijo(10), "r": 1},
+                    tr(),
+                ],
+            }
+        ],
+        [120, 206],
+        op,
+        o=aparece(),
+    )
+    # Arriba primero: chulo, total, filas, hoja, sombra
+    return lottie("exportar", 240, 240, op, [listo, total, *capas, hoja, sombra])
+
+
 def guardar(nombre, animacion):
     destino = PUBLICO / f"{nombre}.lottie"
     manifest = {
@@ -634,3 +703,4 @@ if __name__ == "__main__":
     guardar("borrar", borrar())
     guardar("mister-luks", mister_luks())
     guardar("vincular-whatsapp", vincular_whatsapp())
+    guardar("exportar", exportar())
