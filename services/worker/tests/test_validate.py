@@ -41,6 +41,31 @@ def test_llm_con_un_total_que_no_esta_en_el_recibo_es_poco_confiable():
     assert d.total_cop == 77_000 and d.confidence["total"] < 0.75
 
 
+NU = """nu
+Comprobante de transacción
+10:16, Viernes, 16 de Octubre de 2026
+Valor $28.644,53
+Tipo de transacción Compra en internet
+Código de autorización 042992
+Costo por conversión $128,90
+Pagaste en
+Comercio Uber *Trip Help.Uber.C
+Nu Financiera
+NIT 901.658.107-2"""
+
+
+def test_el_llm_copia_el_valor_sin_la_coma_decimal_y_se_usa_el_del_texto():
+    # «$28.644,53» son 28 mil pesos con centavos, no $2.864.453
+    d = reconcile(doc(NU), llm(total_cop=2_864_453), today=HOY, received=HOY, account=HOGAR)
+    assert d.total_cop == 28_644
+    assert any("sin los separadores" in n for n in d.notes)
+
+
+def test_un_total_grande_que_si_esta_en_el_recibo_no_se_toca():
+    d = reconcile(doc("TIENDA\nTOTAL 2.864.453"), llm(total_cop=2_864_453), today=HOY, received=HOY, account=HOGAR)
+    assert d.total_cop == 2_864_453
+
+
 def test_sin_total_por_ningun_lado():
     d = reconcile(doc("GRACIAS POR SU COMPRA"), llm(), today=HOY, received=HOY, account=HOGAR)
     assert d.total_cop == 0 and d.confidence["total"] < 0.5
