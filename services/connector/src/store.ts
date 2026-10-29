@@ -408,6 +408,9 @@ export interface Store {
   outboxEnqueue(items: OutboxItem[]): Promise<string[]>;
   outboxPending(limit: number): Promise<OutboxPending[]>;
   outboxResult(id: string, waMessageId: string | null, error?: string | null, drop?: boolean): Promise<void>;
+  /** Lo que mandó una sesión, en base64, para reenviarlo si no lo pudieron descifrar (migración 560) */
+  guardarEnviado(waMessageId: string, chatJid: string, mensaje: string): Promise<void>;
+  mensajeEnviado(waMessageId: string): Promise<string | null>;
   /** «luks soy yo»: deja abierto su chat privado (lo pidió) y dice si su número ya está verificado */
   soyYo(sessionId: string, privateJid: string, phone: string | null, lid: string | null, pushName: string | null): Promise<SoyYoResult>;
   /** Al mandar un mensaje de verificación: crea el código del link /v/ (solo se guarda su hash) */
@@ -637,6 +640,14 @@ export class SupabaseStore implements Store {
 
   outboxPending(limit: number) {
     return this.#rpc<OutboxPending[]>('connector_outbox_pending', { p_limit: limit });
+  }
+
+  async guardarEnviado(waMessageId: string, chatJid: string, mensaje: string) {
+    await this.#rpc('connector_guardar_enviado', { p_wa_message_id: waMessageId, p_chat_jid: chatJid, p_mensaje: mensaje });
+  }
+
+  async mensajeEnviado(waMessageId: string) {
+    return (await this.#rpc<string | null>('connector_mensaje_enviado', { p_wa_message_id: waMessageId })) ?? null;
   }
 
   async outboxResult(id: string, waMessageId: string | null, error: string | null = null, drop = false) {

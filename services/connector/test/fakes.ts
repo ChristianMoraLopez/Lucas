@@ -319,6 +319,14 @@ export class FakeStore implements Store {
     if (drop) o.dropped = true;
     else if (!error) o.sent = true;
   }
+  /** Lo que mandó cada sesión, para reenviarlo (migración 560) */
+  enviados = new Map<string, string>();
+  async guardarEnviado(waMessageId: string, _chatJid: string, mensaje: string) {
+    this.enviados.set(waMessageId, mensaje);
+  }
+  async mensajeEnviado(waMessageId: string) {
+    return this.enviados.get(waMessageId) ?? null;
+  }
   /** Los usuarios de WhatsApp que mandó el connector (migración 530), en orden */
   usuariosMandados: UsuarioDeWhatsapp[][] = [];
   async usuarios(lista: UsuarioDeWhatsapp[]) {

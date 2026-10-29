@@ -19,6 +19,7 @@ import type { SessionCipher } from '../crypto.js';
 import type { Logger } from '../log.js';
 import type { Store } from '../store.js';
 import { useDbAuthState } from './auth-state.js';
+import { MensajesEnviados } from './enviados.js';
 import { type Contactos, gruposCon, type Me, membersOf, normalizeMessage, recordarNombres } from './normalize.js';
 
 /*
@@ -95,7 +96,11 @@ export class BaileysConnector implements MessagingConnector {
     private readonly deps: BaileysDeps,
   ) {
     this.#log = deps.log.child({ session: session.id.slice(0, 8), kind: session.kind });
+    this.#enviados = new MensajesEnviados(deps.store, this.#log);
   }
+
+  /** Lo que mandó, para reenviarlo si un celular no lo pudo descifrar («Esperando el mensaje») */
+  readonly #enviados: MensajesEnviados;
 
   isConnected() {
     return this.#open;
@@ -142,6 +147,7 @@ export class BaileysConnector implements MessagingConnector {
           ? { image: { url: m.imageUrl }, caption: m.caption }
           : { document: { url: m.documentUrl }, fileName: m.fileName, mimetype: m.mimeType, caption: m.caption };
     const enviado = await this.#sock.sendMessage(chatId, contenido);
+    this.#enviados.guardar(enviado?.key.id, chatId, enviado?.message);
     return enviado?.key.id ?? null;
   }
 
@@ -200,7 +206,8 @@ export class BaileysConnector implements MessagingConnector {
       shouldSyncHistoryMessage: ({ syncType }) => syncType === proto.HistorySync.HistorySyncType.PUSH_NAME,
       generateHighQualityLinkPreview: false,
       cachedGroupMetadata: async (jid) => this.#groups.get(jid),
-      getMessage: async () => undefined,
+      // Un celular no pudo descifrar lo que mandamos y pide que se lo reenviemos
+      getMessage: async (key) => this.#enviados.buscar(key.id),
     });
     this.#sock = sock;
 
