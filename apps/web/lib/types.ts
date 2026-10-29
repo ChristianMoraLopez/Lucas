@@ -365,6 +365,8 @@ export interface ReviewExpense {
     payer_person_id?: string | null;
     /** El worker encontró otro gasto con el mismo comercio, día y valor */
     possible_duplicate_of?: string;
+    /** Un comprobante de transferencia que no se pudo emparejar con una deuda (migración 590) */
+    parece_pago?: boolean;
   } | null;
   split_note: string | null;
   corrected_by: string | null;

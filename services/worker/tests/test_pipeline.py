@@ -295,3 +295,77 @@ def test_el_pantallazo_de_un_pago_a_alguien_de_la_cuenta_no_es_un_gasto(db, extr
     db.pago = {"handled": False}
     otro = db.add_message("photo", file="recibo_panaderia_foto.jpg", source="whatsapp")
     assert "pago entre ellos" not in p.process(Job(id="j2", payload={"message_id": otro}))
+
+
+def test_el_comprobante_de_nu_de_juanes_queda_pagado(db, extractor, monkeypatch):
+    """Nochita: el «Comprobante de transferencia» de Nu era un gasto «Comprobante de» (la 590)."""
+    from lucas_worker.extract.cascade import Extraction
+    from lucas_worker.extract.rules import analyze_document
+
+    from .test_envios import NU_COMPROBANTE
+
+    def leido(img, image_hash, caption, today):
+        return Extraction(
+            kind="photo",
+            method="photo_ocr",
+            text=NU_COMPROBANTE,
+            quality=0.97,
+            hints=analyze_document(NU_COMPROBANTE, today),
+        )
+
+    monkeypatch.setattr(extractor, "photo", leido)
+    p = procesador(db, extractor, FakeLlm(qwen_honesto))
+    db.pago = {"handled": True, "tipo": "pagada"}
+    mid = db.add_message("photo", file="recibo_panaderia_foto.jpg", source="whatsapp")
+    assert p.process(Job(id="j1", payload={"message_id": mid})) == "pago entre ellos (pagada)"
+    assert db.pagos == [{"message_id": mid, "monto": 9_800, "para": ["christian", "rey", "mora", "lopez"]}]
+    assert db.messages[mid]["status"] == "not_expense"
+
+
+def test_un_comprobante_de_otro_banco_queda_pagado_si_es_justo_lo_que_debia(db, extractor, monkeypatch):
+    """No se sabe leer del todo: se prueba cada monto sin nombre y la base decide (solo si cuadra)."""
+    from lucas_worker.extract.cascade import Extraction
+    from lucas_worker.extract.rules import analyze_document
+
+    raro = (
+        "Davivienda\nTransacción aprobada\nLlave destino @vale\n$ 3.500\nValor\n$ 25.000\nCosto $0\nReferencia 99887766"
+    )
+
+    def leido(img, image_hash, caption, today):
+        return Extraction(
+            kind="photo", method="photo_ocr", text=raro, quality=0.97, hints=analyze_document(raro, today)
+        )
+
+    monkeypatch.setattr(extractor, "photo", leido)
+    p = procesador(db, extractor, FakeLlm(qwen_honesto))
+    db.pago = lambda monto, para: {"handled": True, "tipo": "pagada"} if monto == 25_000 else {"handled": False}
+    mid = db.add_message("photo", file="recibo_panaderia_foto.jpg", source="whatsapp")
+    assert p.process(Job(id="j1", payload={"message_id": mid})) == "pago entre ellos (pagada)"
+    assert [(x["monto"], x["para"]) for x in db.pagos] == [(3_500, []), (25_000, [])]
+    assert db.messages[mid]["status"] == "not_expense"
+
+
+def test_un_comprobante_que_no_cuadra_queda_por_revisar_y_avisa_que_parece_un_pago(db, extractor, monkeypatch):
+    from lucas_worker.extract.cascade import Extraction
+    from lucas_worker.extract.rules import analyze_document
+
+    from .test_envios import NU_COMPROBANTE
+
+    def leido(img, image_hash, caption, today):
+        return Extraction(
+            kind="photo",
+            method="photo_ocr",
+            text=NU_COMPROBANTE,
+            quality=0.97,
+            hints=analyze_document(NU_COMPROBANTE, today),
+        )
+
+    monkeypatch.setattr(extractor, "photo", leido)
+    p = procesador(db, extractor, FakeLlm(qwen_honesto))
+    db.pago = {"handled": False}
+    mid = db.add_message("photo", file="recibo_panaderia_foto.jpg", source="whatsapp")
+    assert "pago entre ellos" not in p.process(Job(id="j1", payload={"message_id": mid}))
+    (g,) = [e for e in db.expenses if e["message_id"] == mid]
+    assert g["status"] == "pending_review"
+    assert g["merchant"] == "Comprobante de transferencia"
+    assert g["ai_snapshot"]["parece_pago"] is True

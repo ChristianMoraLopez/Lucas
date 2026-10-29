@@ -377,6 +377,8 @@ export const EN: Record<string, string> = {
   'Mejor dividir por igual': 'Split evenly instead',
   'Entre quiénes · {n} de {total}': 'Split between · {n} of {total}',
   '{monto} c/u': '{monto} each',
+  'Parece un comprobante de transferencia. Si es un pago entre ustedes y no un gasto, toca «No es un gasto» y márquenlo pagado en Liquidar.':
+    'This looks like a transfer receipt. If it’s a payment between you and not an expense, tap “Not an expense” and mark it paid in Settle up.',
   'Se parece a otro gasto del mismo comercio, día y valor. Revisa que no esté repetido antes de confirmar.':
     'It looks like another expense from the same store, day and amount. Make sure it isn’t a duplicate before confirming.',
   'Guardando…': 'Saving…',

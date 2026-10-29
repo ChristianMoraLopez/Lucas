@@ -84,7 +84,7 @@ class FakeDb:
         # La moneda de la cuenta (migración 250)
         self.currency = "COP"
         # Lo que contesta worker_pago_con_comprobante (migración 510) y con qué la llamaron
-        self.pago: dict[str, Any] = {"handled": False}
+        self.pago: dict[str, Any] | Callable[[int, list[str]], dict[str, Any]] = {"handled": False}
         self.pagos: list[dict[str, Any]] = []
 
     # -- armar escenarios --------------------------------------------------------
@@ -142,7 +142,7 @@ class FakeDb:
 
     def _worker_pago_con_comprobante(self, p_message_id: str, p_monto: int, p_para: list[str]) -> dict[str, Any]:
         self.pagos.append({"message_id": p_message_id, "monto": p_monto, "para": p_para})
-        return self.pago
+        return self.pago(p_monto, p_para) if callable(self.pago) else self.pago
 
     def _worker_message_context(self, p_message_id: str) -> dict[str, Any] | None:
         m = self.messages.get(p_message_id)

@@ -288,6 +288,12 @@ export class Ingestor {
           ? await this.#canal(session, m, canalDe(m.text) as 'privado' | 'aqui', true)
           : null;
       if (respuesta) return respuesta;
+      // «Ya pagué» sin hablarle a Mister Luks (Santiago en Nochita): con la cuenta liquidada se
+      // atiende igual; marca lo que le faltaba o le dice que ya está todo pago
+      if (!pregunta && session.kind === 'contador' && intencionDe(m.text) === 'ya_pague') {
+        const pago = await this.#yaPague(session, m, m.text ?? '', true);
+        if (pago) return pago;
+      }
     }
 
     // Las cuentas o un cobro que mandaron desde Luks, o una respuesta de Luks: no es un gasto
@@ -728,13 +734,15 @@ export class Ingestor {
    * lo dice Mister Luks por su privado (si ya le escribió) o en el grupo.
    * Devuelve null si era un gasto («luks ya pagué la luz 120 lucas»).
    */
-  async #yaPague(session: SessionInfo, m: IncomingMessage, texto: string): Promise<Outcome | null> {
+  async #yaPague(session: SessionInfo, m: IncomingMessage, texto: string, sinHablarle = false): Promise<Outcome | null> {
     const enGrupo = m.chatKind === 'grupo';
     const d = await this.store.porPagar(m.chatId, m.sender);
     // Si Mister Luks está en el grupo, responde él (no también el WhatsApp vinculado)
     if (enGrupo && session.kind !== 'contador' && d.contador_en_grupo) return 'ignorado:lo_responde_mister_luks';
     const decision = d.conocido && (!enGrupo || d.account) ? elegirPagos(d.pendientes, texto, enGrupo) : null;
     if (decision?.tipo === 'gasto') return null;
+    // Sin hablarle, solo si hay una liquidación de por medio y queda claro (si no, es charla)
+    if (sinHablarle && (!d.account?.liquidada || !decision || decision.tipo === 'no_le_debes')) return null;
 
     // En el grupo responde Mister Luks; si lo lee solo un WhatsApp vinculado, por privado (nunca escribe ese)
     const privado = privadoDe(m);
@@ -756,7 +764,13 @@ export class Ingestor {
     } else if (!decision) {
       decir(aqui, d.account ? PREGUNTAS.noTeConozco(idioma, d.account.name) : PAGOS.noTeEncuentro(idioma));
     } else if (decision.tipo === 'nada') {
-      decir(aqui, d.account && !d.account.liquidada ? PAGOS.sinLiquidar(idioma, nombre, d.account.name) : PAGOS.nada(idioma, nombre, d.account?.name ?? null));
+      // Dicho sin hablarle, «ya está todo pago» una vez por hora (no a cada «ya pagué»)
+      const clave = sinHablarle ? `answer:${aqui}:nada:${m.sender.id}:${tramo(m.sentAt, 60)}` : undefined;
+      decir(
+        aqui,
+        d.account && !d.account.liquidada ? PAGOS.sinLiquidar(idioma, nombre, d.account.name) : PAGOS.nada(idioma, nombre, d.account?.name ?? null),
+        clave,
+      );
     } else if (decision.tipo === 'cual') {
       decir(aqui, PAGOS.cual(idioma, nombre, d.pendientes, decision.nombre, conCuenta));
     } else if (decision.tipo === 'no_le_debes') {

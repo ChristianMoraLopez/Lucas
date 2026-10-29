@@ -16,12 +16,18 @@ describe('lo que responden', () => {
     ['opción 2', 'nueva'],
     ['cuenta nueva', 'nueva'],
     ['otra', 'nueva'],
+    // Un comprobante que no se pudo emparejar (la 590)
+    ['pago', 'pago'],
+    ['es un pago', 'pago'],
+    ['Luks fue un pago', 'pago'],
+    ["it's a payment", 'pago'],
   ])('«%s» → %s', (t, modo) => expect(leerDecision(t)).toBe(modo));
 
   it('lo demás no', () => {
     expect(leerDecision('3')).toBeNull();
     expect(leerDecision('abrimos la playa mañana')).toBeNull();
     expect(leerDecision('jajaja')).toBeNull();
+    expect(leerDecision('ya pagué')).toBeNull();
   });
 });
 
@@ -63,6 +69,23 @@ describe('lo que contesta Mister Luks', () => {
     expect(contestarDecision({ ...base, modo: 'reabrir' as const, cuenta: 'DaniChile' }, WEB)).not.toContain('/c/dc/gastos');
     // Sin la cuenta (base sin la 450 al día), sin link
     expect(contestarDecision({ ...uno, account_id: undefined as unknown as string }, WEB)).not.toContain('http');
+  });
+
+  it('«pago»: el comprobante no se anotó y la cuenta queda como estaba', () => {
+    const m = contestarDecision(
+      {
+        ...base,
+        modo: 'pago' as const,
+        cuenta: 'Nochita',
+        gastos: [{ expense_id: null, duplicate_of: null, merchant: 'Comprobante de transferencia', total: 9_800, items: 0 }],
+      },
+      WEB,
+    );
+    expect(m).toBe(
+      '👍 Listo, Christian: el comprobante ($9.800) es un pago, así que no lo anoto como gasto. «Nochita» queda como estaba. Si con eso alguien quedó a paz y salvo, respóndanme *ya pagué* o márquenlo en mrluks.com.\n\n📊 Más detalle en mrluks.com',
+    );
+    expect(esMensajeDeLuks(m)).toBe(true);
+    expect(contestarDecision({ ok: false, reason: 'sin_comprobante', language: 'es', account_name: 'Nochita' }, WEB)).toContain('Respondan *1*');
   });
 
   it('una cuenta cerrada solo admite cuenta nueva', () => {

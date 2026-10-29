@@ -4,21 +4,23 @@ import { formatCOP, type Idioma, plano } from './text.js';
 
 /*
  * Un paseo ya liquidado y al grupo llega otro gasto (migración 450): Mister
- * Luks pregunta si lo reabre («1») o lo anota en una cuenta nueva («2»).
+ * Luks pregunta si lo reabre («1») o lo anota en una cuenta nueva («2»). Si
+ * es un comprobante que no pudo emparejar (la 590), también «pago»: no se anota.
  * Aquí se entiende la respuesta y se escribe lo que contesta. Firma como los
  * demás mensajes con montos: así nadie los anota como gasto.
  */
 
 const FIRMA: Record<Idioma, string> = { es: '📊 Más detalle en mrluks.com', en: '📊 More detail at mrluks.com' };
 
-/** «1», «reabrir», «ábrela», «la misma» → reabrir; «2», «cuenta nueva», «otra» → nueva. Lo demás, null */
-export function leerDecision(texto: string | null | undefined): 'reabrir' | 'nueva' | null {
+/** «1», «reabrir», «ábrela», «la misma» → reabrir; «2», «cuenta nueva», «otra» → nueva; «pago», «es un pago» → pago. Lo demás, null */
+export function leerDecision(texto: string | null | undefined): 'reabrir' | 'nueva' | 'pago' | null {
   const t = plano(texto ?? '')
     .replace(/\b(?:luks|mister|mr|porfa|por favor|la|el|lo|de una|dale|mejor|opcion|yo digo|creo que)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (/^(?:1|uno|reabr\w*|abr\w*|sumal\w*|misma(?: cuenta)?|en misma)$/.test(t)) return 'reabrir';
   if (/^(?:2|dos|nueva(?: cuenta)?|cuenta nueva|otra(?: cuenta)?|aparte)$/.test(t)) return 'nueva';
+  if (/^(?:(?:(?:es|fue|era) )?(?:un )?pago(?: entre (?:nosotros|ustedes))?|(?:its |it is |it was )?(?:a )?payment)$/.test(t)) return 'pago';
   return null;
 }
 
@@ -38,6 +40,11 @@ export function contestarDecision(r: DecisionLiquidada, webUrl: string): string 
         ? `🔒 “${r.account_name}” is closed: I can only log it in a new account. Reply *2*.`
         : `🔒 «${r.account_name}» está cerrada: solo puedo anotarlo en una cuenta nueva. Respondan *2*.`;
     }
+    if (r.reason === 'sin_comprobante') {
+      return en
+        ? '🤔 What arrived is an expense, not a transfer receipt. Reply *1* to reopen or *2* for a new account.'
+        : '🤔 Lo que llegó es un gasto, no un comprobante. Respondan *1* para reabrir o *2* para una cuenta nueva.';
+    }
     if (r.reason === 'no_te_conozco') {
       return en
         ? `🤔 I don’t know who you are in “${r.account_name}”. Type “luks soy yo” so I can recognize you.`
@@ -46,6 +53,13 @@ export function contestarDecision(r: DecisionLiquidada, webUrl: string): string 
     return '';
   }
   const $ = (n: number) => formatCOP(Number(n), r.currency, idioma);
+  if (r.modo === 'pago') {
+    const cuanto = r.gastos.map((g) => $(g.total)).join(en ? ' and ' : ' y ');
+    const nombre = primerNombre(r.name);
+    return en
+      ? `👍 Done, ${nombre}: the receipt (${cuanto}) is a payment, so I didn’t log it as an expense. “${r.cuenta}” stays as it was. If that settles someone’s debt, reply *paid* or mark it at mrluks.com.\n\n${FIRMA[idioma]}`
+      : `👍 Listo, ${nombre}: el comprobante (${cuanto}) es un pago, así que no lo anoto como gasto. «${r.cuenta}» queda como estaba. Si con eso alguien quedó a paz y salvo, respóndanme *ya pagué* o márquenlo en mrluks.com.\n\n${FIRMA[idioma]}`;
+  }
   const nuevos = r.gastos.filter((g) => !g.duplicate_of);
   const lista = nuevos.map((g) => `*${g.merchant}* (${$(g.total)})`).join(en ? ' and ' : ' y ');
   const conItems = nuevos.some((g) => Number(g.items) >= 2);

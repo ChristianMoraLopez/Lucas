@@ -202,7 +202,8 @@ export type ItemsCantidad =
 export type DecisionLiquidada =
   | {
       ok: true;
-      modo: 'reabrir' | 'nueva';
+      /** «pago» (la 590): los comprobantes que esperaban no se anotaron */
+      modo: 'reabrir' | 'nueva' | 'pago';
       /** La cuenta donde quedó (para el link) */
       account_id: string;
       language: Idioma | null;
@@ -213,7 +214,7 @@ export type DecisionLiquidada =
       anterior: string;
       gastos: { expense_id: string | null; duplicate_of: string | null; merchant: string; total: number; items: number }[];
     }
-  | { ok: false; reason: 'no_es_pregunta' | 'no_te_conozco' | 'cerrada'; language?: Idioma | null; account_name?: string };
+  | { ok: false; reason: 'no_es_pregunta' | 'no_te_conozco' | 'cerrada' | 'sin_comprobante'; language?: Idioma | null; account_name?: string };
 
 /** connector_eliminar_gasto: «luks elimina este gasto» citando el mensaje del gasto (migración 520) */
 export type EliminarGasto =
@@ -458,7 +459,7 @@ export interface Store {
   /** La lista quedó en la bandeja de salida con esa clave */
   itemPromptGuardado(expenseId: string, itemIds: string[], chatJid: string, dedupeKey: string): Promise<void>;
   /** Respondieron la pregunta de un paseo liquidado: reabrirlo o anotar en una cuenta nueva (citándola o no) */
-  decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva'): Promise<DecisionLiquidada>;
+  decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva' | 'pago'): Promise<DecisionLiquidada>;
   /** «luks elimina este gasto» citando su mensaje: lo elimina si quien lo pide puede (migración 520) */
   eliminarGasto(jid: string, quotedId: string | null, sender: Sender): Promise<EliminarGasto>;
   /** Alguien respondió la lista (citándola) con los números de lo suyo */
@@ -770,7 +771,7 @@ export class SupabaseStore implements Store {
       p_transfer_ids: transferIds,
     });
   }
-  decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva') {
+  decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva' | 'pago') {
     return this.#rpc<DecisionLiquidada>('connector_decidir_liquidada', {
       p_jid: jid,
       p_quoted_wa_id: quotedId,

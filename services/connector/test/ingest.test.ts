@@ -665,6 +665,28 @@ describe('«ya pagué»', () => {
     expect(textos()[0]).toContain('¿a quién le pagaste? Te falta:');
   });
 
+  it('sin hablarle a Mister Luks, con la cuenta liquidada, también lo atiende (Santiago en Nochita)', async () => {
+    expect(await ing.onMessage(contador, wa, m({ text: 'Ya le pagué a Valeria' }))).toBe('pago:marcar');
+    expect(store.pagadas).toEqual(['t1']);
+    // Ya no le falta nada: le dice que está todo pago, una vez por hora
+    store.deudas = [];
+    store.conocidos.add('573016667788');
+    expect(await ing.onMessage(contador, wa, m({ text: 'ya pagué' }))).toBe('pago:nada');
+    expect(await ing.onMessage(contador, wa, m({ text: 'ya pagué!!' }))).toBe('pago:nada');
+    expect(textos().slice(1)).toEqual(['✅ Sí, Mafe, ya quedó: no tienes nada pendiente por pagar en «Paseo» 🙌']);
+    // A alguien que no es de la cuenta: es charla
+    store.deudas = [deuda('t2', 'Laura', 45_000)];
+    expect(await ing.onMessage(contador, wa, m({ text: 'ya le pagué a la señora de las empanadas' }))).toBe('charla');
+  });
+
+  it('sin hablarle y sin liquidar, es charla', async () => {
+    store.deudas = [];
+    store.liquidada = false;
+    store.conocidos.add('573016667788');
+    expect(await ing.onMessage(contador, wa, m({ text: 'ya pagué' }))).toBe('charla');
+    expect(textos()).toEqual([]);
+  });
+
   it('un gasto dicho así sigue siendo un gasto', async () => {
     expect(await ing.onMessage(contador, wa, m({ text: 'luks ya pagué la luz 120 lucas' }))).toBe('guardado');
     expect(store.pagadas).toEqual([]);

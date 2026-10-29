@@ -27,7 +27,7 @@ from .classify.question import ClassifyInput
 from .config import Settings
 from .errors import LlmUnavailable, PermanentError
 from .extract.cascade import Extraction, Extractor
-from .extract.envios import envio_a_persona
+from .extract.envios import envio_a_persona, montos_del_comprobante, parece_comprobante
 from .extract.moneda import detectar_moneda
 from .extract.numbers import fijar_moneda
 from .llm.ollama import LlmError, ReceiptLlm
@@ -281,6 +281,14 @@ class MessageProcessor:
         if envio and (pago := self._pago(job, envio.monto, envio.para)):
             self._marcar(job.message_id, "not_expense", text=ex.stored_text)
             return f"pago entre ellos ({pago})"
+        # Tiene cara de comprobante pero no se supo leer del todo (otro banco): sin el nombre,
+        # la base lo marca pagado solo si es justo lo que quien lo mandó le debía a alguien (la 590)
+        parece_pago = kind != "text" and (envio is not None or parece_comprobante(ex.text))
+        if parece_pago and envio is None:
+            for monto in montos_del_comprobante(ex.text):
+                if pago := self._pago(job, monto, []):
+                    self._marcar(job.message_id, "not_expense", text=ex.stored_text)
+                    return f"pago entre ellos ({pago})"
 
         if ex.cufe and (dup := self._duplicado(account_id, ex.cufe, None)):
             self._marcar(job.message_id, "duplicate", dup, ex.stored_text)
@@ -313,6 +321,12 @@ class MessageProcessor:
         if draft.not_expense:
             self._marcar(job.message_id, "not_expense", text=ex.stored_text)
             return "no es un gasto"
+        if parece_pago:
+            # Un comprobante que no se pudo emparejar: quizá es un pago entre ellos. Nunca se
+            # confirma solo; en un paseo liquidado se pregunta «¿pago o gasto?» (la 590)
+            draft.notes.append("Parece un comprobante de transferencia: si es un pago entre ustedes, no es un gasto")
+            if not draft.merchant or draft.merchant.lower().startswith("comprobante"):
+                draft.merchant = "Comprobante de transferencia"
         conversion = self._convertir(draft, moneda, cuenta, today, job) if moneda != cuenta else {}
 
         # 4. Pagador y división
@@ -340,7 +354,8 @@ class MessageProcessor:
         confianza = {**draft.confidence, "category": round(decision.confidence, 2), "payer": round(payer.confidence, 2)}
         minima = min(confianza.values())
         confirmar = (
-            decision.source == "memory"
+            not parece_pago
+            and decision.source == "memory"
             and minima >= self.settings.auto_confirm_min
             and payer.person_id is not None
             and draft.total_cop > 0
@@ -384,6 +399,8 @@ class MessageProcessor:
             "original_total": conversion.get("original_total"),
             "fx_rate": conversion.get("fx_rate"),
             "notes": draft.notes or None,
+            # Un comprobante que no se pudo emparejar con lo que alguien debía (la 590)
+            "parece_pago": True if parece_pago else None,
             "worker": __version__,
         }
         data = {

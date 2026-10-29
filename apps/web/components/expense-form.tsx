@@ -453,6 +453,12 @@ export function ExpenseForm({
         )}
       </fieldset>
 
+      {pending && ai.parece_pago && (
+        <p className="rv-note" role="note">
+          {t('Parece un comprobante de transferencia. Si es un pago entre ustedes y no un gasto, toca «No es un gasto» y márquenlo pagado en Liquidar.')}
+        </p>
+      )}
+
       {pending && ai.possible_duplicate_of && (
         <p className="rv-note" role="note">
           {t('Se parece a otro gasto del mismo comercio, día y valor. Revisa que no esté repetido antes de confirmar.')}

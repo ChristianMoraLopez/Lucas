@@ -215,9 +215,9 @@ export class FakeStore implements Store {
   }
   /** La pregunta de un paseo liquidado: el id del mensaje con que salió (si salió), lo que se respondió y lo que contesta la base */
   preguntaReabrir: { waId: string | null; resuelta: boolean } | null = null;
-  decisiones: { jid: string; quotedId: string | null; sender: string | null; modo: 'reabrir' | 'nueva' }[] = [];
+  decisiones: { jid: string; quotedId: string | null; sender: string | null; modo: 'reabrir' | 'nueva' | 'pago' }[] = [];
   decision: DecisionLiquidada | null = null;
-  async decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva'): Promise<DecisionLiquidada> {
+  async decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva' | 'pago'): Promise<DecisionLiquidada> {
     const q = this.preguntaReabrir;
     if (!q || q.resuelta || (quotedId !== null && q.waId !== quotedId)) return { ok: false, reason: 'no_es_pregunta' };
     this.decisiones.push({ jid, quotedId, sender: sender.id, modo });

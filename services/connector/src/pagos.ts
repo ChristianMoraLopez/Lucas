@@ -171,8 +171,8 @@ export const PAGOS = {
 
   nada: (idioma: Idioma, nombre: string, cuenta: string | null) =>
     idioma === 'en'
-      ? `🙌 ${nombre}, you have nothing left to pay${cuenta ? ` in “${cuenta}”` : ''}.`
-      : `🙌 ${nombre}, no tienes nada pendiente por pagar${cuenta ? ` en «${cuenta}»` : ''}.`,
+      ? `✅ Yes, ${nombre}, it’s all marked: you have nothing left to pay${cuenta ? ` in “${cuenta}”` : ''} 🙌`
+      : `✅ Sí, ${nombre}, ya quedó: no tienes nada pendiente por pagar${cuenta ? ` en «${cuenta}»` : ''} 🙌`,
 
   sinLiquidar: (idioma: Idioma, nombre: string, cuenta: string) =>
     idioma === 'en'
