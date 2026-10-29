@@ -225,6 +225,15 @@ def parse_number(token: str) -> int | None:
     return None
 
 
+def monto_sin_puntuacion(valor: int, text: str | None) -> int | None:
+    """El LLM a veces copia «$28.644,53» sin puntos ni coma: 2864453 en vez de 28.644.
+    Si un número del texto tiene esos mismos dígitos y se lee distinto, lo que dice el texto."""
+    for m in _NUMERO.finditer(text or ""):
+        if re.sub(r"\D", "", m.group(1)) == str(valor) and (v := parse_number(m.group(1))) is not None and v != valor:
+            return v
+    return None
+
+
 def find_amounts(line: str) -> list[int]:
     """Todos los montos de una línea, en orden."""
     out: list[int] = []

@@ -38,6 +38,7 @@ export const LOTTIES = {
   borrar: { loop: false },
   'mister-luks': { loop: false },
   'vincular-whatsapp': { loop: false },
+  exportar: { loop: false },
 } as const;
 export type LottieName = keyof typeof LOTTIES;
 

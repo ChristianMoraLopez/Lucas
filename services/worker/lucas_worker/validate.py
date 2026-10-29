@@ -18,7 +18,7 @@ from rapidfuzz import fuzz
 
 from .extract.cascade import Extraction
 from .extract.items import items_cuadran, items_del_recibo
-from .extract.numbers import normalize_merchant
+from .extract.numbers import monto_sin_puntuacion, normalize_merchant
 from .extract.rules import best_date
 from .llm.schema import ReceiptExtraction, ReceiptItem
 
@@ -91,7 +91,7 @@ def _clamp(v: float) -> float:
 
 def _total_mensaje(ex: Extraction, llm: ReceiptExtraction | None) -> tuple[int, float, str]:
     regla = ex.hints.amount
-    del_llm = llm.total_cop if llm else None
+    del_llm = _sin_puntuacion(llm.total_cop if llm else None, ex, [])
     if regla and del_llm == regla:
         return regla, 0.95, "reglas+llm"
     if regla:
@@ -108,6 +108,7 @@ def _total_documento(ex: Extraction, llm: ReceiptExtraction | None, notes: list[
     # «TOTAL 4» copiado por el LLM: cuántos ítems, no el total
     if del_llm is not None and del_llm < 50:
         del_llm = None
+    del_llm = _sin_puntuacion(del_llm, ex, notes)
     candidatos = h.total_candidates
 
     if ex.qr and ex.qr.total:
@@ -135,6 +136,16 @@ def _total_documento(ex: Extraction, llm: ReceiptExtraction | None, notes: list[
     if ex.caption_hints.amount:
         return ex.caption_hints.amount, 0.8, "mensaje"
     return 0, 0.2, "ninguno"
+
+
+def _sin_puntuacion(del_llm: int | None, ex: Extraction, notes: list[str]) -> int | None:
+    """«$28.644,53» que el LLM devolvió como 2864453: lo que dice el texto (28.644)."""
+    if not del_llm or del_llm in ex.hints.all_amounts or del_llm == ex.hints.amount:
+        return del_llm
+    if (v := monto_sin_puntuacion(del_llm, ex.text)) is None:
+        return del_llm
+    notes.append(f"El LLM leyó {del_llm} sin los separadores; el texto dice {v}")
+    return v
 
 
 def _suma_partes(subtotal: int | None, tax: int | None, tip: int | None) -> int | None:

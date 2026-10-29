@@ -1,4 +1,5 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
+import { contestarEliminar, esEliminar } from './eliminar.js';
 import { confirmacionPrivada, contestar, contestarCantidad, leerCantidad, leerRespuesta, linkDividir, respuestaConfirmacion, siONo } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
@@ -55,6 +56,7 @@ export type Outcome =
   | `pago:${string}`
   | `items:${string}`
   | `reabrir:${string}`
+  | `eliminar:${string}`
   | `link_grupo:${string}`
   | `ignorado:${string}`;
 
@@ -240,6 +242,8 @@ export class Ingestor {
     // Le preguntan algo a Mister Luks (antes del filtro de la charla), o responden «privado» / «aquí»
     if (!m.media) {
       const pregunta = aMisterLuks(m, this.#misterLuks);
+      // «luks elimina este gasto», citando el mensaje del gasto
+      if (pregunta && session.kind === 'contador' && esEliminar(pregunta.texto)) return this.#eliminar(m);
       // «luks reabre» / «luks cuenta nueva»: la pregunta de un paseo liquidado
       if (pregunta && session.kind === 'contador' && leerDecision(pregunta.texto)) {
         const decision = await this.#decision(m, null, pregunta.texto);
@@ -653,6 +657,22 @@ export class Ingestor {
     if (body) await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
     this.log.info({ group: m.chatId, modo, ok: r.ok, reason: r.ok ? undefined : r.reason, sender: maskWaId(m.sender.id) }, '¿Reabrir o cuenta nueva?');
     return `reabrir:${r.ok ? r.modo : r.reason}`;
+  }
+
+  /**
+   * «luks elimina este gasto» (migración 520): citan el mensaje del gasto (la
+   * foto, el PDF, el texto o la lista de «¿quién pidió qué?») y la base lo
+   * elimina si quien lo pide lo mandó, lo pagó o administra la cuenta. Sin cita,
+   * Mister Luks explica cómo (como mucho una vez cada 10 minutos por grupo).
+   */
+  async #eliminar(m: IncomingMessage): Promise<Outcome> {
+    const r = await this.store.eliminarGasto(m.chatId, m.quotedId ?? null, m.sender);
+    const idioma: Idioma = r.language ?? idiomaDeNumero(m.sender.phone);
+    const body = contestarEliminar(r, idioma);
+    const clave = !r.ok && r.reason === 'sin_cita' ? `eliminar:${m.chatId}:${tramo(m.sentAt, 10)}` : `answer:${m.chatId}:${m.messageId}`;
+    if (body) await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: clave }]);
+    this.log.info({ group: m.chatId, ok: r.ok, reason: r.ok ? undefined : r.reason, sender: maskWaId(m.sender.id) }, 'Eliminar un gasto');
+    return `eliminar:${r.ok ? 'ok' : r.reason}`;
   }
 
   /**

@@ -6,7 +6,6 @@ import { useT } from '@/components/idioma';
 import { nombreCategoria } from '@/components/lucas-core';
 import { useDinero } from '@/components/moneda';
 import { Segmento } from '@/components/segmento';
-import { monthName } from '@/lib/dates';
 import { plural } from '@/lib/types';
 
 export interface Filtros {
@@ -15,18 +14,20 @@ export interface Filtros {
   quien: string;
   mes: string;
   ver: string;
+  /** antiguos, mayor o menor; vacío: los más recientes primero */
+  orden: string;
 }
 
 /**
- * Buscar y filtrar los gastos: por comercio (sin importar tildes), categoría,
- * quién pagó, mes y «por revisar». Todo queda en la URL (?q=&cat=&quien=&mes=)
- * para volver atrás o compartir la búsqueda; la página filtra en el servidor.
+ * Buscar, filtrar y ordenar los gastos: por comercio (sin importar tildes),
+ * categoría, quién pagó, mes y «por revisar»; por fecha o por valor, de arriba
+ * abajo o al revés. Todo queda en la URL (?q=&cat=&quien=&mes=&orden=) para
+ * volver atrás o compartir la búsqueda; la página filtra en el servidor.
  */
 export function GastosFiltros({
   filtros,
   categorias,
   personas,
-  meses,
   total,
   suma,
   tope,
@@ -34,8 +35,6 @@ export function GastosFiltros({
   filtros: Filtros;
   categorias: { id: string; name: string }[];
   personas: { id: string; name: string }[];
-  /** «2026-09», del más reciente al más viejo */
-  meses: string[];
   total: number;
   suma: number;
   /** Se llegó al máximo de gastos que muestra la lista */
@@ -70,7 +69,12 @@ export function GastosFiltros({
     return () => clearTimeout(reloj);
   }, [q, filtros.q]);
 
-  const hay = Boolean(filtros.q || filtros.cat || filtros.quien || filtros.mes || filtros.ver);
+  const hay = Boolean(filtros.q || filtros.cat || filtros.quien || filtros.mes || filtros.ver || filtros.orden);
+  const primeros: Record<string, string> = {
+    antiguos: t('(los más antiguos)'),
+    mayor: t('(los de mayor valor)'),
+    menor: t('(los de menor valor)'),
+  };
   const quitar = () => {
     saltar.current = true;
     setQ('');
@@ -88,8 +92,8 @@ export function GastosFiltros({
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={t('Buscar comercio: panadería, Uber, Éxito…')}
-          aria-label={t('Buscar por comercio')}
+          placeholder={t('Buscar comercio o valor: Uber, 105 mil…')}
+          aria-label={t('Buscar por comercio o valor')}
           enterKeyHint="search"
           maxLength={60}
         />
@@ -117,13 +121,11 @@ export function GastosFiltros({
             </option>
           ))}
         </select>
-        <select aria-label={t('Mes')} value={filtros.mes} onChange={(e) => ir({ mes: e.target.value })} className={filtros.mes ? 'is-on' : ''}>
-          <option value="">{t('Mes')}</option>
-          {meses.map((m) => (
-            <option key={m} value={m}>
-              {monthName(`${m}-01`, t.idioma)} {m.slice(0, 4)}
-            </option>
-          ))}
+        <select aria-label={t('Ordenar')} value={filtros.orden} onChange={(e) => ir({ orden: e.target.value })} className={filtros.orden ? 'is-on' : ''}>
+          <option value="">{t('Más recientes')}</option>
+          <option value="antiguos">{t('Más antiguos')}</option>
+          <option value="mayor">{t('Mayor valor')}</option>
+          <option value="menor">{t('Menor valor')}</option>
         </select>
       </div>
 
@@ -138,7 +140,9 @@ export function GastosFiltros({
           ]}
         />
         <span className="lu-small lu-muted gf-n" aria-live="polite">
-          {buscando ? t('Buscando…') : `${plural(total, t('gasto'), t('gastos'))} · ${$.fmt(suma)}${tope ? ` ${t('(los más recientes)')}` : ''}`}
+          {buscando
+            ? t('Buscando…')
+            : `${plural(total, t('gasto'), t('gastos'))} · ${$.fmt(suma)}${tope ? ` ${primeros[filtros.orden] ?? t('(los más recientes)')}` : ''}`}
         </span>
         {hay && (
           <button type="button" className="gf-clear" onClick={quitar}>

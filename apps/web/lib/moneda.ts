@@ -20,7 +20,7 @@ export const esMonedaRecibo = (v: unknown): v is MonedaRecibo => typeof v === 's
 
 /** Cuántos decimales usa (y cuántos guarda la base) */
 export const DECIMALES: Record<MonedaRecibo, 0 | 2> = { COP: 0, CLP: 0, BOB: 2, USD: 2, EUR: 2, PEN: 2, MXN: 2, ARS: 2, BRL: 2 };
-const SIMBOLO: Record<MonedaRecibo, string> = { COP: '$', CLP: '$', BOB: 'Bs ', USD: '$', EUR: '€', PEN: 'S/ ', MXN: '$', ARS: '$', BRL: 'R$ ' };
+export const SIMBOLO: Record<MonedaRecibo, string> = { COP: '$', CLP: '$', BOB: 'Bs ', USD: '$', EUR: '€', PEN: 'S/ ', MXN: '$', ARS: '$', BRL: 'R$ ' };
 /** Para elegirla (el texto pasa por t) */
 export const NOMBRE_MONEDA: Record<MonedaRecibo, string> = {
   COP: 'Pesos colombianos',
