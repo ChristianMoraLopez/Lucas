@@ -253,6 +253,18 @@ describe('avisos de cobro', () => {
     expect(store.avisadosPorPrivado).toHaveLength(6);
   });
 
+  it('si la base no deja el aviso en la bandeja (quien nunca le ha escrito), no queda como avisado', async () => {
+    const store = new FakeStore();
+    const nuevo = cobro({ transfer_id: 'n1', primera_vez: true, private_jid: '57300000031@s.whatsapp.net', from: { id: 'p1', name: 'P1' } });
+    store.cobrosPendientes = [nuevo];
+    expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(0);
+    expect(store.avisados).toEqual([]);
+    // Cuando la base lo acepta, sale y queda avisado
+    store.presentes.add('57300000031@s.whatsapp.net|contador');
+    expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(1);
+    expect(store.avisadosPorPrivado).toEqual(['n1']);
+  });
+
   it('a quien le paga a varios le llega un solo mensaje por privado', async () => {
     const store = new FakeStore();
     store.presentes.add(`${PRIVADO}|contador`);

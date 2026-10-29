@@ -322,7 +322,9 @@ export async function avisarCobros(store: Store, webUrl: string, log: Logger): P
   const despues = new Set(nuevos.slice(PRIMEROS_POR_VUELTA));
   const cobros = todos.filter((c) => !(c.private_jid && despues.has(c.private_jid)));
   const items: OutboxItem[] = [];
-  const privados: string[] = [];
+  // Por privado: la clave del mensaje y las transferencias que avisa (a quien nunca le ha escrito
+  // solo se marcan si la base lo dejó en la bandeja, migración 620)
+  const porPrivado: { clave: string; primeraVez: boolean; ids: string[] }[] = [];
   const enGrupo: string[] = [];
   // Por privado, uno por persona y liquidación (con todo lo que le falta pagar); en el grupo, uno por liquidación
   const porPersona = new Map<string, Cobro[]>();
@@ -334,8 +336,9 @@ export async function avisarCobros(store: Store, webUrl: string, log: Logger): P
   }
   for (const [clave, [c, ...otros]] of porPersona) {
     const [jid] = clave.split('|');
-    items.push({ chat_jid: jid, reason: 'answer', body: mensajeCobro(c, webUrl), dedupe_key: `cobro:${c.transfer_id}:${c.avisos}` });
-    privados.push(c.transfer_id, ...otros.map((x) => x.transfer_id));
+    const dedupe = `cobro:${c.transfer_id}:${c.avisos}`;
+    items.push({ chat_jid: jid, reason: 'answer', body: mensajeCobro(c, webUrl), dedupe_key: dedupe });
+    porPrivado.push({ clave: dedupe, primeraVez: Boolean(c.primera_vez), ids: [c.transfer_id, ...otros.map((x) => x.transfer_id)] });
   }
   for (const [clave, cs] of porGrupo) {
     const [jid, liquidacion] = clave.split('|');
@@ -344,7 +347,12 @@ export async function avisarCobros(store: Store, webUrl: string, log: Logger): P
     enGrupo.push(...cs.map((x) => x.transfer_id));
   }
   const encolados = await store.outboxEnqueue(items);
+  const quedaron = new Set(encolados);
+  // Lo que la base no dejó pasar a quien nunca le ha escrito no se da por avisado (se intenta en la siguiente vuelta)
+  const sinSalir = porPrivado.filter((x) => x.primeraVez && !quedaron.has(x.clave));
+  const privados = porPrivado.filter((x) => !sinSalir.includes(x)).flatMap((x) => x.ids);
   await store.cobrosAvisados(privados, enGrupo);
+  if (sinSalir.length) log.warn({ sin_salir: sinSalir.length }, 'Avisos por privado que la base no dejó en la bandeja');
   log.info(
     { privados: porPersona.size, grupos: porGrupo.size, primeros: Math.min(nuevos.length, PRIMEROS_POR_VUELTA), nuevos: encolados.length },
     'Avisos de cobro',

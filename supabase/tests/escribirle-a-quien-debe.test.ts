@@ -105,4 +105,28 @@ describe('escribirle a quien debe', () => {
       for (const c of santi) expect(c.private_jid).toBeNull();
     });
   });
+
+  it('la bandeja de salida acepta su aviso de cobro, y nada más, aunque nunca le haya escrito (la 620)', async () => {
+    await as(db, U.laura, async (tx) => {
+      await preparar(tx);
+      const [c] = (await avisos(tx)).filter((x) => x.from.id === SANTI);
+      const encolar = async (chat: string, clave: string) => {
+        await tx.exec('reset role');
+        await tx.exec('set local role service_role');
+        const { r } = await one<{ r: string[] }>(tx, 'select public.connector_outbox_enqueue($1) as r', [
+          JSON.stringify([{ chat_jid: chat, reason: 'answer', body: '💸 Hola', dedupe_key: clave }]),
+        ]);
+        await tx.exec('reset role');
+        return r;
+      };
+      const suyo = `${SANTI_WA}@s.whatsapp.net`;
+      expect(await encolar(suyo, `cobro:${c.transfer_id}:1`)).toEqual([`cobro:${c.transfer_id}:1`]);
+      // Otro chat con esa clave, u otra cosa a su chat: no
+      expect(await encolar('573009990000@s.whatsapp.net', `cobro:${c.transfer_id}:2`)).toEqual([]);
+      expect(await encolar(suyo, 'answer:hola')).toEqual([]);
+      // Ya pagada: tampoco
+      await tx.query('update public.settlement_transfers set paid_at = now() where id = $1', [c.transfer_id]);
+      expect(await encolar(suyo, `cobro:${c.transfer_id}:3`)).toEqual([]);
+    });
+  });
 });
