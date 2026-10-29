@@ -115,6 +115,15 @@ describe('cuando agregan a Mister Luks a un grupo', () => {
     expect(bandeja()[0].body).toContain('sus 2 integrantes ya están en la cuenta');
   });
 
+  it('el @usuario de WhatsApp de los integrantes va antes que la lista (así quien no tiene nombre queda con él)', async () => {
+    wa.integrantes.set(GRUPO, [
+      { id: 'lid:263951577264372', phone: null, lid: '263951577264372', name: null, username: 'juanes_99', admin: false },
+      { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: true },
+    ]);
+    await ing.onGroupJoined(contador, wa, grupo());
+    expect(store.usuariosMandados).toEqual([[{ id: 'lid:263951577264372', phone: null, lid: '263951577264372', username: 'juanes_99' }]]);
+  });
+
   it('una sesión personal no escribe ni deja nada para escribir', async () => {
     const mio = new FakeConnector(personal);
     await ing.onGroupJoined(personal, mio, grupo());
@@ -282,6 +291,14 @@ describe('ingesta', () => {
     expect(await ing.onMessage(contador, wa, m({ text: cuentas }))).toBe('de_luks');
     expect(await ing.onMessage(contador, wa, m({ text: 'Anotado: Hielo · $8.000 · pagó Mafe.' }))).toBe('de_luks');
     expect(store.messages.size).toBe(0);
+  });
+
+  it('el @usuario de quien escribe se manda una vez (no en cada mensaje)', async () => {
+    await enlazado();
+    const sender = { id: 'lid:263951577264372', phone: null, lid: '263951577264372', name: null, username: 'juanes_99' };
+    await ing.onMessage(contador, wa, m({ sender, text: 'jajaja' }));
+    await ing.onMessage(contador, wa, m({ sender, text: 'taxi 20 lucas' }));
+    expect(store.usuariosMandados).toEqual([[{ id: 'lid:263951577264372', phone: null, lid: '263951577264372', username: 'juanes_99' }]]);
   });
 
   it('un gasto escrito entra a la cola con quién lo mandó', async () => {

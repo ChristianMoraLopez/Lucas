@@ -41,6 +41,8 @@ export interface Sender {
   lid?: string | null;
   /** El nombre que la persona se puso en WhatsApp */
   name: string | null;
+  /** Su usuario de WhatsApp («juanes», sin «@»), si tiene y WhatsApp lo manda */
+  username?: string | null;
 }
 
 /** Un grupo, o (solo para el contador) un chat privado con Mister Luks */
@@ -77,6 +79,8 @@ export interface GroupMember {
   lid: string | null;
   /** El nombre que la persona se puso en WhatsApp (o como la tiene guardada quien vinculó) */
   name: string | null;
+  /** Su usuario de WhatsApp («juanes», sin «@»), si tiene */
+  username?: string | null;
   admin: boolean;
 }
 

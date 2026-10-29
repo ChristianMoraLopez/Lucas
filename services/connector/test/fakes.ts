@@ -28,6 +28,7 @@ import type {
   SoyYoResult,
   Store,
   Transferencia,
+  UsuarioDeWhatsapp,
   YaPagueResult,
 } from '../src/store.js';
 import type { PendingReply } from '../src/text.js';
@@ -317,6 +318,12 @@ export class FakeStore implements Store {
     o.waId = waId;
     if (drop) o.dropped = true;
     else if (!error) o.sent = true;
+  }
+  /** Los usuarios de WhatsApp que mandó el connector (migración 530), en orden */
+  usuariosMandados: UsuarioDeWhatsapp[][] = [];
+  async usuarios(lista: UsuarioDeWhatsapp[]) {
+    this.usuariosMandados.push(lista);
+    return lista.length;
   }
   /** grupo → integrantes que mandó el connector */
   members = new Map<string, GroupMember[]>();

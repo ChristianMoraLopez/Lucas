@@ -14,6 +14,12 @@ export type Downloader = (raw: WAMessage) => Promise<Buffer>;
 
 const usuario = (jid: string | null | undefined) => (jid ? (jidDecode(jid)?.user ?? null) : null);
 
+/** El usuario de WhatsApp («@Juanes_99» → «juanes_99»); null si no es uno */
+export function usuarioDeWhatsapp(u: string | null | undefined): string | null {
+  const v = u?.trim().replace(/^@/, '').toLowerCase();
+  return v && /^[a-z0-9._]{3,35}$/.test(v) ? v : null;
+}
+
 /** Long de protobuf, número o nada → número */
 function numero(v: unknown): number | null {
   if (v == null) return null;
@@ -41,11 +47,12 @@ export function senderOf(raw: WAMessage, me: Me): Sender {
   );
   const phone = usuario(jids.find((j) => isPnUser(j)));
   const lid = usuario(jids.find((j) => isLidUser(j)));
-  return { id: phone ?? (lid ? `lid:${lid}` : null), phone, lid, name: raw.pushName?.trim() || null };
+  const username = usuarioDeWhatsapp(privado ? raw.key.remoteJidUsername : raw.key.participantUsername);
+  return { id: phone ?? (lid ? `lid:${lid}` : null), phone, lid, name: raw.pushName?.trim() || null, ...(username ? { username } : {}) };
 }
 
 /** Nombres que se conocen de cada número o LID (eventos contacts.* de Baileys) */
-export type Contactos = Map<string, { notify?: string | null; name?: string | null }>;
+export type Contactos = Map<string, { notify?: string | null; name?: string | null; username?: string | null }>;
 
 /**
  * Guarda los nombres que llegan (cada mensaje trae el nombre del perfil de
@@ -57,13 +64,14 @@ export function recordarNombres(contactos: Contactos, cs: Partial<Contact>[]): S
   for (const c of cs) {
     const notify = c.notify?.trim() || null;
     const name = c.name?.trim() || null;
-    if (!notify && !name) continue;
+    const username = usuarioDeWhatsapp(c.username);
+    if (!notify && !name && !username) continue;
     for (const jid of [c.id, c.lid, c.phoneNumber]) {
       const u = usuario(jid);
       if (!u) continue;
       const antes = contactos.get(u);
-      const ahora = { notify: notify ?? antes?.notify ?? null, name: name ?? antes?.name ?? null };
-      if (ahora.notify !== (antes?.notify ?? null) || ahora.name !== (antes?.name ?? null)) cambiaron.add(u);
+      const ahora = { notify: notify ?? antes?.notify ?? null, name: name ?? antes?.name ?? null, username: username ?? antes?.username ?? null };
+      if (ahora.notify !== (antes?.notify ?? null) || ahora.name !== (antes?.name ?? null) || ahora.username !== (antes?.username ?? null)) cambiaron.add(u);
       contactos.set(u, ahora);
     }
   }
@@ -100,9 +108,17 @@ export function membersOf(g: GroupMetadata, contactos: Contactos = new Map()): G
     if (!id) continue;
     const c = (phone && contactos.get(phone)) || (lid && contactos.get(lid)) || undefined;
     const name = [p.notify, c?.notify, p.name, c?.name, p.verifiedName].map((n) => n?.trim()).find(Boolean) ?? null;
+    const username = usuarioDeWhatsapp(p.username) ?? usuarioDeWhatsapp(c?.username);
     // Si viene repetido, se queda con lo que se sepa de cada vez
     const antes = out.get(id);
-    out.set(id, { id, phone, lid: lid ?? antes?.lid ?? null, name: name ?? antes?.name ?? null, admin: Boolean(p.admin) || Boolean(antes?.admin) });
+    out.set(id, {
+      id,
+      phone,
+      lid: lid ?? antes?.lid ?? null,
+      name: name ?? antes?.name ?? null,
+      username: username ?? antes?.username ?? null,
+      admin: Boolean(p.admin) || Boolean(antes?.admin),
+    });
   }
   return [...out.values()];
 }

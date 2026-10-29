@@ -113,6 +113,8 @@ export class Ingestor {
   #listas = new Map<string, { ids: string[]; intencion: Intencion; hasta: number }>();
   /** Por privado: lo suyo de una lista de ítems, esperando «sí», «no» o los números para corregir */
   #confirmaciones = new Map<string, { jid: string; lista: string; idioma: Idioma; nombre: string; comercio: string; link: string | null; hasta: number }>();
+  /** Número o «lid:…» → el @usuario que ya se mandó a la base (para no mandarlo en cada mensaje) */
+  #usuariosVistos = new Map<string, string>();
 
   constructor(
     private readonly store: Store,
@@ -141,6 +143,7 @@ export class Ingestor {
    */
   async #detectado(connector: MessagingConnector, session: SessionInfo, group: GroupInfo) {
     const lista = await connector.members(group.chatId);
+    await this.#usuarios(lista);
     const r = await this.store.groupDetected(session.id, group.chatId, group.name, group.participants, lista);
     if (r.people_added) this.log.info({ group: r.group_id, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
     const hola = r.hello;
@@ -166,9 +169,29 @@ export class Ingestor {
   async #members(connector: MessagingConnector, chatId: string, groupId: string) {
     const lista = await connector.members(chatId);
     if (!lista.length) return { lista, cuantos: null };
+    // Antes que los integrantes: así quien entra sin nombre ya queda con su @usuario
+    await this.#usuarios(lista);
     const r = await this.store.setGroupMembers(groupId, lista);
     if (r.people_added) this.log.info({ group: groupId, members: r.members, added: r.people_added }, 'Personas nuevas desde el grupo');
     return { lista, cuantos: r.members };
+  }
+
+  /**
+   * El usuario de WhatsApp («@juanes») de los integrantes o de quien escribe
+   * (migración 530): con él se nombra a quien entró sin nombre. Solo lo nuevo;
+   * si falla, sigue (es un nombre, no un gasto).
+   */
+  async #usuarios(gente: { id: string | null; phone: string | null; lid?: string | null; username?: string | null }[]) {
+    const nuevos = gente.flatMap((g) =>
+      g.id && g.username && this.#usuariosVistos.get(g.id) !== g.username ? [{ id: g.id, phone: g.phone, lid: g.lid ?? null, username: g.username }] : [],
+    );
+    if (!nuevos.length) return;
+    try {
+      await this.store.usuarios(nuevos);
+      for (const u of nuevos) this.#usuariosVistos.set(u.id, u.username);
+    } catch (e) {
+      this.log.warn({ err: (e as Error).message, n: nuevos.length }, 'No se pudo guardar el usuario de WhatsApp');
+    }
   }
 
   async #encolar(items: OutboxItem[]) {
@@ -185,6 +208,9 @@ export class Ingestor {
     if (m.fromMe && session.kind === 'contador') return 'propio';
     // Lo que escribe Mister Luks en un grupo que también lee un WhatsApp vinculado
     if (session.kind === 'personal' && m.sender.id && this.#misterLuks.has(m.sender.id)) return 'de_luks';
+
+    // Su @usuario de WhatsApp, si lo trae y es nuevo
+    if (m.sender.username) await this.#usuarios([m.sender]);
 
     if (m.chatKind === 'privado') return session.kind === 'contador' ? this.#privado(session, connector, m) : 'ignorado:privado';
 

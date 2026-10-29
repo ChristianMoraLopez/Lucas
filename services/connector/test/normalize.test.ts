@@ -30,6 +30,17 @@ describe('mensajes de Baileys → IncomingMessage', () => {
     expect(m?.sentAt.toISOString()).toBe(new Date(1_790_000_000_000).toISOString());
   });
 
+  it('trae el usuario de WhatsApp de quien escribe, si lo manda', () => {
+    const m = normalizeMessage(
+      msg({ key: { remoteJid: GRUPO, id: 'U1', participant: '263951577264372@lid', participantUsername: 'Juanes_99' } }),
+      's1',
+      ME,
+      bajar,
+    );
+    expect(m?.sender).toMatchObject({ id: 'lid:263951577264372', username: 'juanes_99' });
+    expect(normalizeMessage(msg({}), 's1', ME, bajar)?.sender.username).toBeUndefined();
+  });
+
   it('en grupos con LID se prefiere el número si viene; si no, queda «lid:…»', () => {
     const conAlt = normalizeMessage(
       msg({ key: { remoteJid: GRUPO, id: 'X1', participant: '123456789012345@lid', participantAlt: '573016667788@s.whatsapp.net' } }),
@@ -168,10 +179,19 @@ describe('integrantes de un grupo', () => {
       ]),
     );
     expect(ms).toEqual([
-      { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', admin: true },
-      { id: '573128880365', phone: '573128880365', lid: '11112222', name: null, admin: false },
-      { id: 'lid:33334444', phone: null, lid: '33334444', name: null, admin: false },
+      { id: '573016667788', phone: '573016667788', lid: null, name: 'Mafe', username: null, admin: true },
+      { id: '573128880365', phone: '573128880365', lid: '11112222', name: null, username: null, admin: false },
+      { id: 'lid:33334444', phone: null, lid: '33334444', name: null, username: null, admin: false },
     ]);
+  });
+
+  it('con su usuario de WhatsApp, si tiene (del grupo o de los contactos)', () => {
+    const contactos: Contactos = new Map([['55556666', { username: 'caro.r' }]]);
+    const ms = membersOf(
+      grupoCon([{ id: '263951577264372@lid', username: '@Juanes_99' }, { id: '55556666@lid' }, { id: '77778888@lid', username: 'no vale' }]),
+      contactos,
+    );
+    expect(ms.map((m) => m.username)).toEqual(['juanes_99', 'caro.r', null]);
   });
 
   it('el nombre sale de WhatsApp o de los contactos de quien vinculó', () => {
@@ -190,12 +210,15 @@ describe('integrantes de un grupo', () => {
       '573128880365',
       '11112222',
     ]);
-    expect(contactos.get('11112222')).toEqual({ notify: 'Santi 🏄', name: null });
+    expect(contactos.get('11112222')).toEqual({ notify: 'Santi 🏄', name: null, username: null });
     // Lo mismo otra vez, o algo sin nombre (una foto nueva): nada cambió
     expect(recordarNombres(contactos, [{ id: '573128880365@s.whatsapp.net', notify: 'Santi 🏄' }, { id: '573016667788@s.whatsapp.net' }]).size).toBe(0);
     // Como lo guardó quien vinculó: se suma, sin borrar el del perfil
     expect([...recordarNombres(contactos, [{ id: '573128880365@s.whatsapp.net', name: 'Santiago Herrera' }])]).toEqual(['573128880365']);
-    expect(contactos.get('573128880365')).toEqual({ notify: 'Santi 🏄', name: 'Santiago Herrera' });
+    expect(contactos.get('573128880365')).toEqual({ notify: 'Santi 🏄', name: 'Santiago Herrera', username: null });
+    // El usuario de WhatsApp también se guarda
+    expect([...recordarNombres(contactos, [{ id: '573128880365@s.whatsapp.net', username: 'santi.h' }])]).toEqual(['573128880365']);
+    expect(contactos.get('573128880365')?.username).toBe('santi.h');
   });
 
   it('los grupos donde está alguien, por su número o su LID', () => {

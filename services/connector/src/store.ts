@@ -55,6 +55,14 @@ export type ImportResult =
   | { ok: true; already: boolean; import_id: string | null; group_name?: string; language?: 'es' | 'en' | null }
   | { ok: false; reason: 'grupo_sin_enlazar' | 'sin_grupo' | 'varios'; groups?: string[] };
 
+/** connector_usuarios: quién es (como en los integrantes) y su usuario de WhatsApp */
+export interface UsuarioDeWhatsapp {
+  id: string;
+  phone: string | null;
+  lid: string | null;
+  username: string;
+}
+
 /** Un grupo conectado desde la web que todavía no tiene a su gente (connector_groups_pending_members) */
 export interface PendingMembers {
   group_id: string;
@@ -366,6 +374,8 @@ export interface Store {
   upsertGroup(sessionId: string, jid: string, name: string | null, participants: number | null): Promise<GroupResult>;
   /** La lista completa de integrantes; si el grupo está enlazado, cada uno queda como persona de la cuenta */
   setGroupMembers(groupId: string, members: GroupMember[]): Promise<{ members: number; people_added: number }>;
+  /** El usuario de WhatsApp de cada quien (migración 530): con él se nombra a quien no tenía nombre. Cuántos cambiaron */
+  usuarios(lista: UsuarioDeWhatsapp[]): Promise<number>;
   /** Marca el saludo del grupo (una sola vez) y dice con qué saludar */
   groupHello(groupId: string): Promise<HelloResult>;
   /** Mister Luks está en un grupo: el grupo, su presencia, su gente y el saludo, en una sola transacción */
@@ -535,6 +545,10 @@ export class SupabaseStore implements Store {
 
   upsertGroup(sessionId: string, jid: string, name: string | null, participants: number | null) {
     return this.#rpc<GroupResult>('connector_upsert_group', { p_connection_id: sessionId, p_jid: jid, p_name: name, p_participants: participants });
+  }
+
+  async usuarios(lista: UsuarioDeWhatsapp[]) {
+    return (await this.#rpc<number | null>('connector_usuarios', { p_usuarios: lista })) ?? 0;
   }
 
   setGroupMembers(groupId: string, members: GroupMember[]) {
