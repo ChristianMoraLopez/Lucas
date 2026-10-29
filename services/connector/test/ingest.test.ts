@@ -248,6 +248,12 @@ describe('chats privados con Mister Luks', () => {
     expect(bandeja()[0]).toMatchObject({ body: MISTER.bienvenida('en'), document_name: 'Mister Luks guide.pdf' });
   });
 
+  it('«no me escribas» (le llegó un aviso de cobro): queda solo en el grupo, sin la bienvenida', async () => {
+    expect(await ing.onMessage(contador, wa, privado({ text: 'No me escribas más por aquí' }))).toBe('no_me_escribas');
+    expect(bandeja().map((o) => o.body)).toEqual([MISTER.noTeEscribo('es')]);
+    expect(store.prefs.get('573016667788')).toBe('aqui');
+  });
+
   it('«ayuda» manda la guía otra vez (no dos veces seguidas)', async () => {
     await ing.onMessage(contador, wa, privado());
     expect(await ing.onMessage(contador, wa, privado({ text: 'Ayuda' }))).toBe('ayuda');

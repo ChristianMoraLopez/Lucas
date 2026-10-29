@@ -14,6 +14,7 @@ import {
   canalDe,
   esMensajeDeLuks,
   esMenu,
+  esNoMeEscribas,
   esPedidoDeAyuda,
   esSoyYo,
   guia,
@@ -49,6 +50,7 @@ export type Outcome =
   | 'archivo_rechazado'
   | 'privado'
   | 'bienvenida'
+  | 'no_me_escribas'
   | 'desde_cuando'
   | 'chat_importado'
   | 'chat_muy_pesado'
@@ -381,6 +383,15 @@ export class Ingestor {
     const idioma = idiomaDeNumero(m.sender.phone);
     const g = guia(this.mister.guiaUrl, idioma);
     const conGuia = { image_url: g.imagen, document_url: g.pdf, document_name: g.nombrePdf };
+
+    // «No me escribas» (le llegó el aviso de cobro sin haberle escrito nunca): solo en el grupo,
+    // y sin la bienvenida (migración 600)
+    if (!m.media && esNoMeEscribas(m.text)) {
+      await this.store.answerPref(m.chatId, m.sender, 'aqui', false);
+      await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body: MISTER.noTeEscribo(idioma), dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+      this.log.info({ chat: maskWaId(m.chatId) }, 'No me escribas por privado');
+      return 'no_me_escribas';
+    }
 
     const nuevas = await this.#encolar([
       { chat_jid: m.chatId, reason: 'welcome', body: MISTER.bienvenida(idioma), ...conGuia, dedupe_key: `welcome:${m.chatId}` },

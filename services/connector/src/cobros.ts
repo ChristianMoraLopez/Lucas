@@ -155,7 +155,9 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
   const idioma = idiomaDe(c);
   const en = idioma === 'en';
   const $ = (n: number) => formatCOP(n, c.account.currency, idioma);
-  const nombre = primerNombre(c.from.name);
+  // «@teffity_» no es un nombre para saludar
+  const nombre = primerNombre(c.from.name).startsWith('@') ? '' : primerNombre(c.from.name);
+  const hola = (saludo: string) => (nombre ? `${saludo} ${nombre}` : saludo);
   const cuenta = limpio(c.account.name);
   const a = limpio(c.to.name);
   // Lo que le falta pagar en esta liquidación (si le paga a varios, un solo mensaje con todo)
@@ -167,16 +169,29 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
     : en
       ? `you owe ${a} *${$(Number(c.amount))}*`
       : `le debes a ${a} *${$(Number(c.amount))}*`;
-  const lineas = [
-    // Recordatorio solo si ya le había llegado por privado (si solo se le avisó en el grupo, este es el primero)
-    c.avisado_privado
-      ? en
-        ? `⏰ Hi ${nombre}, a reminder: for “${cuenta}” ${cuanto}.`
-        : `⏰ Hola ${nombre}, te recuerdo: de «${cuenta}» ${cuanto}.`
-      : en
-        ? `💸 Hi ${nombre} 👋 “${cuenta}” was settled: ${cuanto}.`
-        : `💸 Hola ${nombre} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
-  ];
+  const lineas = c.primera_vez
+    ? // Nunca le ha escrito a Mister Luks (migración 600): quién es y por qué le escribe
+      en
+      ? [
+          `${hola('Hi')} 👋 I’m *Mister Luks* 🤖, the bot that keeps the books for the “${cuenta}” group on Luks. I’m writing to you here because you’re in that group.`,
+          '',
+          `💸 “${cuenta}” was settled: ${cuanto}.`,
+        ]
+      : [
+          `${hola('Hola')} 👋 Soy *Mister Luks* 🤖, el bot que lleva las cuentas del grupo «${cuenta}» en Luks. Te escribo por aquí porque estás en ese grupo.`,
+          '',
+          `💸 Ya liquidamos «${cuenta}»: ${cuanto}.`,
+        ]
+    : [
+        // Recordatorio solo si ya le había llegado por privado (si solo se le avisó en el grupo, este es el primero)
+        c.avisado_privado
+          ? en
+            ? `⏰ ${hola('Hi')}, a reminder: for “${cuenta}” ${cuanto}.`
+            : `⏰ ${hola('Hola')}, te recuerdo: de «${cuenta}» ${cuanto}.`
+          : en
+            ? `💸 ${hola('Hi')} 👋 “${cuenta}” was settled: ${cuanto}.`
+            : `💸 ${hola('Hola')} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
+      ];
   // A dónde mandarle la plata a cada uno (si lo puso en su perfil)
   const pagos = varios ? todas.map((t) => comoPagarle(t.to, t.pago, idioma)) : [comoPagarle(c.to.name, c.to.pago ?? todas[0]?.pago, idioma)];
   lineas.push(...pagos.filter((l): l is string => !!l));
@@ -217,7 +232,16 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
         ? 'When you pay, reply *paid* and I’ll mark it ✅'
         : 'Cuando le pagues, respóndeme *ya pagué* y lo marco ✅',
   );
-  lineas.push('', PISTA_AYUDA[idioma], '', FIRMA[idioma]);
+  lineas.push('', PISTA_AYUDA[idioma]);
+  // A quien no le había escrito: que pueda pedir que no le escriba por privado
+  if (c.primera_vez) {
+    lineas.push(
+      en
+        ? '🙊 If you’d rather I don’t message you here, reply *don’t message me* and I’ll only tell you in the group.'
+        : '🙊 Si prefieres que no te escriba por aquí, respóndeme *no me escribas* y te aviso solo en el grupo.',
+    );
+  }
+  lineas.push('', FIRMA[idioma]);
   return lineas.join('\n');
 }
 
@@ -273,14 +297,22 @@ export function mensajeGrupo(cs: Cobro[], webUrl: string): string {
   return lineas.join('\n');
 }
 
+/** Cuántas personas que nunca le han escrito a Mister Luks reciben su primer aviso en cada vuelta */
+export const PRIMEROS_POR_VUELTA = 3;
+
 /**
  * Una vuelta: lo que toca avisar ahora, a la bandeja de salida. Por privado,
  * uno por transferencia; en el grupo, uno por liquidación con todo lo que
  * falta de quienes no tienen el chat abierto. Devuelve cuántos encoló.
  */
 export async function avisarCobros(store: Store, webUrl: string, log: Logger): Promise<number> {
-  const cobros = await store.cobros(40);
-  if (!cobros.length) return 0;
+  const todos = await store.cobros(40);
+  if (!todos.length) return 0;
+  // A quien nunca le ha escrito, pocos por vuelta (los demás, en la siguiente): un número que le
+  // escribe de golpe a muchos desconocidos es lo que WhatsApp toma por spam
+  const nuevos = [...new Set(todos.filter((c) => c.primera_vez && c.private_jid).map((c) => c.private_jid))];
+  const despues = new Set(nuevos.slice(PRIMEROS_POR_VUELTA));
+  const cobros = todos.filter((c) => !(c.private_jid && despues.has(c.private_jid)));
   const items: OutboxItem[] = [];
   const privados: string[] = [];
   const enGrupo: string[] = [];
@@ -303,8 +335,11 @@ export async function avisarCobros(store: Store, webUrl: string, log: Logger): P
     items.push({ chat_jid: jid, reason: 'answer', body: mensajeGrupo(cs, webUrl), dedupe_key: `cobro-grupo:${liquidacion}:${vuelta}` });
     enGrupo.push(...cs.map((x) => x.transfer_id));
   }
-  const nuevos = await store.outboxEnqueue(items);
+  const encolados = await store.outboxEnqueue(items);
   await store.cobrosAvisados(privados, enGrupo);
-  log.info({ privados: porPersona.size, grupos: porGrupo.size, nuevos: nuevos.length }, 'Avisos de cobro');
-  return nuevos.length;
+  log.info(
+    { privados: porPersona.size, grupos: porGrupo.size, primeros: Math.min(nuevos.length, PRIMEROS_POR_VUELTA), nuevos: encolados.length },
+    'Avisos de cobro',
+  );
+  return encolados.length;
 }

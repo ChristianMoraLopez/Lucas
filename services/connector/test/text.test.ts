@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   esMensajeDeLuks,
+  esNoMeEscribas,
   esPedidoDeAyuda,
   esSoyYo,
   formatCOP,
@@ -274,4 +275,12 @@ describe('¿desde cuándo anoto?', () => {
     expect(esMensajeDeLuks('📥 I read the exported chat: I found 3 expenses from before Oct 12.')).toBe(true);
     expect(MSG.linked('Paseo', 8)).toContain(PREGUNTA_DESDE_CUANDO.es);
   });
+});
+
+describe('«no me escribas» (migración 600)', () => {
+  it.each(['no me escribas', 'No me escribas más', 'luks no me escribas por aquí', 'porfa no me escribas', "Don't message me", 'stop messaging me'])(
+    '«%s» → sí',
+    (t) => expect(esNoMeEscribas(t)).toBe(true),
+  );
+  it.each(['no me escribas eso en el grupo', 'escríbeme', 'ya pagué', 'no me cuentes'])('«%s» → no', (t) => expect(esNoMeEscribas(t)).toBe(false));
 });

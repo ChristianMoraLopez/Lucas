@@ -401,6 +401,14 @@ const COMANDOS: Record<Idioma, string> = {
   ].join('\n'),
 };
 
+/** Por privado, «no me escribas», «no me escribas más», «don’t message me»: solo en el grupo (migración 600) */
+export function esNoMeEscribas(texto: string | null | undefined): boolean {
+  const t = plano(texto ?? '').replace(/^(?:mr |mister )?luks /, '');
+  return /^(?:(?:porfa |por favor )?no me (?:escribas|escriba|vuelvas a escribir|mandes mensajes|mandes nada)(?: (?:mas|por aqui|por aca|por privado|al privado|aca|aqui|porfa|por favor))*|(?:please )?(?:dont|do not) (?:message|text|write to) me(?: here| again| anymore)*|stop messaging me)$/.test(
+    t,
+  );
+}
+
 /** Por privado: cómo ver todo lo que sabe hacer (una línea, antes de la firma) */
 export const PISTA_AYUDA: Record<Idioma, string> = {
   es: '💡 ¿Todo lo que sé hacer? Escríbeme *ayuda* aquí, o en el grupo respóndeme un mensaje o escribe *@MrLuks ayuda*.',
@@ -409,6 +417,11 @@ export const PISTA_AYUDA: Record<Idioma, string> = {
 
 /** Lo que Mister Luks escribe por su cuenta (va por la bandeja de salida, whatsapp_outbox) */
 export const MISTER = {
+  /** Respondió «no me escribas» por privado */
+  noTeEscribo: (idioma: Idioma) =>
+    idioma === 'en'
+      ? '👍 Got it, I won’t message you here again: I’ll tell you about the accounts in the group. If you change your mind, type “luks send me private” in the group.'
+      : '👍 Listo, no te vuelvo a escribir por aquí: lo de las cuentas te lo digo en el grupo. Si cambias de opinión, escribe «luks mándame al privado» en el grupo.',
   /** «ayuda»: la lista de todo lo que entiende (un mensaje aparte, después de la guía) */
   comandos: (idioma: Idioma) => COMANDOS[idioma],
   bienvenida: (idioma: Idioma) =>

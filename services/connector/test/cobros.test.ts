@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avisarCobros, mensajeCobro, mensajeGrupo } from '../src/cobros.js';
+import { avisarCobros, mensajeCobro, mensajeGrupo, PRIMEROS_POR_VUELTA } from '../src/cobros.js';
 import { reciboDe } from '../src/recibo.js';
 import type { Cobro } from '../src/store.js';
 import { esMensajeDeLuks, PISTA_AYUDA } from '../src/text.js';
@@ -211,6 +211,39 @@ describe('avisos de cobro', () => {
     expect(store.avisados.sort()).toEqual(['t1', 't2', 't3']);
     expect(store.avisadosPorPrivado).toEqual(['t1']);
     expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(0);
+  });
+
+  it('a quien nunca le ha escrito: se presenta, dice por qué le escribe y cómo pedir que no (la 600)', () => {
+    const solo = { transfers: [{ to: 'Christian', amount: 9_800 }], to: { id: 'chris', name: 'Christian' }, amount: 9_800 };
+    const m = mensajeCobro(
+      cobro({ ...solo, primera_vez: true, account: { ...cobro().account, name: 'Nochita' }, from: { id: 'teffa', name: '@teffity_' } }),
+      WEB_URL,
+    );
+    expect(m.split('\n').slice(0, 3)).toEqual([
+      'Hola 👋 Soy *Mister Luks* 🤖, el bot que lleva las cuentas del grupo «Nochita» en Luks. Te escribo por aquí porque estás en ese grupo.',
+      '',
+      '💸 Ya liquidamos «Nochita»: le debes a Christian *$9.800*.',
+    ]);
+    expect(m).toContain('🙊 Si prefieres que no te escriba por aquí, respóndeme *no me escribas* y te aviso solo en el grupo.');
+    expect(m).toContain('🔗 Todo el detalle: https://mrluks.com/r/');
+    expect(esMensajeDeLuks(m)).toBe(true);
+    // Con nombre, saluda; quien ya le había escrito no recibe la presentación
+    expect(mensajeCobro(cobro({ ...solo, primera_vez: true }), WEB_URL).split('\n')[0]).toMatch(/^Hola Marimari 👋 Soy \*Mister Luks\*/);
+    expect(mensajeCobro(cobro(solo), WEB_URL)).not.toContain('Soy *Mister Luks*');
+    expect(mensajeCobro(cobro(solo), WEB_URL)).not.toContain('no me escribas');
+  });
+
+  it('a quienes nunca le han escrito, pocos por vuelta: los demás, en la siguiente', async () => {
+    const store = new FakeStore();
+    const nuevos = ['31', '32', '33', '34', '35'].map((n, k) =>
+      cobro({ transfer_id: `n${k}`, primera_vez: true, private_jid: `5730000000${n}@s.whatsapp.net`, from: { id: `p${k}`, name: `P${k}` } }),
+    );
+    store.cobrosPendientes = [cobro(), ...nuevos];
+    for (const c of store.cobrosPendientes) store.presentes.add(`${c.private_jid}|contador`);
+    expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(1 + PRIMEROS_POR_VUELTA);
+    expect(store.avisadosPorPrivado.sort()).toEqual(['n0', 'n1', 'n2', 't1']);
+    expect(await avisarCobros(store, WEB_URL, silentLog)).toBe(2);
+    expect(store.avisadosPorPrivado).toHaveLength(6);
   });
 
   it('a quien le paga a varios le llega un solo mensaje por privado', async () => {

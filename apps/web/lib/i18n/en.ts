@@ -1980,10 +1980,10 @@ export const EN: Record<string, string> = {
     "When you settle up, Mister Luks tells each person how much they owe, to whom and why (item by item), and reminds them every 3 days until they pay (3 times at most). Once they pay, they reply “paid” and it's marked.",
   'Para avisar, Mister Luks tiene que estar en el grupo de la cuenta (o que le escriban por privado).':
     "To send reminders, Mister Luks has to be in the account's group (or people have to message him privately).",
-  'Nadie le ha escrito por privado a Mister Luks todavía: les avisa en el grupo. Por privado solo le escribe a quien le escribió primero.':
-    "Nobody has messaged Mister Luks privately yet: he'll remind them in the group. He only messages privately those who wrote to him first.",
-  'Por privado a {n} de {total} (los que ya le escribieron a Mister Luks); a los demás, en el grupo.':
-    'Privately to {n} of {total} (those who already messaged Mister Luks); everyone else, in the group.',
+  'Mister Luks no tiene cómo escribirle por privado a nadie de la cuenta todavía: les avisa en el grupo.':
+    'Mister Luks can’t message anyone in this account privately yet: it lets them know in the group.',
+  'Por privado a {n} de {total}: el primer aviso le llega a cada uno aunque nunca le haya escrito a Mister Luks (se presenta y dice que es un bot). Los recordatorios, por privado a quien le contesta y en el grupo a los demás. Quien le responda «no me escribas» queda solo en el grupo.':
+    'Privately to {n} of {total}: the first notice reaches each person even if they’ve never messaged Mister Luks (it introduces itself as a bot). Reminders go privately to whoever replies and to the group for everyone else. Anyone who replies “don’t message me” only hears about it in the group.',
   'Solo quien administra la cuenta los prende o los apaga.': 'Only account admins can turn them on or off.',
 
   // ---------- Un gasto que llegó a un paseo liquidado (migración 490) ----------

@@ -937,8 +937,11 @@ function AvisosCobro({
         {nadie
           ? t('Para avisar, Mister Luks tiene que estar en el grupo de la cuenta (o que le escriban por privado).')
           : privado === 0
-            ? t('Nadie le ha escrito por privado a Mister Luks todavía: les avisa en el grupo. Por privado solo le escribe a quien le escribió primero.')
-            : t('Por privado a {n} de {total} (los que ya le escribieron a Mister Luks); a los demás, en el grupo.', { n: privado, total: personas })}
+            ? t('Mister Luks no tiene cómo escribirle por privado a nadie de la cuenta todavía: les avisa en el grupo.')
+            : t(
+                'Por privado a {n} de {total}: el primer aviso le llega a cada uno aunque nunca le haya escrito a Mister Luks (se presenta y dice que es un bot). Los recordatorios, por privado a quien le contesta y en el grupo a los demás. Quien le responda «no me escribas» queda solo en el grupo.',
+                { n: privado, total: personas },
+              )}
       </p>
       {!isAdmin && (
         <p className="lu-small lu-muted" style={{ margin: 0 }}>

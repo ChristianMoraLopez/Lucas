@@ -99,8 +99,13 @@ export interface Cobro {
   /** pago: cómo le pagan (migración 570), si lo puso en su perfil */
   to: { id: string; name: string; pago?: Pago | null };
   amount: number;
-  /** Su chat privado con Mister Luks (solo si ya le escribió); si no, va al grupo */
+  /**
+   * Su chat privado con Mister Luks; si nunca le escribió, el del número con que está en el grupo
+   * (solo el primer aviso, migración 600). Si no hay, va al grupo
+   */
   private_jid: string | null;
+  /** Nunca le ha escrito a Mister Luks: el aviso se presenta (migración 600) */
+  primera_vez?: boolean;
   group_jid: string | null;
   /** El link público de la cuenta (/r/TOKEN) */
   token: string | null;
@@ -745,7 +750,7 @@ export class SupabaseStore implements Store {
   }
 
   cobros(limit: number) {
-    return this.#rpc<Cobro[]>('connector_cobros', { p_limit: limit });
+    return this.#rpc<Cobro[]>('connector_avisos_de_cobro', { p_limit: limit });
   }
 
   async cobrosAvisados(privados: string[], enGrupo: string[]) {
