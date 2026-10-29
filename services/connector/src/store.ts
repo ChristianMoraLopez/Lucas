@@ -96,7 +96,8 @@ export interface Cobro {
   avisado_privado: boolean;
   account: { id: string; name: string; language: Idioma | null; currency: Moneda; type: 'hogar' | 'evento'; month: string | null };
   from: { id: string; name: string };
-  to: { id: string; name: string };
+  /** pago: cómo le pagan (migración 570), si lo puso en su perfil */
+  to: { id: string; name: string; pago?: Pago | null };
   amount: number;
   /** Su chat privado con Mister Luks (solo si ya le escribió); si no, va al grupo */
   private_jid: string | null;
@@ -104,7 +105,7 @@ export interface Cobro {
   /** El link público de la cuenta (/r/TOKEN) */
   token: string | null;
   /** Todo lo que paga quien debe en esta liquidación */
-  transfers: { to: string; amount: number }[] | null;
+  transfers: { to: string; amount: number; pago?: Pago | null }[] | null;
   /** Los gastos en los que tuvo parte y que pagó otro, con los ítems */
   expenses: (GastoConItems & { merchant: string; payer_person_id: string; payer_name: string })[];
 }
@@ -312,6 +313,15 @@ export interface NumerosDeCuenta {
   direct?: boolean;
   direct_transfers?: { from: string; to: string; from_id: string; to_id: string; amount: number }[] | null;
   me: QuestionMe | null;
+  /** Migración 570: cómo le pagan a quien tiene cuenta en Luks y lo puso en su perfil (person_id → …) */
+  pagos?: Record<string, Pago>;
+}
+
+/** Cómo le pagan a alguien (migración 570): su llave Bre-B, su Nequi, su Daviplata */
+export interface Pago {
+  llave?: string;
+  nequi?: string;
+  daviplata?: string;
 }
 
 /** connector_mis_cuentas (migración 480): por privado, las cuentas de quien escribe, primero donde le falta pagar */

@@ -131,6 +131,50 @@ describe('avisos de cobro', () => {
     expect(m).toContain('Cuando paguen, escríbanme «luks ya le pagué a Daniel» y lo marco ✅');
   });
 
+  it('si quien cobra puso cómo le pagan, el mensaje dice a dónde mandarle la plata', () => {
+    const pago = { nequi: '3001234567', llave: '@dani' };
+    const uno = mensajeCobro(cobro({ to: { id: 'dan', name: 'Daniel', pago }, transfers: [{ to: 'Daniel', amount: 165_000, pago }] }), WEB_URL);
+    expect(uno.split('\n').slice(0, 2)).toEqual([
+      '💸 Hola Marimari 👋 Ya liquidamos «DaniChile»: le debes a Daniel *$165.000*.',
+      '📲 Mándaselos a Daniel: Nequi *300 123 4567* · llave Bre-B *@dani*',
+    ]);
+    // A varios: a cada uno el suyo (quien no puso nada, no sale)
+    const varios = mensajeCobro(
+      cobro({
+        transfers: [
+          { to: 'Daniel', amount: 165_000, pago },
+          { to: 'Santiago', amount: 30_000 },
+        ],
+      }),
+      WEB_URL,
+    );
+    expect(varios.split('\n')[1]).toBe('📲 Mándaselos a Daniel: Nequi *300 123 4567* · llave Bre-B *@dani*');
+    expect(varios).not.toContain('Mándaselos a Santiago');
+    expect(
+      mensajeCobro(
+        cobro({
+          account: { ...cobro().account, language: 'en' },
+          to: { id: 'dan', name: 'Daniel', pago: { daviplata: '3109876543' } },
+          transfers: [{ to: 'Daniel', amount: 1, pago: { daviplata: '3109876543' } }],
+        }),
+        WEB_URL,
+      ),
+    ).toContain('📲 Send it to Daniel: Daviplata *310 987 6543*');
+    // Sin nada en el perfil, como antes
+    expect(mensajeCobro(cobro(), WEB_URL)).not.toContain('📲');
+
+    // En el grupo, una vez por cada quien que cobra
+    const grupo = mensajeGrupo(
+      [
+        cobro({ to: { id: 'dan', name: 'Daniel', pago } }),
+        cobro({ transfer_id: 't2', from: { id: 'chris', name: 'Christian' }, to: { id: 'dan', name: 'Daniel', pago }, amount: 9_000 }),
+      ],
+      WEB_URL,
+    );
+    expect(grupo).toContain('📲 Cómo pagarles:\n• Daniel: Nequi *300 123 4567* · llave Bre-B *@dani*\n');
+    expect(grupo.match(/• Daniel: Nequi/g)).toHaveLength(1);
+  });
+
   it('en el grupo, si se cruzaron las deudas, lo de cada uno va una sola vez', () => {
     // Marimari le paga a Santiago y a David, que no pagaron nada de lo suyo
     const m = mensajeGrupo(

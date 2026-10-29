@@ -7404,3 +7404,48 @@ a.gr-fila:focus-visible {
     transition: none;
   }
 }
+
+/* ---------- Perfil: cómo te pagan (Nequi, Daviplata, llave Bre-B) ---------- */
+.pf-pago {
+  display: grid;
+  gap: var(--space-3);
+}
+.pf-pago__campo {
+  display: grid;
+  gap: 4px;
+}
+@container app (min-width: 560px) {
+  .pf-pago {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pf-pago__campo:nth-child(3),
+  .pf-pago .pf-row {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- Liquidar: a dónde mandarle la plata (lo que puso en su perfil) ---------- */
+.st-d__pago {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.st-d__medio {
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  padding: 4px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--tinta);
+  cursor: pointer;
+}
+.st-d__medio:hover {
+  border-color: var(--morado);
+}
+.st-d__medio:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 1px;
+}

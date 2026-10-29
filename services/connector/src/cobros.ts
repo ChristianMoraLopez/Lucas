@@ -1,6 +1,6 @@
 import type { Logger } from './log.js';
 import { type GastoConItems, type LineaRecibo, reciboDe } from './recibo.js';
-import type { Cobro, OutboxItem, Store } from './store.js';
+import type { Cobro, OutboxItem, Pago, Store } from './store.js';
 import { formatCOP, type Idioma, type Moneda } from './text.js';
 
 /*
@@ -25,6 +25,28 @@ const MAX_GASTOS_GRUPO = 3;
 
 /** Los nombres van tal cual, sin los signos con que WhatsApp pone negrilla, cursiva o tachado */
 const limpio = (s: string | null | undefined) => (s ?? '').replace(/[*_~`]/g, '').trim();
+
+/** «3001234567» → «300 123 4567» */
+const celular = (n: string) => (/^\d{10}$/.test(n) ? `${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}` : n);
+
+/** «Nequi *300 123 4567* · Daviplata *…* · llave Bre-B *@vale*», o null si no puso cómo le pagan */
+export function mediosDePago(pago: Pago | null | undefined, idioma: Idioma): string | null {
+  if (!pago) return null;
+  const en = idioma === 'en';
+  const partes = [
+    pago.nequi ? `Nequi *${celular(pago.nequi)}*` : null,
+    pago.daviplata ? `Daviplata *${celular(pago.daviplata)}*` : null,
+    pago.llave ? `${en ? 'Bre-B key' : 'llave Bre-B'} *${limpio(pago.llave)}*` : null,
+  ].filter((x): x is string => !!x);
+  return partes.length ? partes.join(' · ') : null;
+}
+
+/** «📲 Mándaselos a Christian: Nequi *300 123 4567*», o null */
+export function comoPagarle(nombre: string, pago: Pago | null | undefined, idioma: Idioma): string | null {
+  const medios = mediosDePago(pago, idioma);
+  if (!medios) return null;
+  return idioma === 'en' ? `📲 Send it to ${limpio(nombre)}: ${medios}` : `📲 Mándaselos a ${limpio(nombre)}: ${medios}`;
+}
 const primerNombre = (s: string | null | undefined) => limpio(s).split(/\s+/)[0] ?? '';
 const idiomaDe = (c: Pick<Cobro, 'account'>): Idioma => (c.account.language === 'en' ? 'en' : 'es');
 
@@ -155,6 +177,9 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
         ? `💸 Hi ${nombre} 👋 “${cuenta}” was settled: ${cuanto}.`
         : `💸 Hola ${nombre} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
   ];
+  // A dónde mandarle la plata a cada uno (si lo puso en su perfil)
+  const pagos = varios ? todas.map((t) => comoPagarle(t.to, t.pago, idioma)) : [comoPagarle(c.to.name, c.to.pago ?? todas[0]?.pago, idioma)];
+  lineas.push(...pagos.filter((l): l is string => !!l));
 
   const { lineas: suyo, consumo } = loSuyo(c.expenses, c.from.id, c.account.currency, idioma);
   if (suyo.length) lineas.push('', en ? '🧾 *Your share, item by item:*' : '🧾 *Lo tuyo, ítem por ítem:*', ...suyo);
@@ -227,6 +252,14 @@ export function mensajeGrupo(cs: Cobro[], webUrl: string): string {
       lineas.push(en ? `   ↳ … and ${mas} more in the link` : `   ↳ … y ${mas} más en el link`);
     }
   }
+  // Cómo pagarle a cada quien que cobra (una vez por persona)
+  const aQuienes = new Map<string, string>();
+  for (const x of cs) {
+    const medios = mediosDePago(x.to.pago, idioma);
+    if (medios && !aQuienes.has(x.to.id)) aQuienes.set(x.to.id, `• ${limpio(x.to.name)}: ${medios}`);
+  }
+  if (aQuienes.size) lineas.push('', en ? '📲 How to pay:' : '📲 Cómo pagarles:', ...aQuienes.values());
+
   const link = linkDe(c, webUrl, null);
   if (link) lineas.push('', en ? `Everyone can see their share, item by item, here: ${link}` : `Cada uno ve lo suyo, ítem por ítem, aquí: ${link}`);
   const a1 = primerNombre(c.to.name);

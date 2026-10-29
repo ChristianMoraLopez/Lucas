@@ -5,7 +5,7 @@ import { crearT, type Idioma, type T } from '@/lib/i18n';
 import { corto, DECIMALES, dinero, type Moneda } from '@/lib/moneda';
 import { reciboDe } from './recibo';
 import { minTransfers } from './settlement';
-import type { SettlementExpense, SettlementPerson, SettlementTransfer } from './types';
+import type { Pago, SettlementExpense, SettlementPerson, SettlementTransfer } from './types';
 
 const ES = crearT('es');
 
@@ -67,6 +67,7 @@ export function cobroMessage({
   link,
   creditorIsMe,
   detalle = [],
+  pago = null,
   t = ES,
   moneda = 'COP',
 }: {
@@ -78,6 +79,8 @@ export function cobroMessage({
   creditorIsMe: boolean;
   /** Lo suyo, gasto por gasto (detalleCobro) */
   detalle?: string[];
+  /** Cómo le pagan a quien cobra (migración 570), si lo puso en su perfil */
+  pago?: Pago | null;
   t?: T;
   moneda?: Moneda;
 }) {
@@ -85,11 +88,30 @@ export function cobroMessage({
   const lineas = [
     creditorIsMe ? t('Hola {nombre} 👋 De «{cuenta}» me debes {monto}.', vars) : t('Hola {nombre} 👋 De «{cuenta}» le debes a {acreedor} {monto}.', vars),
   ];
+  const medios = mediosDePago(pago, t);
+  if (medios) {
+    lineas.push(creditorIsMe ? t('📲 Mándamelos: {medios}', { medios }) : t('📲 Mándaselos a {acreedor}: {medios}', { acreedor: creditor, medios }));
+  }
   if (detalle.length) lineas.push('', ...detalle);
   if (link && detalle.length) lineas.push('');
   if (link) lineas.push(t('Acá ves cuánto puso cada uno y en qué se fue la plata: {link}', { link }));
   lineas.push('', `_${publicidad(t)}_`);
   return lineas.join('\n');
+}
+
+/** «3001234567» → «300 123 4567» */
+export const celular = (n: string) => (/^\d{10}$/.test(n) ? `${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}` : n);
+
+/** «Nequi *300 123 4567* · Daviplata *…* · llave Bre-B *@vale*» (con el formato de WhatsApp), o null */
+export function mediosDePago(pago: Pago | null | undefined, t: T = ES, negrilla = true): string | null {
+  if (!pago) return null;
+  const b = (s: string) => (negrilla ? `*${s}*` : s);
+  const partes = [
+    pago.nequi ? `Nequi ${b(celular(pago.nequi))}` : null,
+    pago.daviplata ? `Daviplata ${b(celular(pago.daviplata))}` : null,
+    pago.llave ? `${t('llave Bre-B')} ${b(sinFormato(pago.llave))}` : null,
+  ].filter((x): x is string => !!x);
+  return partes.length ? partes.join(' · ') : null;
 }
 
 export type Transferencia = Pick<SettlementTransfer, 'from' | 'to' | 'amount' | 'paid_at'>;

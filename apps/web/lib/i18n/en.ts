@@ -1922,6 +1922,19 @@ export const EN: Record<string, string> = {
   // ---------- Liquidar por ítem ----------
   'Le tocó': 'Their share',
   'lo pagó {nombre}': 'paid by {nombre}',
+  // Cómo te pagan: Nequi, Daviplata y llave Bre-B (migración 570)
+  'Cómo te pagan': 'How you get paid',
+  'Cuando alguien te deba, Mister Luks y los cobros de la app le dicen a dónde mandarte la plata. Solo lo ven quienes comparten una cuenta contigo.':
+    'When someone owes you, Mister Luks and the app’s reminders tell them where to send the money. Only people who share an account with you can see it.',
+  'Llave Bre-B': 'Bre-B key',
+  'llave Bre-B': 'Bre-B key',
+  'Tu celular, correo, cédula o @alias': 'Your phone, email, ID number or @alias',
+  'Listo: así te van a pagar.': 'Done: this is how you’ll get paid.',
+  'Cómo pagarle a {nombre}': 'How to pay {nombre}',
+  'Mándaselos por': 'Send it via',
+  'Copiar {que}: {valor}': 'Copy {que}: {valor}',
+  '📲 Mándamelos: {medios}': '📲 Send it to me: {medios}',
+  '📲 Mándaselos a {acreedor}: {medios}': '📲 Send it to {acreedor}: {medios}',
   // Personas: cómo reconocer a quien solo está en WhatsApp (migración 540)
   'en WhatsApp: {nombre}': 'on WhatsApp: {nombre}',
   'ya no está en el grupo': 'left the group',

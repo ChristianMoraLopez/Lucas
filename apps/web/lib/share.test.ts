@@ -28,6 +28,15 @@ describe('compartir las cuentas', () => {
     expect(otro).not.toContain('Acá ves');
   });
 
+  it('el cobro dice a dónde mandar la plata si quien cobra lo puso en su perfil', () => {
+    const base = { debtor: 'Mafe', creditor: 'Christian', amount: 45000, accountName: 'Noche de bolos' };
+    const mio = cobroMessage({ ...base, creditorIsMe: true, pago: { nequi: '3001234567', llave: '@chris' } });
+    expect(mio.split('\n')[1]).toBe('📲 Mándamelos: Nequi *300 123 4567* · llave Bre-B *@chris*');
+    const deOtro = cobroMessage({ ...base, creditorIsMe: false, pago: { daviplata: '3109876543' } });
+    expect(deOtro.split('\n')[1]).toBe('📲 Mándaselos a Christian: Daviplata *310 987 6543*');
+    expect(cobroMessage({ ...base, creditorIsMe: true })).not.toContain('📲');
+  });
+
   it('el mensaje para el grupo: cuánto fue y quién le paga a quién', () => {
     const nombres: Record<string, string> = { yo: 'Christian', a: 'Mafe', b: 'Santi_*' };
     const base = {

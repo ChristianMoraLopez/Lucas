@@ -14,7 +14,7 @@ import { formatDay, formatWhen, monthName, todayInBogota } from '@/lib/dates';
 import { humanError } from '@/lib/errors';
 import { chatHref, MISTER_LUKS } from '@/lib/mister-luks';
 import { canonico, formatear, variantes } from '@/lib/telefono';
-import { accountGlyph, accountTone, type MyProfile, plural, ROLE_LABEL } from '@/lib/types';
+import { accountGlyph, accountTone, type MyProfile, type Pago, plural, ROLE_LABEL } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
 const PROVEEDOR: Record<string, string> = { email: 'Correo', google: 'Google' };
@@ -65,6 +65,12 @@ const ICONO = {
     </>
   ),
   listo: <path d="M6 12.5l4 4 8-9" />,
+  pago: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18M7 15h3" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 function Icono({ d, className }: { d: keyof typeof ICONO; className?: string }) {
@@ -169,21 +175,104 @@ export function ProfileScreen({ p: completo, archivadas = [] }: { p: MyProfile; 
       </Seccion>
 
       <Seccion
+        id="pf-pago"
+        icono="pago"
+        tono="morado"
+        titulo={t('Cómo te pagan')}
+        nota={t(
+          'Cuando alguien te deba, Mister Luks y los cobros de la app le dicen a dónde mandarte la plata. Solo lo ven quienes comparten una cuenta contigo.',
+        )}
+        i={5}
+      >
+        <ComoTePagan actual={p.pago ?? null} onSaved={refresh} />
+      </Seccion>
+
+      <Seccion
         id="pf-guia"
         icono="guia"
         tono="azul"
         titulo={t('La guía')}
         nota={t('Te muestra Luks paso a paso. Sale sola la primera vez; después, desde el menú de arriba.')}
-        i={5}
+        i={6}
       >
         <VerGuias usuario={p.id} />
       </Seccion>
 
-      <Seccion id="pf-datos" icono="datos" tono="coral" titulo={t('Tus datos')} nota={t('Son tuyos: llévatelos o bórralos (Ley 1581).')} i={6}>
+      <Seccion id="pf-datos" icono="datos" tono="coral" titulo={t('Tus datos')} nota={t('Son tuyos: llévatelos o bórralos (Ley 1581).')} i={7}>
         {/* Borrar tu usuario también toca las archivadas: ahí van todas */}
         <MisDatos p={completo} />
       </Seccion>
     </div>
+  );
+}
+
+/**
+ * Cómo le pagan: su Nequi, su Daviplata y su llave Bre-B (migración 570).
+ * Sale en los cobros («Mándaselos a Vale: Nequi 300 123 4567»). Vacío, se quita.
+ */
+function ComoTePagan({ actual, onSaved }: { actual: Pago | null; onSaved: () => void }) {
+  const t = useT();
+  const [supabase] = useState(() => createClient());
+  const inicial = { nequi: actual?.nequi ?? '', daviplata: actual?.daviplata ?? '', llave: actual?.llave ?? '' };
+  const [v, setV] = useState(inicial);
+  const [estado, setEstado] = useState<{ busy?: boolean; error?: string; ok?: boolean }>({});
+  const id = useId();
+  const cambio = (Object.keys(v) as (keyof typeof v)[]).some((k) => v[k].trim() !== inicial[k]);
+
+  const guardar = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!cambio) return;
+    const boton = (e.nativeEvent as SubmitEvent).submitter ?? null;
+    setEstado({ busy: true });
+    const { data, error } = await supabase.rpc('set_como_me_pagan', { p_llave: v.llave, p_nequi: v.nequi, p_daviplata: v.daviplata });
+    if (error) return setEstado({ error: humanError(error) });
+    const guardado = (data ?? null) as Pago | null;
+    setV({ nequi: guardado?.nequi ?? '', daviplata: guardado?.daviplata ?? '', llave: guardado?.llave ?? '' });
+    chispasEn(boton);
+    setEstado({ ok: true });
+    onSaved();
+  };
+
+  const campo = (k: keyof typeof v, etiqueta: string, ayuda: string, tipo: 'tel' | 'text') => (
+    <label className="pf-pago__campo" htmlFor={`${id}-${k}`}>
+      <span className="lu-label">{etiqueta}</span>
+      <input
+        id={`${id}-${k}`}
+        className="pf-input"
+        value={v[k]}
+        inputMode={tipo === 'tel' ? 'numeric' : 'text'}
+        autoComplete="off"
+        placeholder={ayuda}
+        maxLength={tipo === 'tel' ? 16 : 60}
+        onChange={(e) => {
+          setV({ ...v, [k]: e.target.value });
+          setEstado({});
+        }}
+      />
+    </label>
+  );
+
+  return (
+    <form className="pf-pago" onSubmit={guardar}>
+      {campo('nequi', 'Nequi', '300 123 4567', 'tel')}
+      {campo('daviplata', 'Daviplata', '300 123 4567', 'tel')}
+      {campo('llave', t('Llave Bre-B'), t('Tu celular, correo, cédula o @alias'), 'text')}
+      <div className="pf-row">
+        <Button size="sm" type="submit" disabled={!cambio || estado.busy}>
+          {estado.busy ? t('Guardando…') : t('Guardar')}
+        </Button>
+        {estado.error && (
+          <p className="lu-error pf-msg" role="alert">
+            {estado.error}
+          </p>
+        )}
+        {estado.ok && (
+          <p className="lu-success pf-msg" role="status">
+            {t('Listo: así te van a pagar.')}
+          </p>
+        )}
+      </div>
+    </form>
   );
 }
 

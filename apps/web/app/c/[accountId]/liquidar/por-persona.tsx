@@ -1,14 +1,16 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useT } from '@/components/idioma';
 import { ItemsDeUno } from '@/components/items-de-uno';
 import { Amount, Avatar, CategoryTag, Sticker } from '@/components/lucas-ui';
 import { useDinero } from '@/components/moneda';
+import { copiar } from '@/lib/clipboard';
 import { formatDay } from '@/lib/dates';
 import type { Deuda, Tarjeta } from '@/lib/deudas';
 import { rico } from '@/lib/i18n/rico';
-import { asTone, type SettlementExpense, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
+import { celular } from '@/lib/share';
+import { asTone, type Pago, type SettlementExpense, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 
 const flecha = (
   <svg className="st-arrow" viewBox="0 0 40 16" aria-hidden="true">
@@ -28,6 +30,7 @@ export function PorPersona({
   cruza,
   liquidada,
   acciones,
+  pagos = {},
 }: {
   tarjetas: Tarjeta[];
   people: Map<string, SettlementPerson>;
@@ -37,6 +40,8 @@ export function PorPersona({
   liquidada: boolean;
   /** Los botones de una transferencia: cobrar, marcar pagada, deshacer */
   acciones: (x: SettlementTransfer, i: number) => ReactNode;
+  /** Cómo le pagan a cada quien que lo puso en su perfil (person_id → …) */
+  pagos?: Record<string, Pago>;
 }) {
   const t = useT();
   const nombre = (id: string) => people.get(id)?.name ?? t('Alguien');
@@ -90,7 +95,7 @@ export function PorPersona({
 
               <div className="st-c__body">
                 {tj.deudas.map((d) => (
-                  <DeudaDe key={d.to} d={d} de={tj.person} people={people} liquidada={liquidada} acciones={acciones} i={i} />
+                  <DeudaDe key={d.to} d={d} de={tj.person} people={people} liquidada={liquidada} acciones={acciones} i={i} pago={pagos[d.to]} />
                 ))}
                 {cruza && tj.deudas.length > 0 && (
                   <p className="lu-small lu-muted st-c__nota">
@@ -136,6 +141,7 @@ function DeudaDe({
   liquidada,
   acciones,
   i,
+  pago,
 }: {
   d: Deuda;
   de: string;
@@ -143,6 +149,8 @@ function DeudaDe({
   liquidada: boolean;
   acciones: (x: SettlementTransfer, i: number) => ReactNode;
   i: number;
+  /** Cómo le pagan a quien recibe */
+  pago?: Pago;
 }) {
   const t = useT();
   const fmt = useDinero().fmt;
@@ -177,6 +185,7 @@ function DeudaDe({
         </span>
         {d.monto > 0 && <Amount value={d.monto} className="st-d__amt" tone={d.estado === 'pendiente' ? undefined : 'pos'} />}
       </div>
+      {pago && d.estado === 'pendiente' && <ADonde pago={pago} nombre={nombre(d.to)} />}
       {d.transfer ? (
         <div className="st-act st-d__act">{acciones(d.transfer, i)}</div>
       ) : (
@@ -225,5 +234,38 @@ function DeudaDe({
         </p>
       )}
     </section>
+  );
+}
+
+/** A dónde mandarle la plata: su Nequi, su Daviplata, su llave Bre-B; al tocarlo, se copia */
+function ADonde({ pago, nombre }: { pago: Pago; nombre: string }) {
+  const t = useT();
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const medios = [
+    pago.nequi ? { k: 'nequi', etiqueta: 'Nequi', ver: celular(pago.nequi), valor: pago.nequi } : null,
+    pago.daviplata ? { k: 'daviplata', etiqueta: 'Daviplata', ver: celular(pago.daviplata), valor: pago.daviplata } : null,
+    pago.llave ? { k: 'llave', etiqueta: t('Llave Bre-B'), ver: pago.llave, valor: pago.llave } : null,
+  ].filter((m): m is { k: string; etiqueta: string; ver: string; valor: string } => !!m);
+  if (!medios.length) return null;
+  return (
+    <div className="st-d__pago" role="group" aria-label={t('Cómo pagarle a {nombre}', { nombre })}>
+      <span className="lu-small lu-muted">📲 {t('Mándaselos por')}</span>
+      {medios.map((m) => (
+        <button
+          key={m.k}
+          type="button"
+          className="st-d__medio"
+          onClick={async () => {
+            if (await copiar(m.valor)) {
+              setCopiado(m.k);
+              setTimeout(() => setCopiado(null), 1800);
+            }
+          }}
+          aria-label={t('Copiar {que}: {valor}', { que: m.etiqueta, valor: m.ver })}
+        >
+          <span className="lu-muted">{m.etiqueta}</span> <b className="lu-num">{copiado === m.k ? t('¡Copiado!') : m.ver}</b>
+        </button>
+      ))}
+    </div>
   );
 }

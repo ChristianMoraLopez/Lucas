@@ -23,7 +23,7 @@ import { notifyAccountChanged, useAccountChanges } from '@/lib/realtime';
 import { reciboDe } from '@/lib/recibo';
 import { minTransfers } from '@/lib/settlement';
 import { calcularTransferencias, cobroMessage, cruzaDeudas, detalleCobro, displayShare, grupoMessage, sharedLink } from '@/lib/share';
-import { type AvisosDeCobro, asTone, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
+import { type AvisosDeCobro, asTone, type Pago, plural, type SettlementOverview, type SettlementPerson, type SettlementTransfer } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { PorPersona } from './por-persona';
 
@@ -86,6 +86,19 @@ export function SettleScreen({
   const people = new Map(d.people.map((p) => [p.id, p]));
   const nombre = (id: string | null) => (id && people.get(id)?.name) || t('Alguien');
 
+  // Cómo le pagan a cada quien que lo puso en su perfil (migración 570): en los cobros y en las tarjetas
+  const [pagos, setPagos] = useState<Record<string, Pago>>({});
+  useEffect(() => {
+    let vivo = true;
+    supabase.rpc('como_les_pagan', { p_account_id: d.account.id }).then(({ data, error }) => {
+      // Sin la 570 en la base: sin datos de pago, como antes
+      if (vivo && !error && data) setPagos(data as Record<string, Pago>);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [supabase, d.account.id]);
+
   const refresh = () => startRefresh(() => router.refresh());
   // Otra persona marca una transferencia, liquidan o llega un gasto: se vuelve a pedir
   useAccountChanges(accountId, refresh, ['expenses', 'settlements', 'settlement_transfers', 'settlement_payments']);
@@ -139,6 +152,7 @@ export function SettleScreen({
         link: tk ? sharedLink(origin, tk, { person: x.from, month: mesDelLink, idioma: t.idioma }) : null,
         creditorIsMe: x.to === d.my_person_id,
         detalle: detalleCobro({ expenses: d.expenses, debtorId: x.from, creditorId: x.to, transfers, nombre, t, moneda: $.moneda }),
+        pago: pagos[x.to] ?? null,
         t,
         moneda: $.moneda,
       }),
@@ -362,7 +376,7 @@ export function SettleScreen({
           </div>
         )}
         {tarjetas.length > 0 && (transfers.length > 0 || (d.payments?.length ?? 0) > 0) ? (
-          <PorPersona tarjetas={tarjetas} people={people} yo={d.my_person_id} cruza={cruza} liquidada={Boolean(s)} acciones={acciones} />
+          <PorPersona tarjetas={tarjetas} people={people} yo={d.my_person_id} cruza={cruza} liquidada={Boolean(s)} acciones={acciones} pagos={pagos} />
         ) : (
           total > 0 && (
             <div className="st-cero">

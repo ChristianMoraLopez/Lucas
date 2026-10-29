@@ -1,4 +1,4 @@
-import { enUnaLinea, loSuyo } from './cobros.js';
+import { enUnaLinea, loSuyo, mediosDePago } from './cobros.js';
 import { minTransfers } from './liquidacion.js';
 import type { QuestionData, QuestionMe } from './store.js';
 import { formatCOP, type Idioma, type Intencion } from './text.js';
@@ -152,9 +152,14 @@ export const RESPUESTA = {
         ...(mas > 0 ? [en ? `   ↳ … and ${mas} more at mrluks.com` : `   ↳ … y ${mas} más en mrluks.com`] : []),
       ];
     };
+    // A quien le paga, a dónde mandarle la plata (si lo puso en su perfil, migración 570)
+    const aDonde = (aId: string) => {
+      const medios = mediosDePago(d.pagos?.[aId], idioma);
+      return medios ? [`   📲 ${medios}`] : [];
+    };
     const detalle = pendientes.flatMap((t) =>
       t.deId === me.id
-        ? [en ? `• You pay ${t.a} *${plata(t.monto)}*` : `• Le pagas a ${t.a} *${plata(t.monto)}*`]
+        ? [en ? `• You pay ${t.a} *${plata(t.monto)}*` : `• Le pagas a ${t.a} *${plata(t.monto)}*`, ...aDonde(t.aId)]
         : [en ? `• ${t.de} pays you *${plata(t.monto)}*` : `• ${t.de} te paga *${plata(t.monto)}*`, ...deQue(t.deId)],
     );
     const puso = en

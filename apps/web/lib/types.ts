@@ -330,6 +330,15 @@ export interface MyProfile {
   whatsapp: string[];
   /** Los que confirmó como suyos (con el link de Mister Luks o vinculando su WhatsApp); los demás son heredados */
   whatsapp_verificados?: string[];
+  /** Cómo le pagan (migración 570): sale en los cobros a quien le debe */
+  pago?: Pago | null;
+}
+
+/** Cómo le pagan a alguien (migración 570): su llave Bre-B, su Nequi, su Daviplata */
+export interface Pago {
+  llave?: string;
+  nequi?: string;
+  daviplata?: string;
 }
 
 export type MessageKind = 'photo' | 'pdf' | 'text';

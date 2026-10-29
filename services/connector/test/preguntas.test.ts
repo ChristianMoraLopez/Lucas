@@ -240,6 +240,16 @@ describe('las respuestas', () => {
     );
   });
 
+  it('«cuánto debo»: a quien le paga, a dónde mandarle la plata (si lo puso en su perfil)', () => {
+    const me = NUMEROS.me as NonNullable<Numeros['me']>;
+    const conPago = { ...NUMEROS, pagos: { v: { nequi: '3001234567', llave: '@vale' } } };
+    const lineas = RESPUESTA.miSaldo(conPago, me, 'es').split('\n');
+    const i = lineas.indexOf('• Le pagas a Valeria *$300.000*');
+    expect(i).toBeGreaterThan(0);
+    expect(lineas[i + 1]).toBe('   📲 Nequi *300 123 4567* · llave Bre-B *@vale*');
+    expect(RESPUESTA.miSaldo(NUMEROS, me, 'es')).not.toContain('📲');
+  });
+
   it('«mis gastos»: lo que pagó (los últimos)', () => {
     expect(RESPUESTA.misGastos(NUMEROS, NUMEROS.me as NonNullable<Numeros['me']>, 'es')).toBe(
       '🧾 Mafe, en «Paseo» pagaste *$200.000* en 2 gastos:\n• Arepas · $80.000 (27 sep)\n• Lancha · $120.000 (26 sep)\n\n📊 Más detalle en mrluks.com',
