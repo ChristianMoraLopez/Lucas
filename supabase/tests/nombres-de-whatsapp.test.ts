@@ -61,13 +61,13 @@ describe('nombres de WhatsApp', () => {
   it('al entrar ya con el nombre conocido (de otro grupo); si otro se llama igual, con los últimos cuatro', async () => {
     await as(db, null, async (tx) => {
       await tx.exec('reset role');
-      await tx.query(`select public.wa_identidad('lid:111111111114372', null, '111111111114372', 'Hh')`);
-      await tx.query(`select public.wa_identidad('lid:222222222221850', null, '222222222221850', 'Hh')`);
+      await tx.query(`select public.wa_identidad('lid:111111111114372', null, '111111111114372', 'Pipe')`);
+      await tx.query(`select public.wa_identidad('lid:222222222221850', null, '222222222221850', 'Pipe')`);
       const c = await cuenta(tx);
       const a = await sinNombre(tx, c, '111111111114372');
       const b = await sinNombre(tx, c, '222222222221850');
-      expect((await nombre(tx, a)).display_name).toBe('Hh');
-      expect((await nombre(tx, b)).display_name).toBe('Hh 1850');
+      expect((await nombre(tx, a)).display_name).toBe('Pipe');
+      expect((await nombre(tx, b)).display_name).toBe('Pipe 1850');
     });
   });
 
@@ -136,6 +136,39 @@ describe('pistas de WhatsApp en Personas', () => {
       // Quien no es de la cuenta no ve nada
       await impersonate(tx, U.otro);
       await expect(tx.query('select * from public.whatsapp_de_personas($1)', [PASEO])).rejects.toThrow(/no existe/);
+    });
+  });
+});
+
+// «Hh» no es un nombre: gana el @usuario (00000000000550_nombres_que_no_dicen_nada.sql)
+describe('nombres que no dicen nada', () => {
+  it('«Hh» no cuenta como nombre: queda con su @usuario; un nombre de verdad sí gana', async () => {
+    await as(db, null, async (tx) => {
+      await tx.exec('reset role');
+      const { r } = await one<{ r: (string | null)[] }>(
+        tx,
+        `select array[public.nombre_de_whatsapp('Hh'), public.nombre_de_whatsapp('Jjj'), public.nombre_de_whatsapp('X'),
+                      public.nombre_de_whatsapp('Jo'), public.nombre_de_whatsapp('Ana 🌸'), public.nombre_de_whatsapp('🦋')] as r`,
+      );
+      expect(r).toEqual([null, null, null, 'Jo', 'Ana 🌸', '🦋']);
+
+      await tx.query(`select public.wa_identidad('lid:444444444444372', null, '444444444444372', 'Hh')`);
+      const c = await cuenta(tx);
+      const p = await sinNombre(tx, c, '444444444444372');
+      // Sin usuario todavía: sigue sin nombre (no «Hh»)
+      expect(await nombre(tx, p)).toEqual({ display_name: 'Alguien del grupo 4372', name_source: 'auto' });
+      await usuarios(tx, [{ id: 'lid:444444444444372', lid: '444444444444372', username: 'tiago.film' }]);
+      expect(await nombre(tx, p)).toEqual({ display_name: '@tiago.film', name_source: 'whatsapp' });
+
+      // Cuando escribe al grupo con «Hh», no se lo cambia
+      await tx.exec('set local role service_role');
+      await tx.query(`select public.aprender_nombre($1, 'lid:444444444444372', 'Hh', true)`, [c]);
+      await tx.exec('reset role');
+      expect((await nombre(tx, p)).display_name).toBe('@tiago.film');
+
+      // Si se pone un nombre de verdad, ese gana
+      await tx.query(`select public.wa_identidad('lid:444444444444372', null, '444444444444372', 'Santiago')`);
+      expect(await nombre(tx, p)).toEqual({ display_name: 'Santiago', name_source: 'whatsapp' });
     });
   });
 });
