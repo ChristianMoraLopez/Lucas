@@ -25,6 +25,7 @@ import {
   MISTER,
   MSG,
   nombreDelChat,
+  PISTA_AYUDA,
   pareceUnaPregunta,
   parseHistoria,
   parseInviteLink,
@@ -85,6 +86,8 @@ const tramo = (d: Date, minutos: number) => Math.floor(d.getTime() / (minutos * 
 const LISTA_MS = 30 * 60_000;
 /** Lo suyo de una lista de ítems se puede confirmar o corregir por privado durante este tiempo */
 const CONFIRMAR_MS = 12 * 60 * 60_000;
+/** Por privado, la línea de «ayuda» (todo lo que sabe hacer) sale como mucho una vez en este tiempo */
+const PISTA_MS = 24 * 60 * 60_000;
 
 /** El chat privado de quien escribe (con su número, o su LID si WhatsApp no deja ver el número) */
 const privadoDe = (m: IncomingMessage) =>
@@ -115,6 +118,8 @@ export class Ingestor {
   #confirmaciones = new Map<string, { jid: string; lista: string; idioma: Idioma; nombre: string; comercio: string; link: string | null; hasta: number }>();
   /** Número o «lid:…» → el @usuario que ya se mandó a la base (para no mandarlo en cada mensaje) */
   #usuariosVistos = new Map<string, string>();
+  /** Por privado: hasta cuándo no se repite la línea de «ayuda» en cada chat */
+  #pistas = new Map<string, number>();
 
   constructor(
     private readonly store: Store,
@@ -262,6 +267,8 @@ export class Ingestor {
           dedupe_key: `guide:${m.chatId}:${tramo(m.sentAt, 60)}`,
         },
       ]);
+      // Y todo lo que entiende, en un mensaje aparte (después de la guía)
+      await this.#encolar([{ chat_jid: m.chatId, reason: 'guide', body: MISTER.comandos(idioma), dedupe_key: `comandos:${m.chatId}:${tramo(m.sentAt, 60)}` }]);
       return 'ayuda';
     }
 
@@ -391,6 +398,7 @@ export class Ingestor {
       await this.#encolar([
         { chat_jid: m.chatId, reason: 'guide', body: MISTER.guia(idioma), ...conGuia, dedupe_key: `guide:${m.chatId}:${tramo(m.sentAt, 10)}` },
       ]);
+      await this.#encolar([{ chat_jid: m.chatId, reason: 'guide', body: MISTER.comandos(idioma), dedupe_key: `comandos:${m.chatId}:${tramo(m.sentAt, 10)}` }]);
       return 'ayuda';
     }
 
@@ -521,7 +529,7 @@ export class Ingestor {
       const nombre = primerNombre(cuentas.find((c) => c.me)?.me?.name ?? m.sender.name);
       this.#listas.set(m.chatId, { ids: cuentas.map((c) => c.account.id ?? ''), intencion: que, hasta: ahora + LISTA_MS });
       this.#confirmaciones.delete(m.chatId);
-      await responder(PRIVADO.lista(cuentas, nombre, idioma));
+      await responder(this.#conPista(m.chatId, PRIVADO.lista(cuentas, nombre, idioma), idioma, primeraVez));
       this.log.info({ chat: maskWaId(m.chatId), cuentas: cuentas.length, intent: que }, 'Sus cuentas, por privado');
       return 'suyo:lista';
     }
@@ -538,9 +546,20 @@ export class Ingestor {
             ? RESPUESTA.deudas(cuenta, enCuenta)
             : RESPUESTA.miSaldo(cuenta, me, enCuenta, true);
     if (cuentas.length > 1) body = antesDeLaFirma(body, PRIVADO.otraCuenta(enCuenta));
-    await responder(body);
+    await responder(this.#conPista(m.chatId, body, enCuenta, primeraVez));
     this.log.info({ chat: maskWaId(m.chatId), intent: que }, 'Lo suyo, por privado');
     return `suyo:${que}`;
+  }
+
+  /**
+   * Por privado, una vez al día: la línea que dice cómo ver todo lo que sabe
+   * hacer («ayuda»), antes de la firma. La primera vez no: la bienvenida ya lo dice.
+   */
+  #conPista(chat: string, body: string, idioma: Idioma, primeraVez: boolean): string {
+    const ahora = Date.now();
+    if ((this.#pistas.get(chat) ?? 0) > ahora) return body;
+    this.#pistas.set(chat, ahora + PISTA_MS);
+    return primeraVez ? body : antesDeLaFirma(body, `\n\n${PISTA_AYUDA[idioma]}`);
   }
 
   /**

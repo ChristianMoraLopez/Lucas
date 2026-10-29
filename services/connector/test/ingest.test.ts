@@ -5,7 +5,7 @@ import { Ingestor } from '../src/ingest.js';
 import { PRIVADO as POR_PRIVADO, PREGUNTAS } from '../src/preguntas.js';
 import { RateLimiter } from '../src/replies.js';
 import type { NumerosDeCuenta } from '../src/store.js';
-import { esMensajeDeLuks, LINK_GRUPO, MISTER, MSG, PREGUNTA_DESDE_CUANDO } from '../src/text.js';
+import { esMensajeDeLuks, LINK_GRUPO, MISTER, MSG, PISTA_AYUDA, PREGUNTA_DESDE_CUANDO } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
 const LIMITS = { maxDownloadBytes: 25 * 1024 * 1024, maxChatBytes: 50 * 1024 * 1024, maxUploadBytes: 6 * 1024 * 1024, maxSide: 1600, jpegQuality: 80 };
@@ -212,10 +212,13 @@ describe('«lucas CÓDIGO»', () => {
   it('«ayuda» en el grupo: la guía (con el link para crear la cuenta, que se quita si ya la tiene), como mucho una vez por hora', async () => {
     expect(await ing.onMessage(contador, wa, m({ text: 'ayuda' }))).toBe('ayuda');
     expect(await ing.onMessage(contador, wa, m({ text: '@573337627471 ayuda' }))).toBe('ayuda');
+    // La guía y, aparte, todo lo que entiende
     expect(bandeja()).toEqual([
       expect.objectContaining({ reason: 'guide', body: MISTER.guiaGrupo('es'), group_id: 'g-1', image_url: `${GUIA}/luks-guia-es.png` }),
+      expect.objectContaining({ reason: 'guide', body: MISTER.comandos('es'), group_id: 'g-1' }),
     ]);
     expect(bandeja()[0].document_url).toBeUndefined();
+    expect(bandeja()[1].image_url).toBeUndefined();
     // «necesito ayuda con el taxi» es charla, no un pedido
     expect(await ing.onMessage(contador, wa, m({ text: 'necesito ayuda con el taxi' }))).toBe('charla');
   });
@@ -249,7 +252,10 @@ describe('chats privados con Mister Luks', () => {
     await ing.onMessage(contador, wa, privado());
     expect(await ing.onMessage(contador, wa, privado({ text: 'Ayuda' }))).toBe('ayuda');
     expect(await ing.onMessage(contador, wa, privado({ text: 'instrucciones' }))).toBe('ayuda');
-    expect(bandeja().map((o) => o.reason)).toEqual(['welcome', 'guide']);
+    expect(bandeja().map((o) => o.reason)).toEqual(['welcome', 'guide', 'guide']);
+    expect(bandeja()[2].body).toBe(MISTER.comandos('es'));
+    expect(MISTER.comandos('es')).toContain('«qué debo»');
+    expect(MISTER.comandos('es')).toContain('@MrLuks');
   });
 
   it('un link de grupo: entra y lo cuenta; con tope por hora', async () => {
@@ -995,11 +1001,14 @@ describe('por privado, lo de cada quien (migración 480)', () => {
         '',
         'Cuando le pagues, escríbeme *ya le pagué a Daniel* y lo marco ✅',
         '',
+        PISTA_AYUDA.es,
+        '',
         '📊 Más detalle en mrluks.com',
       ].join('\n'),
     );
-    // Un saludo, también
+    // Un saludo, también (la línea de «ayuda», una vez al día)
     expect(await ing.onMessage(contador, wa, privado({ text: 'hola luks' }))).toBe('suyo:mi_saldo');
+    expect(ultimo()).not.toContain(PISTA_AYUDA.es);
   });
 
   it('en varias, la lista con cómo va en cada una; con el número, el detalle', async () => {
@@ -1012,6 +1021,8 @@ describe('por privado, lo de cada quien (migración 480)', () => {
         '2. *Casa* (octubre): te deben *$25.000*',
         '',
         'Respóndeme con el número y te cuento todo: qué pediste, cuánto costó y a quién le pagas.',
+        '',
+        PISTA_AYUDA.es,
         '',
         '📊 Más detalle en mrluks.com',
       ].join('\n'),

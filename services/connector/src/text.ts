@@ -351,8 +351,66 @@ export function listaNombres(nombres: string[], idioma: Idioma): string {
   return nombres.length <= 1 ? (nombres[0] ?? '') : `${nombres.slice(0, -1).join(', ')} ${y} ${nombres.at(-1)}`;
 }
 
+/** Todo lo que entiende, para «ayuda» (por privado y en el grupo): va después de la guía */
+const COMANDOS: Record<Idioma, string> = {
+  es: [
+    '📘 *Lo que sé hacer*',
+    '',
+    '*Aquí por privado*',
+    '• «qué debo» o «cuánto me deben»: lo tuyo, a quién y de qué',
+    '• «mis cuentas»: en qué cuentas estás y cómo vas',
+    '• «mis gastos»: lo que has pagado',
+    '• «ya le pagué a …»: lo marco pagado',
+    '• «luks soy yo»: conecto tu número con tu cuenta de Luks',
+    '• El link de un grupo: entro solito',
+    '',
+    '*En el grupo* (escribe @MrLuks antes o respóndele a un mensaje mío)',
+    '• Fotos de recibos, PDFs o «taxi 45 lucas»: los anoto y los divido',
+    '• «cuánto llevamos»: el total',
+    '• «quién le debe a quién»: cómo van las cuentas',
+    '• «cuánto debo»: lo tuyo, ahí o por privado',
+    '• «ya pagué» o la foto del comprobante: queda marcado',
+    '• «elimina este gasto», respondiendo el gasto: lo quito',
+    '• «no me cuentes» / «cuéntame»: dejo de anotar lo tuyo o vuelvo',
+    '• «ayuda»: esta lista',
+    '',
+    'La guía completa está en mrluks.com/guia 😉',
+  ].join('\n'),
+  en: [
+    '📘 *What I can do*',
+    '',
+    '*Right here, privately*',
+    '• “what do I owe” or “how much am I owed”: your share, who you pay and for what',
+    '• “my accounts”: which accounts you’re in and how you’re doing',
+    '• “my expenses”: what you’ve paid',
+    '• “I paid …”: I mark it paid',
+    '• “luks soy yo”: I link your number to your Luks account',
+    '• A group link: I join on my own',
+    '',
+    '*In the group* (type @MrLuks first or reply to one of my messages)',
+    '• Receipt photos, PDFs or “taxi $45”: I log and split them',
+    '• “how much so far”: the total',
+    '• “who owes whom”: how the accounts stand',
+    '• “how much do I owe”: your share, there or privately',
+    '• “I paid” or the transfer screenshot: it gets marked',
+    '• “delete this expense”, replying to the expense: I remove it',
+    '• “don’t count me” / “count me again”: I stop logging yours or start again',
+    '• “help”: this list',
+    '',
+    'The full guide is at mrluks.com/guia 😉',
+  ].join('\n'),
+};
+
+/** Por privado: cómo ver todo lo que sabe hacer (una línea, antes de la firma) */
+export const PISTA_AYUDA: Record<Idioma, string> = {
+  es: '💡 ¿Todo lo que sé hacer? Escríbeme *ayuda* aquí, o en el grupo respóndeme un mensaje o escribe *@MrLuks ayuda*.',
+  en: '💡 Want to see everything I can do? Type *help* here, or in the group reply to one of my messages or type *@MrLuks help*.',
+};
+
 /** Lo que Mister Luks escribe por su cuenta (va por la bandeja de salida, whatsapp_outbox) */
 export const MISTER = {
+  /** «ayuda»: la lista de todo lo que entiende (un mensaje aparte, después de la guía) */
+  comandos: (idioma: Idioma) => COMANDOS[idioma],
   bienvenida: (idioma: Idioma) =>
     idioma === 'en'
       ? 'Hi! 👋 I’m *Mister Luks*, the one who keeps the books at Luks 🧾✨\n\nHere’s how I work:\n1️⃣ Add me to your WhatsApp group (or send me the group link right here and I’ll join on my own).\n2️⃣ Send receipt photos, PDFs or messages like “taxi $45”.\n3️⃣ I log them, split them and tell everyone who pays whom 🤝\n4️⃣ Right here, ask me “what do I owe” or “my accounts” and I’ll tell you your share, item by item.\n\nHere’s the guide 👇 If you need it again, just type “help”.'

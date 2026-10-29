@@ -1,7 +1,7 @@
 import type { Logger } from './log.js';
 import { type GastoConItems, type LineaRecibo, reciboDe } from './recibo.js';
 import type { Cobro, OutboxItem, Pago, Store } from './store.js';
-import { formatCOP, type Idioma, type Moneda } from './text.js';
+import { formatCOP, type Idioma, type Moneda, PISTA_AYUDA } from './text.js';
 
 /*
  * Avisos de cobro (migración 410): si la cuenta los tiene prendidos, apenas se
@@ -217,7 +217,7 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
         ? 'When you pay, reply *paid* and I’ll mark it ✅'
         : 'Cuando le pagues, respóndeme *ya pagué* y lo marco ✅',
   );
-  lineas.push('', FIRMA[idioma]);
+  lineas.push('', PISTA_AYUDA[idioma], '', FIRMA[idioma]);
   return lineas.join('\n');
 }
 

@@ -255,8 +255,8 @@ export const PRIVADO = {
       : '🤔 No te encuentro en ninguna cuenta de Luks con este número. Cuando estés en un grupo con Mister Luks y anoten gastos, aquí te cuento lo tuyo.',
   noEntendi: (idioma: Idioma) =>
     idioma === 'en'
-      ? '🤔 I didn’t get that. Ask me “what do I owe”, “my accounts” or “my expenses”; and when you pay someone, tell me “I paid …”.'
-      : '🤔 No te entendí. Pregúntame «qué debo», «mis cuentas» o «mis gastos»; y cuando le pagues a alguien, dime «ya le pagué a …».',
+      ? '🤔 I didn’t get that. Ask me “what do I owe”, “my accounts” or “my expenses”; and when you pay someone, tell me “I paid …”.\n\n💡 Type *help* and I’ll send you everything I can do.'
+      : '🤔 No te entendí. Pregúntame «qué debo», «mis cuentas» o «mis gastos»; y cuando le pagues a alguien, dime «ya le pagué a …».\n\n💡 Escríbeme *ayuda* y te mando todo lo que sé hacer.',
 };
 
 /** Lo demás que dice cuando le preguntan */
@@ -284,8 +284,8 @@ export const PREGUNTAS = {
       : `👍 Listo, ${nombre}: vuelvo a anotar lo que mandes en «${cuenta}».`,
   noEntendi: (idioma: Idioma) =>
     idioma === 'en'
-      ? '🤔 I didn’t get that. Ask me “how much so far”, “who owes whom”, “how much do I owe” or “my expenses”; and when you pay someone, tell me “I paid …”.'
-      : '🤔 No te entendí. Pregúntame «cuánto llevamos», «quién le debe a quién», «cuánto debo» o «mis gastos»; y cuando le pagues a alguien, dime «ya le pagué a …».',
+      ? '🤔 I didn’t get that. Ask me “how much so far”, “who owes whom”, “how much do I owe” or “my expenses”; and when you pay someone, tell me “I paid …”.\n\n💡 Type *@MrLuks help* and I’ll send you everything I can do.'
+      : '🤔 No te entendí. Pregúntame «cuánto llevamos», «quién le debe a quién», «cuánto debo» o «mis gastos»; y cuando le pagues a alguien, dime «ya le pagué a …».\n\n💡 Escribe *@MrLuks ayuda* y te mando todo lo que sé hacer.',
   sinCuenta: (idioma: Idioma) =>
     idioma === 'en'
       ? '🤔 This group doesn’t have a Luks account yet. Type “help” and I’ll send you how to create it.'

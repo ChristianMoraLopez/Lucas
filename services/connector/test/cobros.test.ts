@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { avisarCobros, mensajeCobro, mensajeGrupo } from '../src/cobros.js';
 import { reciboDe } from '../src/recibo.js';
 import type { Cobro } from '../src/store.js';
-import { esMensajeDeLuks } from '../src/text.js';
+import { esMensajeDeLuks, PISTA_AYUDA } from '../src/text.js';
 import { FakeStore, GRUPO, silentLog } from './fakes.js';
 
 // El de la web se carga al correr la prueba (tsc del connector no revisa archivos de la web)
@@ -84,6 +84,8 @@ describe('avisos de cobro', () => {
         '🔗 Todo el detalle: https://mrluks.com/r/TokenDeLaCuenta12345678?p=mari',
         '',
         'Cuando les pagues, respóndeme *ya le pagué a Daniel* (o *ya les pagué a todos*) y lo marco ✅',
+        '',
+        PISTA_AYUDA.es,
         '',
         '📊 Más detalle en mrluks.com',
       ].join('\n'),

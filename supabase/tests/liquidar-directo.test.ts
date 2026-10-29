@@ -95,6 +95,42 @@ describe('liquidar directo', () => {
     });
   });
 
+  it('ya liquidada, cada transferencia pagada cuenta en los saldos de cada uno (la 580)', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const { cuenta, P } = await paseo(tx);
+      const { id } = await one<{ id: string }>(tx, 'select public.start_settlement($1, null, $2) as id', [
+        cuenta,
+        JSON.stringify((await vista(tx, cuenta)).direct_transfers),
+      ]);
+      const { id: t } = await one<{ id: string }>(
+        tx,
+        'select id from public.settlement_transfers where settlement_id = $1 and from_person_id = $2 and to_person_id = $3',
+        [id, P.mari, P.dan],
+      );
+      await tx.query('select public.mark_transfer($1, true)', [t]);
+      type Persona = { id: string; balance: number; sent: number; received: number };
+      const gente = async () => (await vista(tx, cuenta)).people as unknown as Persona[];
+      const de = (ps: Persona[], id: string) => ps.find((p) => p.id === id) as Persona;
+      let ps = await gente();
+      // Mari ya le pagó 150.000 a Daniel: le falta lo de Santiago; a Daniel le falta lo de Santiago
+      expect(de(ps, P.mari)).toMatchObject({ balance: -30_000, sent: 150_000, received: 0 });
+      expect(de(ps, P.dan)).toMatchObject({ balance: 20_000, sent: 0, received: 150_000 });
+      expect(ps.reduce((s, p) => s + Number(p.balance), 0)).toBe(0);
+
+      // Todo pagado: todos a paz y salvo
+      const { rows } = await tx.query<{ id: string }>('select id from public.settlement_transfers where settlement_id = $1 and paid_at is null', [id]);
+      for (const r of rows) await tx.query('select public.mark_transfer($1, true)', [r.id]);
+      ps = await gente();
+      for (const p of ps) expect(Number(p.balance)).toBe(0);
+
+      // Al reabrir no se cuenta doble: lo pagado queda como pagos hechos
+      await tx.query('select public.reopen_settlement($1)', [id]);
+      ps = await gente();
+      for (const p of ps) expect(Number(p.balance)).toBe(0);
+      expect(de(ps, P.mari)).toMatchObject({ sent: 180_000 });
+    });
+  });
+
   it('lo que ya se pagó descuenta (una liquidación que se reabrió)', async () => {
     await as(db, U.valeria, async (tx) => {
       const { cuenta, P } = await paseo(tx);
