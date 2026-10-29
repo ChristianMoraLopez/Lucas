@@ -1922,6 +1922,9 @@ export const EN: Record<string, string> = {
   // ---------- Liquidar por ítem ----------
   'Le tocó': 'Their share',
   'lo pagó {nombre}': 'paid by {nombre}',
+  // Personas: cómo reconocer a quien solo está en WhatsApp (migración 540)
+  'en WhatsApp: {nombre}': 'on WhatsApp: {nombre}',
+  'ya no está en el grupo': 'left the group',
   // Liquidar, una tarjeta por persona (por-persona.tsx)
   'le paga a {lista}': 'pays {lista}',
   'ya le pagó a {lista}': 'already paid {lista}',

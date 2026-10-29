@@ -89,3 +89,53 @@ describe('nombres de WhatsApp', () => {
     });
   });
 });
+
+// Para reconocer a quién es quién en Personas (00000000000540_pistas_de_whatsapp.sql)
+describe('pistas de WhatsApp en Personas', () => {
+  const GRUPO_PASEO = 'd0000000-0000-4000-8000-000000000001';
+  const PASEO = '20000000-0000-4000-8000-000000000002';
+  const PASEO_WA = ['573001112233', '573014445566', '573016667788', '573017778899', '573105550142', '573128880365', '573002224471', '573157770918'];
+  type Pista = { person_id: string; usuario: string | null; nombre_whatsapp: string | null; telefono: string | null; en_el_grupo: boolean | null };
+  const pistas = async (tx: Transaction, quien: string) => {
+    await impersonate(tx, quien);
+    const { rows } = await tx.query<Pista>('select * from public.whatsapp_de_personas($1)', [PASEO]);
+    await tx.exec('reset role');
+    return rows;
+  };
+
+  it('el usuario y si sigue en el grupo; el teléfono solo para quien administra', async () => {
+    await as(db, null, async (tx) => {
+      await tx.exec('reset role');
+      await tx.exec('set local role service_role');
+      const miembros = [
+        ...PASEO_WA.map((w) => ({ id: w, phone: w, name: null })),
+        { id: 'lid:191980759965929', phone: null, lid: '191980759965929', name: null },
+        { id: '573057610097', phone: '573057610097', name: null },
+      ];
+      await tx.query('select public.connector_usuarios($1)', [JSON.stringify([{ id: 'lid:191980759965929', lid: '191980759965929', username: 'teffity_' }])]);
+      await tx.query('select public.connector_set_group_members($1, $2)', [GRUPO_PASEO, JSON.stringify(miembros)]);
+      // El de 0097 se sale del grupo
+      await tx.query('select public.connector_set_group_members($1, $2)', [GRUPO_PASEO, JSON.stringify(miembros.slice(0, -1))]);
+      await tx.exec('reset role');
+
+      const persona = async (wa: string) =>
+        (await one<{ id: string }>(tx, 'select w.person_id as id from public.person_whatsapp_ids w join public.people p on p.id = w.person_id where p.account_id = $1 and w.wa_id = $2', [PASEO, wa])).id;
+      const teffi = await persona('lid:191980759965929');
+      const sale = await persona('573057610097');
+
+      const deValeria = await pistas(tx, U.valeria);
+      expect(deValeria.find((p) => p.person_id === teffi)).toMatchObject({ usuario: 'teffity_', telefono: null, en_el_grupo: true });
+      expect(deValeria.find((p) => p.person_id === sale)).toMatchObject({ usuario: null, telefono: '573057610097', en_el_grupo: false });
+      expect(await one(tx, 'select display_name from public.people where id = $1', [teffi])).toEqual({ display_name: '@teffity_' });
+
+      // Un miembro ve el usuario, no el teléfono
+      const deMafe = await pistas(tx, U.mafe);
+      expect(deMafe.find((p) => p.person_id === sale)?.telefono).toBeNull();
+      expect(deMafe.find((p) => p.person_id === teffi)?.usuario).toBe('teffity_');
+
+      // Quien no es de la cuenta no ve nada
+      await impersonate(tx, U.otro);
+      await expect(tx.query('select * from public.whatsapp_de_personas($1)', [PASEO])).rejects.toThrow(/no existe/);
+    });
+  });
+});

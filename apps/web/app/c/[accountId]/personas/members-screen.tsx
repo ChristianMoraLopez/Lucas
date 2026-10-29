@@ -18,6 +18,7 @@ import { humanError } from '@/lib/errors';
 import type { Idioma, T } from '@/lib/i18n';
 import { displayLink, inviteHint, inviteLink, inviteMessage, isInviteActive, whatsappUrl } from '@/lib/invite';
 import { notifyAccountChanged } from '@/lib/realtime';
+import { formatear } from '@/lib/telefono';
 import {
   type AccountType,
   asTone,
@@ -126,6 +127,19 @@ export function MembersScreen({
     .sort((a, b) => ROLE_ORDER[a.role as Role] - ROLE_ORDER[b.role as Role] || b.paid_count - a.paid_count || a.display_name.localeCompare(b.display_name));
   const unclaimed = rows.filter((p) => !p.user_id).sort((a, b) => a.display_name.localeCompare(b.display_name));
   const unclaimedIds = unclaimed.map((p) => p.person_id).filter(Boolean) as string[];
+
+  // Lo que WhatsApp dice de cada quien sin cuenta (migración 540): su @usuario, su teléfono
+  // (solo admins) y si sigue en el grupo. Así se reconoce a «Alguien del grupo 1850»
+  const pistas = useQuery({
+    queryKey: ['pistas-whatsapp', accountId, unclaimedIds.join()],
+    enabled: unclaimedIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('whatsapp_de_personas', { p_account_id: accountId });
+      // Sin la 540 en la base: se ve como antes
+      if (error) return {};
+      return Object.fromEntries(((data ?? []) as PistaWhatsapp[]).map((r) => [r.person_id, r]));
+    },
+  });
 
   // Número completo de quien solo está en WhatsApp, para escribirle directo (solo admins)
   const phones = useQuery({
@@ -320,7 +334,7 @@ export function MembersScreen({
                           invitacion
                             ? t('Ya usa Luks · le llegó la invitación, falta que acepte')
                             : p.wa_last4
-                              ? `${sinNombre ? t('Sin nombre en WhatsApp') : p.name_source === 'whatsapp' ? t('Nombre de WhatsApp') : t('Solo en WhatsApp')} · ••• ${p.wa_last4}`
+                              ? pistasDe(p, p.person_id ? pistas.data?.[p.person_id] : undefined, t)
                               : t('Sin cuenta todavía')
                         }
                         aside={
@@ -812,4 +826,33 @@ function AddPerson({ accountId, onAdded, onError }: { accountId: string; onAdded
       </div>
     </form>
   );
+}
+
+/** whatsapp_de_personas (migración 540) */
+interface PistaWhatsapp {
+  person_id: string;
+  usuario: string | null;
+  nombre_whatsapp: string | null;
+  telefono: string | null;
+  en_el_grupo: boolean | null;
+}
+
+/**
+ * Debajo del nombre de quien solo está en WhatsApp, cómo reconocerlo: de dónde
+ * salió el nombre, su @usuario, cómo se llama en WhatsApp (si le pusieron
+ * otro), su teléfono (quien administra) y si ya no está en el grupo. Sin
+ * pistas, como antes: los últimos cuatro números.
+ */
+function pistasDe(p: PersonRow, x: PistaWhatsapp | undefined, t: T): string {
+  const origen = p.name_source === 'auto' ? t('Sin nombre en WhatsApp') : p.name_source === 'whatsapp' ? t('Nombre de WhatsApp') : t('Solo en WhatsApp');
+  if (!x) return `${origen} · ••• ${p.wa_last4}`;
+  const usuario = x.usuario ? `@${x.usuario}` : null;
+  const partes = [
+    origen,
+    usuario && usuario !== p.display_name ? usuario : null,
+    x.nombre_whatsapp && x.nombre_whatsapp !== p.display_name ? t('en WhatsApp: {nombre}', { nombre: x.nombre_whatsapp }) : null,
+    formatear(x.telefono),
+    x.en_el_grupo === false ? t('ya no está en el grupo') : null,
+  ];
+  return partes.filter(Boolean).join(' · ');
 }
