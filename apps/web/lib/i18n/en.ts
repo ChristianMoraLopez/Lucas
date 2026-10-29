@@ -1982,8 +1982,8 @@ export const EN: Record<string, string> = {
     "To send reminders, Mister Luks has to be in the account's group (or people have to message him privately).",
   'Mister Luks no tiene cómo escribirle por privado a nadie de la cuenta todavía: les avisa en el grupo.':
     'Mister Luks can’t message anyone in this account privately yet: it lets them know in the group.',
-  'Por privado a {n} de {total}: el primer aviso le llega a cada uno aunque nunca le haya escrito a Mister Luks (se presenta y dice que es un bot). Los recordatorios, por privado a quien le contesta y en el grupo a los demás. Quien le responda «no me escribas» queda solo en el grupo.':
-    'Privately to {n} of {total}: the first notice reaches each person even if they’ve never messaged Mister Luks (it introduces itself as a bot). Reminders go privately to whoever replies and to the group for everyone else. Anyone who replies “don’t message me” only hears about it in the group.',
+  'Por privado a {n} de {total}, aunque nunca le hayan escrito a Mister Luks: se presenta como el bot de las cuentas del grupo y les recuerda hasta que paguen. Quien le responda «no me escribas» queda solo en el grupo.':
+    'Privately to {n} of {total}, even if they’ve never messaged Mister Luks: it introduces itself as the group’s bookkeeping bot and reminds them until they pay. Anyone who replies “don’t message me” only hears about it in the group.',
   'Solo quien administra la cuenta los prende o los apaga.': 'Only account admins can turn them on or off.',
 
   // ---------- Un gasto que llegó a un paseo liquidado (migración 490) ----------

@@ -169,29 +169,37 @@ export function mensajeCobro(c: Cobro, webUrl: string): string {
     : en
       ? `you owe ${a} *${$(Number(c.amount))}*`
       : `le debes a ${a} *${$(Number(c.amount))}*`;
-  const lineas = c.primera_vez
-    ? // Nunca le ha escrito a Mister Luks (migración 600): quién es y por qué le escribe
-      en
-      ? [
-          `${hola('Hi')} 👋 I’m *Mister Luks* 🤖, the bot that keeps the books for the “${cuenta}” group on Luks. I’m writing to you here because you’re in that group.`,
-          '',
-          `💸 “${cuenta}” was settled: ${cuanto}.`,
+  const lineas =
+    c.primera_vez && c.avisado_privado
+      ? // Un recordatorio a quien nunca le ha contestado (migración 610): quién es, en una línea
+        [
+          en
+            ? `⏰ ${hola('Hi')}, it’s *Mister Luks* 🤖, the bot that keeps the books for “${cuenta}”. A reminder: ${cuanto}.`
+            : `⏰ ${hola('Hola')}, soy *Mister Luks* 🤖, el bot de las cuentas de «${cuenta}». Te recuerdo: ${cuanto}.`,
         ]
-      : [
-          `${hola('Hola')} 👋 Soy *Mister Luks* 🤖, el bot que lleva las cuentas del grupo «${cuenta}» en Luks. Te escribo por aquí porque estás en ese grupo.`,
-          '',
-          `💸 Ya liquidamos «${cuenta}»: ${cuanto}.`,
-        ]
-    : [
-        // Recordatorio solo si ya le había llegado por privado (si solo se le avisó en el grupo, este es el primero)
-        c.avisado_privado
-          ? en
-            ? `⏰ ${hola('Hi')}, a reminder: for “${cuenta}” ${cuanto}.`
-            : `⏰ ${hola('Hola')}, te recuerdo: de «${cuenta}» ${cuanto}.`
-          : en
-            ? `💸 ${hola('Hi')} 👋 “${cuenta}” was settled: ${cuanto}.`
-            : `💸 ${hola('Hola')} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
-      ];
+      : c.primera_vez
+        ? // Nunca le ha escrito a Mister Luks (migración 600): quién es y por qué le escribe
+          en
+          ? [
+              `${hola('Hi')} 👋 I’m *Mister Luks* 🤖, the bot that keeps the books for the “${cuenta}” group on Luks. I’m writing to you here because you’re in that group.`,
+              '',
+              `💸 “${cuenta}” was settled: ${cuanto}.`,
+            ]
+          : [
+              `${hola('Hola')} 👋 Soy *Mister Luks* 🤖, el bot que lleva las cuentas del grupo «${cuenta}» en Luks. Te escribo por aquí porque estás en ese grupo.`,
+              '',
+              `💸 Ya liquidamos «${cuenta}»: ${cuanto}.`,
+            ]
+        : [
+            // Recordatorio solo si ya le había llegado por privado (si solo se le avisó en el grupo, este es el primero)
+            c.avisado_privado
+              ? en
+                ? `⏰ ${hola('Hi')}, a reminder: for “${cuenta}” ${cuanto}.`
+                : `⏰ ${hola('Hola')}, te recuerdo: de «${cuenta}» ${cuanto}.`
+              : en
+                ? `💸 ${hola('Hi')} 👋 “${cuenta}” was settled: ${cuanto}.`
+                : `💸 ${hola('Hola')} 👋 Ya liquidamos «${cuenta}»: ${cuanto}.`,
+          ];
   // A dónde mandarle la plata a cada uno (si lo puso en su perfil)
   const pagos = varios ? todas.map((t) => comoPagarle(t.to, t.pago, idioma)) : [comoPagarle(c.to.name, c.to.pago ?? todas[0]?.pago, idioma)];
   lineas.push(...pagos.filter((l): l is string => !!l));

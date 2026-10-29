@@ -3,7 +3,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { as, createDb, impersonate, one, PASEO, U } from './harness';
 
 // El primer aviso de cobro le llega por privado a quien debe aunque nunca le haya escrito a
-// Mister Luks, si está en el grupo (00000000000600_escribirle_a_quien_debe.sql)
+// Mister Luks, si está en el grupo, y los recordatorios también
+// (00000000000600_escribirle_a_quien_debe.sql, 00000000000610_mister_luks_cobra.sql)
 
 let db: PGlite;
 beforeAll(async () => {
@@ -68,7 +69,7 @@ describe('escribirle a quien debe', () => {
       // El connector de antes sigue como estaba
       expect((await avisos(tx, 'connector_cobros')).filter((c) => c.from.id === SANTI).every((c) => c.private_jid === null)).toBe(true);
 
-      // Avisado por privado: si no contesta, los recordatorios van al grupo
+      // Avisado por privado: aunque no conteste, los recordatorios también van por privado (la 610)
       await tx.exec('set local role service_role');
       await tx.query('select public.connector_cobros_enviados($1, $2)', [
         r.filter((c) => c.private_jid).map((c) => c.transfer_id),
@@ -76,7 +77,9 @@ describe('escribirle a quien debe', () => {
       ]);
       expect(await avisos(tx)).toEqual([]);
       await tx.query(`update public.settlement_transfers set avisado_at = now() - interval '4 days' where account_id = $1`, [PASEO]);
-      for (const c of (await avisos(tx)).filter((x) => x.from.id === SANTI)) expect(c).toMatchObject({ private_jid: null, primera_vez: false });
+      const recordatorios = (await avisos(tx)).filter((x) => x.from.id === SANTI);
+      expect(recordatorios.length).toBeGreaterThan(0);
+      for (const c of recordatorios) expect(c).toMatchObject({ private_jid: `${SANTI_WA}@s.whatsapp.net`, primera_vez: true });
     });
   });
 

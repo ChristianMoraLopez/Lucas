@@ -231,6 +231,13 @@ describe('avisos de cobro', () => {
     expect(mensajeCobro(cobro({ ...solo, primera_vez: true }), WEB_URL).split('\n')[0]).toMatch(/^Hola Marimari 👋 Soy \*Mister Luks\*/);
     expect(mensajeCobro(cobro(solo), WEB_URL)).not.toContain('Soy *Mister Luks*');
     expect(mensajeCobro(cobro(solo), WEB_URL)).not.toContain('no me escribas');
+    // Si no contestó, el recordatorio también va por privado (la 610), sin volver a presentarse entero
+    const otra = mensajeCobro(
+      cobro({ ...solo, primera_vez: true, avisos: 2, avisado_privado: true, account: { ...cobro().account, name: 'Nochita' } }),
+      WEB_URL,
+    );
+    expect(otra.split('\n')[0]).toBe('⏰ Hola Marimari, soy *Mister Luks* 🤖, el bot de las cuentas de «Nochita». Te recuerdo: le debes a Christian *$9.800*.');
+    expect(otra).toContain('*no me escribas*');
   });
 
   it('a quienes nunca le han escrito, pocos por vuelta: los demás, en la siguiente', async () => {
