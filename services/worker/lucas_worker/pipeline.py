@@ -27,6 +27,7 @@ from .classify.question import ClassifyInput
 from .config import Settings
 from .errors import LlmUnavailable, PermanentError
 from .extract.cascade import Extraction, Extractor
+from .extract.envios import envio_a_persona
 from .extract.moneda import detectar_moneda
 from .extract.numbers import fijar_moneda
 from .llm.ollama import LlmError, ReceiptLlm
@@ -34,7 +35,7 @@ from .llm.schema import ReceiptExtraction
 from .luks import es_imagen_de_luks, es_mensaje_de_luks
 from .observability import stage
 from .payer import Person, resolve_payer, resolve_split
-from .supabase import Database
+from .supabase import Database, SupabaseError
 from .validate import AccountWindow, Draft, reconcile
 
 log = logging.getLogger(__name__)
@@ -110,6 +111,20 @@ class MessageProcessor:
                 "p_max_distance": self.settings.dedup_hash_max_distance,
             },
         )
+
+    def _pago(self, job: Job, monto: int, para: list[str]) -> str | None:
+        """Si el envío fue a alguien de la cuenta: qué pasó (pagada, abono…); si no, None (es un gasto)."""
+        try:
+            r = self.db.rpc(
+                "worker_pago_con_comprobante", {"p_message_id": job.message_id, "p_monto": monto, "p_para": para}
+            )
+        except SupabaseError as e:
+            # Sin la migración 510 todavía: sigue como un gasto (si Supabase no responde, se reintenta)
+            if e.retryable:
+                raise
+            log.warning("No se pudo ver si el comprobante es un pago: %s", e)
+            return None
+        return str(r.get("tipo")) if r and r.get("handled") else None
 
     def _marcar(self, message_id: str, status: str, duplicate_of: str | None = None, text: str | None = None) -> None:
         self.db.rpc(
@@ -259,6 +274,13 @@ class MessageProcessor:
         if kind != "text" and es_imagen_de_luks(ex.text):
             self._marcar(job.message_id, "not_expense", text=ex.stored_text)
             return "lo hizo Luks: no es un gasto"
+
+        # El pantallazo de una transferencia a alguien de la cuenta («ya pagué mi amor ❤️»):
+        # es un pago entre ellos, no un gasto (migración 510)
+        envio = envio_a_persona(ex.text) if kind != "text" else None
+        if envio and (pago := self._pago(job, envio.monto, envio.para)):
+            self._marcar(job.message_id, "not_expense", text=ex.stored_text)
+            return f"pago entre ellos ({pago})"
 
         if ex.cufe and (dup := self._duplicado(account_id, ex.cufe, None)):
             self._marcar(job.message_id, "duplicate", dup, ex.stored_text)

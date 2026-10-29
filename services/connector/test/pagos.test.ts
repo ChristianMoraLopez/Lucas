@@ -37,7 +37,20 @@ describe('«ya pagué»: lo entiende', () => {
     'already paid',
     'paid',
     'I sent you the money',
+    // Como se dice en el grupo (Javi en Gentelinda: «ya pagué mi amor ❤️»)
+    'ya pagué mi amor ❤️',
+    'ahí te mandé la plata',
+    'te hice la transferencia',
+    'listo el pago',
+    'pago hecho 👍',
+    'ya quedamos a paz y salvo',
+    'ya te pasé lo que te debía',
   ])('«%s»', (texto) => expect(intencionDe(texto)).toBe('ya_pague'));
+
+  it('mandar otra cosa no es pagar', () => {
+    expect(intencionDe('te mandé la foto')).toBeNull();
+    expect(intencionDe('ahí te mandé el recibo')).toBeNull();
+  });
 
   it('lo demás sigue siendo lo de antes', () => {
     expect(intencionDe('qué he pagado')).toBe('mis_gastos');

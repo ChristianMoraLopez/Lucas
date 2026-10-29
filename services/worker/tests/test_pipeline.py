@@ -264,3 +264,34 @@ def test_un_mensaje_con_varias_cosas_suma_todo_y_trae_los_items(db, extractor):
         ("Tours", 980_000),
     ]
     assert "Se sumaron 3 montos del mensaje" in g["ai_snapshot"]["notes"]
+
+
+def test_el_pantallazo_de_un_pago_a_alguien_de_la_cuenta_no_es_un_gasto(db, extractor, monkeypatch):
+    """Javi manda el comprobante de Nu con «ya pagué mi amor ❤️»: queda pagado, no es un gasto (migración 510)."""
+    from lucas_worker.extract.cascade import Extraction
+    from lucas_worker.extract.rules import analyze_document
+
+    from .test_envios import NU_BRE_B
+
+    def leido(img, image_hash, caption, today):
+        return Extraction(
+            kind="photo", method="photo_ocr", text=NU_BRE_B, quality=0.97, hints=analyze_document(NU_BRE_B, today)
+        )
+
+    monkeypatch.setattr(extractor, "photo", leido)
+    llm = FakeLlm(qwen_honesto)
+    p = procesador(db, extractor, llm)
+
+    db.pago = {"handled": True, "tipo": "pagada"}
+    mid = db.add_message(
+        "photo", file="recibo_panaderia_foto.jpg", text="@MrLuks ya pagué mi amor ❤️", source="whatsapp"
+    )
+    assert p.process(Job(id="j1", payload={"message_id": mid})) == "pago entre ellos (pagada)"
+    assert db.pagos == [{"message_id": mid, "monto": 48_750, "para": ["chr", "rey", "mor", "lop"]}]
+    assert db.messages[mid]["status"] == "not_expense"
+    assert not [e for e in db.expenses if e["message_id"] == mid]
+
+    # A alguien que no es de la cuenta (la base dice que no): es un gasto como siempre
+    db.pago = {"handled": False}
+    otro = db.add_message("photo", file="recibo_panaderia_foto.jpg", source="whatsapp")
+    assert "pago entre ellos" not in p.process(Job(id="j2", payload={"message_id": otro}))

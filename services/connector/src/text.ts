@@ -155,7 +155,8 @@ const REGLAS: [Intencion, RegExp][] = [
   [
     // «ya le pagué a Santiago», «ya les pagué», «ya está pago», «I paid Sam» (sin «¿?»: «¿ya le pagué?» es otra cosa)
     'ya_pague',
-    /\b(?:ya (?:te |le |les )?(?:pague|cancele|transferi|consigne|gire|deposite|(?:mande|envie|pase) la plata|hice (?:la transferencia|el pago))|(?:te|le|les) (?:pague|transferi|consigne)|ya (?:esta|quedo) pag(?:o|ado)|i (?:already |just )?paid|(?:already|just) paid|paid (?:you|him|her|them)|i (?:sent|transferred) (?:you |him |her |them )?(?:the )?(?:money|payment))\b|^(?:listo |ok |done )?(?:pagado|paid)$/,
+    // «ahí te mandé la plata», «te hice la transferencia», «listo el pago», «ya quedamos a paz y salvo»
+    /\b(?:ya (?:te |le |les )?(?:pague|cancele|transferi|consigne|gire|deposite|(?:mande|envie|pase) la plata|hice (?:la transferencia|el pago))|(?:te|le|les) (?:pague|transferi|consigne)|(?:te|le|les) (?:mande|envie|pase|gire) (?:la plata|la platica|el dinero|la transferencia|el pago|lo tuyo|lo suyo|lo que (?:te|le|les) debia)|(?:te|le|les) hice (?:la transferencia|el pago|la consignacion)|listo el pago|pago (?:hecho|listo|enviado|realizado)|ya (?:quedamos|estamos|quede|estoy) a paz y salvo|ya (?:esta|quedo) pag(?:o|ado)|i (?:already |just )?paid|(?:already|just) paid|paid (?:you|him|her|them)|i (?:sent|transferred) (?:you |him |her |them )?(?:the )?(?:money|payment))\b|^(?:listo |ok |done )?(?:pagado|paid)$/,
   ],
   [
     'deudas',

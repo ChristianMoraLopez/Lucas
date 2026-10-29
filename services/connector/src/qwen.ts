@@ -19,7 +19,7 @@ const INSTRUCCIONES = `Clasificas mensajes que la gente le escribe a Mister Luks
 - deudas: quién le debe a quién, cómo van las cuentas del grupo
 - mi_saldo: cuánto debe o le deben a quien escribe
 - mis_gastos: qué ha pagado quien escribe
-- ya_pague: avisa que ya le pagó a alguien lo que le debía de las cuentas
+- ya_pague: avisa que ya le pagó, transfirió o consignó a alguien lo que le debía de las cuentas (aunque lo diga con cariño o emojis: «ya pagué mi amor ❤️», «ahí te mandé lo tuyo»)
 - privado: quiere que le respondan por privado
 - aqui: quiere que le respondan en el grupo
 - no_me_cuentes: no quiere que le anoten más lo que mande

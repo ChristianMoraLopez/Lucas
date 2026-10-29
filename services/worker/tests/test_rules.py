@@ -93,6 +93,11 @@ def test_comercio_a_partir_del_mensaje():
         "pagué 120000 por las cabañas": "Cabañas",
         "gasolina 90 mil, la pagó Andrés": "Gasolina",
         "nos cobraron 80 lucas por el parqueadero del centro comercial Santafé de Bogotá": "Parqueadero del centro comercial Santafé",
+        # El saludo, a quién le habla y quién pagó no son el comercio (Sam en Gentelinda)
+        "Hola papi fueron 95k de salchipapas": "Salchipapas",
+        "Gente, 120 lucas del mercado": "Mercado",
+        "Christian pagó 95k de salchipapas": "Salchipapas",
+        "Holanda 30k": "Holanda",
     }
     for texto, esperado in casos.items():
         assert merchant_from_text(texto) == esperado

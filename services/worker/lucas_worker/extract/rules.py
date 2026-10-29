@@ -174,10 +174,23 @@ _FECHA_TXT = re.compile(
 _RELLENO = re.compile(r"(?<!\w)(?:otr[oa]s?\s+vez|otr[oa]s?|tambi[eé]n|nuevamente|de\s+nuevo)(?!\w)", re.IGNORECASE)
 # «para Valentina»: a quién beneficia, no en qué (con mayúscula: es un nombre)
 _PARA_ALGUIEN = re.compile(r"(?<!\w)para\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*(?:\s+y\s+[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*)?")
+# «Hola papi, fueron…», «Gente, …», «Amor:»: el saludo y a quién le habla no son el comercio
+_SALUDO = re.compile(
+    r"^\s*(?:hola|holi|buenas(?:\s+(?:noches|tardes|d[ií]as))?|buen\s+d[ií]a|hey|oye|ey)(?!\w)[\s,!.:;]*",
+    re.IGNORECASE,
+)
+_VOCATIVO = re.compile(
+    r"^\s*(?:mi\s+)?(?:papi|mami|amor|amorcito|parce|parcero|parcera|bro|hermano|herma|mano|gente|chicos|chicas|muchachos"
+    r"|socio|socia|mijo|mija|reina|cielo|coraz[oó]n|beb[eé]|linda|lindo|team|equipo)(?!\w)[\s,!.:;]*",
+    re.IGNORECASE,
+)
+# «Christian pagó 95k de salchipapas»: quién pagó tampoco es el comercio
+_QUIEN_PAGO = re.compile(r"^\s*[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*\s+(?=(?:pag[oó]|puso|invit[oó])(?!\w))")
 _INICIO = re.compile(
     r"^[\s,.;:-]*(?:(?:yo|nosotros|hoy|ayer|de|del|el|la|los|las|en|un|una|unos|unas|para|por|que|se|nos|me|le|les|y"
     r"|todo|toda|todos|esto|eso|es|fue|era|son|fueron"
-    r"|gast\w*|pagu[eé]|pagamos|pagaron|compr\w*|cost\w*|sali[oó]|valieron|vali[oó]|cobr\w*|invert\w*)[\s,.;:]+)+",
+    r"|gast\w*|pagu[eé]|pag[oó]|pagamos|pagaron|puso|invit[oó]|compr\w*|cost\w*|sali[oó]|valieron|vali[oó]|cobr\w*|invert\w*)"
+    r"[\s,.;:]+)+",
     re.IGNORECASE,
 )
 
@@ -186,6 +199,10 @@ def merchant_from_text(text: str | None) -> str:
     """El «en qué» de un mensaje: «Ayer gastamos 47,500 en un vale de salud para
     Valentina» → «Vale de salud». (Más completo que public.merchant_from_text.)"""
     t = text or ""
+    t = _SALUDO.sub("", t, count=1)
+    while (sin := _VOCATIVO.sub("", t, count=1)) != t:
+        t = sin
+    t = _QUIEN_PAGO.sub("", t, count=1)
     t = _FECHA_TXT.sub(" ", t)  # antes que los montos: el «1» de «1 de octubre» no es plata
     t = _MONTO_EN_TEXTO.sub(" ", t)
     t = re.sub(r"\s*(la|lo|los|las)?\s*pag[oó]\s+[^\W\d_]+", " ", t, flags=re.IGNORECASE)
