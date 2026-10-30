@@ -1,6 +1,15 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
 import { contestarEliminar, esEliminar } from './eliminar.js';
-import { esAgradecimiento, GASTO_PRIVADO, leerEleccion, type Opcion, type QueMando } from './gasto-privado.js';
+import {
+  CUENTA_CON_MISTER_LUKS,
+  esAgradecimiento,
+  GASTO_PRIVADO,
+  leerEleccion,
+  nombreParaElegir,
+  type Opcion,
+  pareceEleccion,
+  type QueMando,
+} from './gasto-privado.js';
 import { confirmacionPrivada, contestar, contestarCantidad, leerCantidad, leerRespuesta, linkDividir, respuestaConfirmacion, siONo } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
@@ -452,7 +461,7 @@ export class Ingestor {
 
     // Lo que mandó esperando «¿dónde lo anoto?»: el número, «sí» o «no» (migración 630)
     if (!m.media) {
-      const eleccion = await this.#eleccionGasto(m, texto, idioma);
+      const eleccion = await this.#eleccionGasto(session, m, texto, idioma);
       if (eleccion) return eleccion;
     }
 
@@ -543,6 +552,9 @@ export class Ingestor {
       }));
       const abiertas: Opcion[] = cuentas.slice(0, 6).map((c) => ({ tipo: 'cuenta', id: c.id, nombre: c.name }));
       opciones = [...pagos, ...abiertas];
+      // Y si todavía no tiene la suya del chat privado, crearla para esto
+      const yaLaTiene = cuentas.some((c) => Object.values(CUENTA_CON_MISTER_LUKS).includes(c.name));
+      if (opciones.length && !yaLaTiene) opciones.push({ tipo: 'nueva', nombre: CUENTA_CON_MISTER_LUKS[idioma] });
     }
     // Sin dónde anotarlo: su «Cuenta con Mister Luks» (ya, o apenas entre a Luks con el link)
     if (!opciones.length) return this.#abrirCuentaPrivada(session, m, gastos, que, idioma);
@@ -550,8 +562,9 @@ export class Ingestor {
 
     const nombre = primerNombre(m.sender.name).startsWith('@') ? '' : primerNombre(m.sender.name);
     const body = GASTO_PRIVADO.pregunta(idioma, nombre, que, opciones, gastos.length);
-    // Varias fotos seguidas: una sola pregunta cada 2 minutos
-    await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `gasto-privado:${m.chatId}:${tramo(m.sentAt, 2)}` }]);
+    // Varias fotos seguidas: una sola pregunta cada 2 minutos (por tanda: si ya respondió, la
+    // siguiente foto es otra pregunta aunque llegue en los mismos 2 minutos)
+    await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `gasto-privado:${m.chatId}:${gastos[0].messageId}:${tramo(m.sentAt, 2)}` }]);
     this.log.info(
       { chat: maskWaId(m.chatId), kind: gasto.kind, opciones: opciones.length, esperando: gastos.length },
       'Un gasto por privado: ¿dónde lo anoto?',
@@ -586,10 +599,18 @@ export class Ingestor {
    * que mandó entra; si no, lo deja guardado para esa cuenta y le manda el link
    * para entrar: al verificar su número, la base la abre sola, lo lee y le avisa.
    */
-  async #abrirCuentaPrivada(session: SessionInfo, m: IncomingMessage, gastos: GastoGuardado[], que: QueMando, idioma: Idioma): Promise<Outcome> {
-    // Varias fotos seguidas: un solo aviso cada 2 minutos (la cuenta y el link son los mismos)
-    const responder = (body: string) =>
-      this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `gasto-privado:${m.chatId}:${tramo(m.sentAt, 2)}` }]);
+  async #abrirCuentaPrivada(
+    session: SessionInfo,
+    m: IncomingMessage,
+    gastos: GastoGuardado[],
+    que: QueMando,
+    idioma: Idioma,
+    pedida = false,
+  ): Promise<Outcome> {
+    // Varias fotos seguidas: un solo aviso cada 2 minutos (la cuenta y el link son los mismos);
+    // si la pidió respondiendo la pregunta, la respuesta es a ese mensaje
+    const clave = pedida ? `answer:${m.chatId}:${m.messageId}` : `gasto-privado:${m.chatId}:${gastos[0]?.messageId}:${tramo(m.sentAt, 2)}`;
+    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: clave }]);
     const r = await this.store.abrirCuentaPrivada(m.chatId, m.sender);
     if (!r.ok || !r.account_id || !r.account_name) {
       await responder(GASTO_PRIVADO.noPude(idioma, 'Luks', undefined));
@@ -613,7 +634,7 @@ export class Ingestor {
         });
         if (i.ingest || i.reason === 'repetido') leyendo += 1;
       }
-      await responder(GASTO_PRIVADO.cuentaAbierta(idioma, r.account_name, `${this.#web}/c/${cuenta}`, leyendo > 0));
+      await responder(GASTO_PRIVADO.cuentaAbierta(idioma, r.account_name, `${this.#web}/c/${cuenta}`, leyendo > 0, pedida));
       this.log.info({ chat: maskWaId(m.chatId), leyendo }, 'Cuenta abierta por privado');
       return 'gasto_privado:cuenta_abierta';
     }
@@ -652,11 +673,12 @@ export class Ingestor {
   }
 
   /** La respuesta a «¿dónde lo anoto?»: lo anota en esa cuenta, marca su pago, o nada. null si no era para esto */
-  async #eleccionGasto(m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
+  async #eleccionGasto(session: SessionInfo, m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
     const espera = this.#gastosPrivados.get(m.chatId);
     if (!espera) return this.#eleccionPorAbrir(m, texto, idioma);
     const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
-    const eleccion = leerEleccion(texto, Math.max(espera.opciones.length, 1));
+    // El número, «sí» o «no», o el nombre («casa», «Mister Luks»)
+    const eleccion = leerEleccion(texto, Math.max(espera.opciones.length, 1), espera.opciones.map(nombreParaElegir));
     if (eleccion === null) return null;
     if (espera.hasta < Date.now()) {
       this.#gastosPrivados.delete(m.chatId);
@@ -670,6 +692,11 @@ export class Ingestor {
     }
 
     const opcion = espera.opciones[eleccion - 1];
+    if (opcion.tipo === 'nueva') {
+      // Su cuenta del chat privado: ya, o apenas entre a Luks con el link
+      const primero = espera.gastos[0]?.kind;
+      return this.#abrirCuentaPrivada(session, m, espera.gastos, primero === 'pdf' ? 'pdf' : primero === 'photo' ? 'foto' : 'texto', idioma, true);
+    }
     if (opcion.tipo === 'pago') {
       // Es su pago de lo que debe: como «ya pagué» (y no se anota como gasto)
       const r = await this.store.yaPague(m.chatId, m.sender, [opcion.transferId]);
@@ -729,8 +756,8 @@ export class Ingestor {
    * a la nueva, «Cuenta con Mister Luks». La última opción es la nueva. null si no era para esto
    */
   async #eleccionPorAbrir(m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
-    // Solo si parece una respuesta: un número o «no»
-    if (leerEleccion(texto, 9) === null) return null;
+    // Solo si parece una respuesta: un número, «no» o unas pocas palabras (el nombre de la cuenta)
+    if (!pareceEleccion(texto)) return null;
     let espera: PorAbrirEnEspera | null;
     try {
       espera = await this.store.porAbrirEnEspera(m.chatId);
@@ -740,7 +767,7 @@ export class Ingestor {
       return null;
     }
     if (!espera) return null;
-    const eleccion = leerEleccion(texto, espera.opciones.length + 1);
+    const eleccion = leerEleccion(texto, espera.opciones.length + 1, [...espera.opciones.map((o) => o.name), `${espera.account_name} nueva`]);
     if (eleccion === null) return null;
     const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
 

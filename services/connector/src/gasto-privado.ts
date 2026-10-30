@@ -8,10 +8,17 @@ import { formatCOP, type Idioma, type Moneda, plano } from './text.js';
  * subirlo en la app). Aquí están los textos y cómo se lee la respuesta.
  */
 
-/** Lo que puede responder: anotarlo en una cuenta o marcar su pago de algo que debe */
+/**
+ * Lo que puede responder: anotarlo en una de sus cuentas, en una cuenta nueva solo para lo
+ * del chat privado («Cuenta con Mister Luks», si todavía no la tiene) o marcar su pago de algo que debe
+ */
 export type Opcion =
   | { tipo: 'cuenta'; id: string; nombre: string }
+  | { tipo: 'nueva'; nombre: string }
   | { tipo: 'pago'; transferId: string; a: string; cuenta: string; monto: number; moneda: Moneda };
+
+/** El nombre de la cuenta que se abre desde el chat privado (migración 650) */
+export const CUENTA_CON_MISTER_LUKS: Record<Idioma, string> = { es: 'Cuenta con Mister Luks', en: 'My Mister Luks account' };
 
 export type QueMando = 'foto' | 'pdf' | 'texto';
 
@@ -37,9 +44,13 @@ const opcionTexto = (o: Opcion, en: boolean, idioma: Idioma) =>
     ? en
       ? `Log it in “${o.nombre}”`
       : `Anotarlo en «${o.nombre}»`
-    : en
-      ? `It’s my payment to ${o.a} for “${o.cuenta}” (${formatCOP(o.monto, o.moneda, idioma)})`
-      : `Es mi pago a ${o.a} de «${o.cuenta}» (${formatCOP(o.monto, o.moneda, idioma)})`;
+    : o.tipo === 'nueva'
+      ? en
+        ? `Create a new account: “${o.nombre}”`
+        : `Crear una cuenta nueva: «${o.nombre}»`
+      : en
+        ? `It’s my payment to ${o.a} for “${o.cuenta}” (${formatCOP(o.monto, o.moneda, idioma)})`
+        : `Es mi pago a ${o.a} de «${o.cuenta}» (${formatCOP(o.monto, o.moneda, idioma)})`;
 
 export const GASTO_PRIVADO = {
   /** ¿Dónde lo anoto? Con una sola opción, «sí» o «no»; con varias, el número */
@@ -60,15 +71,29 @@ export const GASTO_PRIVADO = {
           ? en
             ? `Should I log it in “${o.nombre}”?`
             : `¿Lo anoto en «${o.nombre}»?`
-          : en
-            ? `Is it your payment to ${o.a} for “${o.cuenta}” (${formatCOP(o.monto, o.moneda, idioma)})? Then I’ll mark it paid.`
-            : `¿Es tu pago a ${o.a} de «${o.cuenta}» (${formatCOP(o.monto, o.moneda, idioma)})? Así lo marco pagado.`;
+          : o.tipo === 'nueva'
+            ? en
+              ? `Should I create a new account for it, “${o.nombre}”?`
+              : `¿Te creo una cuenta nueva para esto, «${o.nombre}»?`
+            : en
+              ? `Is it your payment to ${o.a} for “${o.cuenta}” (${formatCOP(o.monto, o.moneda, idioma)})? Then I’ll mark it paid.`
+              : `¿Es tu pago a ${o.a} de «${o.cuenta}» (${formatCOP(o.monto, o.moneda, idioma)})? Así lo marco pagado.`;
       return `${cabeza} ${pregunta}\n${en ? 'Reply *yes* or *no*.' : 'Respóndeme *sí* o *no*.'}${tip}`;
     }
     const lista = opciones.map((o, k) => `${k + 1}. ${opcionTexto(o, en, idioma)}`).join('\n');
+    // Sin pagos, la pregunta es solo dónde lo anota
+    const pide = opciones.some((o) => o.tipo === 'pago')
+      ? en
+        ? 'What should I do with it?'
+        : '¿Qué hago con él?'
+      : en
+        ? 'Where should I log it?'
+        : '¿Dónde lo anoto?';
+    const ejemplo = opciones.find((o) => o.tipo === 'cuenta');
+    const palabra = ejemplo ? (palabrasDe(ejemplo.nombre)[0] ?? '') : '';
     return en
-      ? `${cabeza} What should I do with it?\n${lista}\n\nReply with the number (or *no* if it was nothing).${tip}`
-      : `${cabeza} ¿Qué hago con él?\n${lista}\n\nRespóndeme con el número (o *no* si no era nada).${tip}`;
+      ? `${cabeza} ${pide}\n${lista}\n\nReply with the number or the name${palabra ? ` (for example *1* or *${palabra}*)` : ''}, or *no* if it was nothing.${tip}`
+      : `${cabeza} ${pide}\n${lista}\n\nRespóndeme con el número o el nombre${palabra ? ` (por ejemplo *1* o *${palabra}*)` : ''}, o *no* si no era nada.${tip}`;
   },
 
   /**
@@ -127,8 +152,44 @@ export const GASTO_PRIVADO = {
   conGusto: (idioma: Idioma) => (idioma === 'en' ? '🙌 You’re welcome!' : '🙌 ¡Con gusto!'),
 };
 
-/** La respuesta a «¿dónde lo anoto?»: el número de la opción (con una sola, «sí»), «no», o null si no era eso */
-export function leerEleccion(texto: string | null | undefined, opciones: number): number | 'no' | null {
+// Lo que no sirve para saber cuál eligió: «anótalo en la de casa porfa» → «casa»
+const VACIAS = new Set(
+  'a al de del el la las los en con y o que si mi mis tu su lo le ese esa este esta cuenta cuentas gasto gastos anota anotalo anotala anotar manda mandalo mandala ponlo ponla pon porfa por favor please pls the in to my account expenses log it'.split(
+    ' ',
+  ),
+);
+// «Mister Lucas», «Mr Luks», «la nueva», «otra»: todo apunta a lo mismo
+const IGUALES: Record<string, string> = {
+  lucas: 'luks',
+  mr: 'mister',
+  mrluks: 'luks',
+  misterluks: 'luks',
+  nuevo: 'nueva',
+  new: 'nueva',
+  otra: 'nueva',
+  pague: 'pago',
+  payment: 'pago',
+  paid: 'pago',
+};
+
+/** Las palabras de un nombre con las que se puede elegir esa opción */
+export function palabrasDe(nombre: string): string[] {
+  return plano(nombre)
+    .replace(/[^a-z0-9ñ]+/g, ' ')
+    .split(' ')
+    .filter((w) => w && !VACIAS.has(w))
+    .map((w) => IGUALES[w] ?? w);
+}
+
+/** Con qué palabras se elige cada opción: el nombre de la cuenta; la nueva, también con «nueva»; un pago, con «pago» */
+export const nombreParaElegir = (o: Opcion) => (o.tipo === 'cuenta' ? o.nombre : o.tipo === 'nueva' ? `${o.nombre} nueva` : 'pago');
+
+/**
+ * La respuesta a «¿dónde lo anoto?»: el número de la opción (con una sola, «sí»), «no», o null si
+ * no era eso. Con los nombres de las opciones también vale el nombre («casa», «Mister Luks»), si
+ * apunta a una sola; un texto con números no (puede ser otro gasto: «mercado casa 50 mil»)
+ */
+export function leerEleccion(texto: string | null | undefined, opciones: number, nombres?: string[]): number | 'no' | null {
   const t = plano(texto ?? '')
     .replace(/^(?:mr |mister )?luks /, '')
     .replace(/\b(?:porfa|por favor|please|pls|opcion|la|el|en)\b/g, ' ')
@@ -141,8 +202,20 @@ export function leerEleccion(texto: string | null | undefined, opciones: number)
   }
   if (/^(?:no|nop|nel|nada|ninguna?|cancela(?:r|lo)?|dejalo|deja asi|no gracias|none|nothing|cancel)$/.test(t)) return 'no';
   if (opciones === 1 && /^(?:si+|sii*|sip|claro|dale|de una|ok|okay|listo|hagale|yes|yep|sure|correcto|eso)$/.test(t)) return 1;
-  return null;
+  if (!nombres?.length || /\d/.test(t) || t.split(' ').length > 6) return null;
+  const exacto = nombres.findIndex((n) => plano(n) === plano(texto ?? ''));
+  if (exacto >= 0) return exacto + 1;
+  const dice = new Set(palabrasDe(texto ?? ''));
+  if (!dice.size) return null;
+  const cuales = nombres.flatMap((n, k) => (palabrasDe(n).some((w) => dice.has(w)) ? [k + 1] : []));
+  return cuales.length === 1 ? cuales[0] : null;
 }
+
+/** ¿Puede ser la respuesta a una pregunta de «¿dónde lo anoto?»? (un número, «no» o unas pocas palabras sin números) */
+export const pareceEleccion = (texto: string | null | undefined) => {
+  const t = plano(texto ?? '');
+  return leerEleccion(t, 9) !== null || (t.length > 0 && !/\d/.test(t) && t.split(' ').length <= 6);
+};
 
 /** «gracias», «ok», «listo», «jaja», 👍: un mensaje que no pide nada pero merece respuesta */
 export function esAgradecimiento(texto: string | null | undefined): boolean {
