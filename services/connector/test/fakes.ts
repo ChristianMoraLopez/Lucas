@@ -1,11 +1,13 @@
 import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
 import type {
+  AbrirCuentaPrivadaResult,
   Cobro,
   DecisionLiquidada,
   DesdeCuando,
   DetectedResult,
   EliminarGasto,
+  GastoPorAbrir,
   GroupResult,
   HelloResult,
   ImportResult,
@@ -427,6 +429,21 @@ export class FakeStore implements Store {
     if (!check.ingest) return check;
     this.messages.set(`${m.jid}|${m.waMessageId}`, m);
     return { ingest: true, message_id: `m-${this.messages.size}`, account_id: check.account_id, known_sender: false };
+  }
+  /** Sus cuentas abiertas para anotar por privado (migración 640): por número */
+  cuentasAbiertasDe = new Map<string, { id: string; name: string; type: 'hogar' | 'evento' }[]>();
+  async cuentasParaAnotar(_jid: string, sender: Sender) {
+    return this.cuentasAbiertasDe.get(sender.id ?? '') ?? [];
+  }
+  /** «Sí, ábreme una cuenta»: lo que contesta la base (la pone cada prueba) y lo que se guardó para abrirla */
+  abrirCuenta: AbrirCuentaPrivadaResult = { ok: true, abierta: false, account_id: 'nueva', account_name: 'Gastos de Mafe', identity_id: 'i-1' };
+  porAbrir: { accountId: string; gastos: GastoPorAbrir[] }[] = [];
+  async abrirCuentaPrivada() {
+    return this.abrirCuenta;
+  }
+  async guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]) {
+    this.porAbrir.push({ accountId, gastos });
+    return gastos.length;
   }
   /** Lo que se anotó desde un chat privado (migración 630) y lo que contesta la base (la pone cada prueba) */
   anotadosPorPrivado: IngestPrivadoInput[] = [];

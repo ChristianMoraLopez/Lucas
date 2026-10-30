@@ -71,26 +71,29 @@ export const GASTO_PRIVADO = {
       : `${cabeza} ¿Qué hago con él?\n${lista}\n\nRespóndeme con el número (o *no* si no era nada).${tip}`;
   },
 
-  /** No tiene una cuenta abierta donde anotarlo */
+  /**
+   * No tiene una cuenta abierta (migración 640): lo usual es un grupo con
+   * Mister Luks, pero si es solo suyo, le abre una aquí mismo y lee lo que mandó
+   */
   sinCuenta: (idioma: Idioma, nombre: string, que: QueMando) => {
     const en = idioma === 'en';
     const hola = nombre ? (en ? `Hi ${nombre}` : `Hola ${nombre}`) : en ? 'Hi' : 'Hola';
     return en
-      ? `🧾 ${hola}, ${recibi(que, true, 1)}, but you don’t have an open Luks account to log it in.\n\n• If it’s shared with other people (your home, a trip), send it in their WhatsApp group where I am, or add me to that group.\n• If you want to keep your own expenses with me, reply *yes* and I’ll send you the link to create your account and connect this number. Then send me your expenses right here.\n• You can also upload it at mrluks.com/subir.`
-      : `🧾 ${hola}, ${recibi(que, false, 1)}, pero no tienes una cuenta abierta en Luks donde anotarlo.\n\n• Si es con otras personas (tu casa, un paseo), mándalo en el grupo de WhatsApp de ellos donde estoy yo, o agrégame a ese grupo.\n• Si quieres llevar tus gastos conmigo, respóndeme *sí* y te mando el link para crear tu cuenta y conectar este número. Después me mandas tus gastos por aquí.\n• También lo puedes subir en mrluks.com/subir.`;
+      ? `🧾 ${hola}, ${recibi(que, true, 1)}, but you don’t have an open Luks account to log it in.\n\n👥 The usual thing is a WhatsApp group with the people you share expenses with and me: I log what you send there and tell everyone who pays whom. If you already have that group, send it there (or add me to it).\n\n🙋 If it’s just yours, I can open an account for you right here: reply *yes* and I’ll open it and read what you sent me, no need to send it again.\n\nYou can also upload it at mrluks.com/subir.`
+      : `🧾 ${hola}, ${recibi(que, false, 1)}, pero no tienes una cuenta abierta en Luks donde anotarlo.\n\n👥 Lo usual es un grupo de WhatsApp con las personas con quienes compartes gastos y conmigo: allá anoto lo que manden y les digo quién le paga a quién. Si ya tienes ese grupo, mándalo ahí (o agrégame).\n\n🙋 Si es solo tuyo, te abro una cuenta aquí mismo: respóndeme *sí* y la abro y leo lo que me mandaste, sin que lo vuelvas a mandar.\n\nTambién lo puedes subir en mrluks.com/subir.`;
   },
 
-  /** Ya está conectado a Luks pero no tiene una cuenta abierta */
-  creaTuCuenta: (idioma: Idioma) =>
+  /** La abrió ya (su WhatsApp tiene usuario de Luks) y está leyendo lo que mandó */
+  cuentaAbierta: (idioma: Idioma, cuenta: string, link: string, leyendo: boolean) =>
     idioma === 'en'
-      ? '✅ Your WhatsApp is already connected to Luks. Create your account at mrluks.com/cuentas/nueva and send me the expense again 😉'
-      : '✅ Tu WhatsApp ya está conectado a Luks. Crea tu cuenta en mrluks.com/cuentas/nueva y me vuelves a mandar el gasto 😉',
+      ? `🎉 Done, I opened your account “${cuenta}”${leyendo ? ' and I’m reading what you sent me. I’ll tell you how it went in a moment' : ''}.\n🔗 It’s at ${link}\n\n💡 Send me your expenses right here and I’ll log them there. If you later want other people to send receipts to it, connect it to a WhatsApp group from the app (Connect WhatsApp).`
+      : `🎉 Listo, abrí tu cuenta «${cuenta}»${leyendo ? ' y estoy leyendo lo que me mandaste. Ya te digo cómo quedó' : ''}.\n🔗 Está en ${link}\n\n💡 Mándame tus gastos por aquí y los anoto allá. Si después quieres que otras personas manden recibos a esa cuenta, conéctala a un grupo de WhatsApp desde la app (Conectar WhatsApp).`,
 
-  /** Después del link para conectar el número */
-  despuesDelLink: (idioma: Idioma) =>
+  /** Para abrirla tiene que entrar a Luks: va el link, y al entrar se abre sola con lo que mandó */
+  cuentaPorAbrir: (idioma: Idioma, cuenta: string) =>
     idioma === 'en'
-      ? '😉 Once you’re in, create your account and send me the expense again.'
-      : '😉 Cuando entres, crea tu cuenta y me vuelves a mandar el gasto.',
+      ? `🙌 Great. To open “${cuenta}” you need to be in Luks (it’s free): I’m sending you the link right now. As soon as you’re in, I’ll open it and read what you sent me, no need to send it again.`
+      : `🙌 Listo. Para abrir «${cuenta}» necesito que entres a Luks (es gratis): ya te mando el link. Apenas entres, la abro y leo lo que me mandaste, sin que lo vuelvas a mandar.`,
 
   anotando: (idioma: Idioma, cuenta: string, varios: number) =>
     idioma === 'en'

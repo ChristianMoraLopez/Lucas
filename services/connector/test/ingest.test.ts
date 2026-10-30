@@ -1093,8 +1093,8 @@ describe('por privado, lo de cada quien (migración 480)', () => {
   });
 
   it('un gasto por privado: pregunta en cuál cuenta y, con «sí», lo anota allá (migración 630)', async () => {
-    store.misCuentasDe.set('573016667788', [DANICHILE, CASA]);
-    // DaniChile ya está liquidada: solo ofrece Casa
+    // Sus cuentas abiertas (DaniChile ya está liquidada: no sale)
+    store.cuentasAbiertasDe.set('573016667788', [{ id: 'casa', name: 'Casa', type: 'hogar' }]);
     expect(await ing.onMessage(contador, wa, privado({ messageId: 'P-ARRIENDO', text: 'arriendo 800 lucas' }))).toBe('gasto_privado:pregunta');
     expect(ultimo()).toContain('🧾 Hola Mafe, veo que me mandaste un gasto. ¿Lo anoto en «Casa»?');
     expect(ultimo()).toContain('también puedes mandarlo en el grupo de WhatsApp de esa cuenta');
@@ -1114,7 +1114,7 @@ describe('por privado, lo de cada quien (migración 480)', () => {
       .toBuffer();
     const foto = (id: string) =>
       privado({ messageId: id, text: null, media: { kind: 'photo', mimeType: 'image/png', fileName: null, sizeBytes: png.length, download: async () => png } });
-    store.misCuentasDe.set('573016667788', [CASA]);
+    store.cuentasAbiertasDe.set('573016667788', [{ id: 'casa', name: 'Casa', type: 'hogar' }]);
     const cuenta = { id: 'dc', name: 'DaniChile', language: 'es' as const, currency: 'COP' as const };
     store.deudas = [
       {
@@ -1152,14 +1152,30 @@ describe('por privado, lo de cada quien (migración 480)', () => {
     expect(store.uploads.has(g.mediaPath as string)).toBe(true);
   });
 
-  it('sin cuentas abiertas le dice qué puede hacer, y con «sí» el link para crear la suya', async () => {
-    expect(await ing.onMessage(contador, wa, privado({ text: 'pagué 800.000 de arriendo' }))).toBe('gasto_privado:sin_cuenta');
+  it('sin cuentas abiertas: lo usual es un grupo, o le abre una aquí y lee lo que mandó (migración 640)', async () => {
+    expect(await ing.onMessage(contador, wa, privado({ messageId: 'P-ARR', text: 'pagué 800.000 de arriendo' }))).toBe('gasto_privado:sin_cuenta');
     expect(ultimo()).toContain('pero no tienes una cuenta abierta en Luks donde anotarlo');
-    expect(ultimo()).toContain('mándalo en el grupo de WhatsApp de ellos donde estoy yo');
-    expect(ultimo()).toContain('mrluks.com/subir');
-    expect(await ing.onMessage(contador, wa, privado({ text: 'si' }))).toBe('gasto_privado:crear_cuenta');
-    expect(bandeja(PRIVADO).some((o) => o.reason === 'verify')).toBe(true);
-    expect(ultimo()).toBe('😉 Cuando entres, crea tu cuenta y me vuelves a mandar el gasto.');
+    expect(ultimo()).toContain('Lo usual es un grupo de WhatsApp con las personas con quienes compartes gastos y conmigo');
+    expect(ultimo()).toContain('te abro una cuenta aquí mismo: respóndeme *sí*');
+    // Sin usuario de Luks: queda por abrir con lo que mandó, y le llega el link para entrar
+    expect(await ing.onMessage(contador, wa, privado({ text: 'si' }))).toBe('gasto_privado:cuenta_por_abrir');
+    expect(store.porAbrir).toEqual([
+      { accountId: 'nueva', gastos: [expect.objectContaining({ wa_message_id: 'P-ARR', kind: 'text', text: 'pagué 800.000 de arriendo', media_path: null })] },
+    ]);
+    expect(bandeja(PRIVADO).map((o) => o.body)).toContain(
+      '🙌 Listo. Para abrir «Gastos de Mafe» necesito que entres a Luks (es gratis): ya te mando el link. Apenas entres, la abro y leo lo que me mandaste, sin que lo vuelvas a mandar.',
+    );
+    expect(bandeja(PRIVADO).at(-1)?.reason).toBe('verify');
+  });
+
+  it('con su WhatsApp ya en Luks, la abre en el momento y lo que mandó entra', async () => {
+    store.abrirCuenta = { ok: true, abierta: true, account_id: 'gm', account_name: 'Gastos de Mafe', identity_id: 'i-1' };
+    await ing.onMessage(contador, wa, privado({ messageId: 'P-MER', text: 'mercado 120 lucas' }));
+    expect(await ing.onMessage(contador, wa, privado({ text: 'sí' }))).toBe('gasto_privado:cuenta_abierta');
+    expect(store.anotadosPorPrivado).toEqual([expect.objectContaining({ accountId: 'gm', waMessageId: 'P-MER', text: 'mercado 120 lucas' })]);
+    expect(ultimo()).toContain('🎉 Listo, abrí tu cuenta «Gastos de Mafe» y estoy leyendo lo que me mandaste.');
+    expect(ultimo()).toContain('/c/gm');
+    expect(ultimo()).toContain('conéctala a un grupo de WhatsApp desde la app');
   });
 
   it('nada de lo que responde se anota como gasto', async () => {

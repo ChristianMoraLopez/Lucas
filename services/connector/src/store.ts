@@ -397,6 +397,29 @@ export interface IngestPrivadoResult {
   account_name?: string;
 }
 
+/** «Sí, ábreme una cuenta» por privado (migración 640): abierta ya, o por abrir hasta que entre a Luks */
+export interface AbrirCuentaPrivadaResult {
+  ok: boolean;
+  reason?: 'sin_chat';
+  abierta?: boolean;
+  account_id?: string;
+  account_name?: string;
+  identity_id?: string;
+}
+
+/** Lo que mandó, guardado para la cuenta por abrir (migración 640) */
+export interface GastoPorAbrir {
+  wa_message_id: string;
+  sender_wa_id: string | null;
+  sender_name: string | null;
+  kind: 'photo' | 'pdf' | 'text';
+  text: string | null;
+  media_path: string | null;
+  file_name: string | null;
+  mime_type: string | null;
+  sent_at: string;
+}
+
 export interface QueueHealth {
   queued: number;
   oldest_queued_s: number;
@@ -505,6 +528,12 @@ export interface Store {
   ingest(input: IngestInput): Promise<IngestCheck>;
   /** Un gasto que llegó por privado, en la cuenta que eligió (migración 630) */
   ingestPrivado(input: IngestPrivadoInput): Promise<IngestPrivadoResult>;
+  /** Sus cuentas abiertas donde puede anotar lo que manda por privado (migración 640) */
+  cuentasParaAnotar(jid: string, sender: Sender): Promise<{ id: string; name: string; type: 'hogar' | 'evento' }[]>;
+  /** «Sí, ábreme una cuenta» por privado (migración 640) */
+  abrirCuentaPrivada(jid: string, sender: Sender): Promise<AbrirCuentaPrivadaResult>;
+  /** Lo que mandó, para la cuenta que se abre cuando entre a Luks (migración 640) */
+  guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]): Promise<number>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
   markReplied(messageIds: string[]): Promise<void>;
@@ -883,6 +912,29 @@ export class SupabaseStore implements Store {
   async uploadEvidence(path: string, body: Buffer, contentType: string) {
     const { error } = await this.#db.storage.from(EVIDENCE_BUCKET).upload(path, body, { contentType, upsert: true });
     if (error) throw new StoreError('storage.upload', error.message);
+  }
+
+  cuentasParaAnotar(jid: string, sender: Sender) {
+    return this.#rpc<{ id: string; name: string; type: 'hogar' | 'evento' }[]>('connector_cuentas_para_anotar', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+    });
+  }
+
+  abrirCuentaPrivada(jid: string, sender: Sender) {
+    return this.#rpc<AbrirCuentaPrivadaResult>('connector_abrir_cuenta_privada', {
+      p_chat_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_name: sender.name,
+    });
+  }
+
+  guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]) {
+    return this.#rpc<number>('connector_guardar_gastos_por_abrir', { p_account_id: accountId, p_items: gastos });
   }
 
   ingestPrivado(i: IngestPrivadoInput) {
