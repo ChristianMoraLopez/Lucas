@@ -35,7 +35,7 @@ describe('una cuenta abierta desde el chat privado', () => {
       const numero = '573150001111';
       await tx.query('select public.connector_private_chat($1, $2)', [CONTADOR, `${numero}@s.whatsapp.net`]);
       const r = await abrir(tx, numero, 'Santiago Echeverría');
-      expect(r).toMatchObject({ ok: true, abierta: false, account_name: 'Gastos de Santiago' });
+      expect(r).toMatchObject({ ok: true, abierta: false, account_name: 'Cuenta con Mister Luks' });
       expect(await one(tx, 'select count(*)::int as n from public.accounts where id = $1', [r.account_id])).toEqual({ n: 0 });
       // Pedirla otra vez da la misma
       expect((await abrir(tx, numero, 'Santiago Echeverría')).account_id).toBe(r.account_id);
@@ -54,7 +54,7 @@ describe('una cuenta abierta desde el chat privado', () => {
 
       // Entra a Luks con el link: su número queda verificado con su usuario
       await tx.query('update public.whatsapp_identities set user_id = $1, verified_at = now() where id = $2', [U.nuevo, r.identity_id]);
-      expect(await one(tx, 'select name, owner_id from public.accounts where id = $1', [r.account_id])).toEqual({ name: 'Gastos de Santiago', owner_id: U.nuevo });
+      expect(await one(tx, 'select name, owner_id from public.accounts where id = $1', [r.account_id])).toEqual({ name: 'Cuenta con Mister Luks', owner_id: U.nuevo });
       expect(await one(tx, `select display_name, claimed_by from public.people where account_id = $1`, [r.account_id])).toEqual({
         display_name: 'Santiago',
         claimed_by: U.nuevo,
@@ -69,7 +69,7 @@ describe('una cuenta abierta desde el chat privado', () => {
       expect(m).toMatchObject({ text_body: 'arriendo 800 lucas', chat_kind: 'privado' });
       expect(await one(tx, `select count(*)::int as n from public.jobs where payload ->> 'message_id' = $1`, [m.id])).toEqual({ n: 1 });
       const { body } = await one<{ body: string }>(tx, `select body from public.whatsapp_outbox where dedupe_key = $1`, [`cuenta-abierta:${r.account_id}`]);
-      expect(body).toContain('abrí tu cuenta «Gastos de Santiago» y estoy leyendo lo que me mandaste');
+      expect(body).toContain('abrí tu cuenta «Cuenta con Mister Luks» y estoy leyendo lo que me mandaste');
       expect(body).toContain('conéctala a un grupo de WhatsApp');
 
       // Ya la tiene para anotar por privado (primero la de su chat)
@@ -78,7 +78,7 @@ describe('una cuenta abierta desde el chat privado', () => {
         `${numero}@s.whatsapp.net`,
         numero,
       ]);
-      expect(c[0]).toMatchObject({ id: r.account_id, name: 'Gastos de Santiago' });
+      expect(c[0]).toMatchObject({ id: r.account_id, name: 'Cuenta con Mister Luks' });
       await como(tx, null);
     });
   });
@@ -91,7 +91,7 @@ describe('una cuenta abierta desde el chat privado', () => {
       const { id } = await one<{ id: string }>(tx, `select public.wa_identidad($1, $1, null, 'Vale') as id`, [numero]);
       await tx.query('update public.whatsapp_identities set user_id = $1, verified_at = now() where id = $2', [U.otro, id]);
       const r = await abrir(tx, numero, 'Vale');
-      expect(r).toMatchObject({ ok: true, abierta: true, account_name: 'Gastos de Vale' });
+      expect(r).toMatchObject({ ok: true, abierta: true, account_name: 'Cuenta con Mister Luks' });
       expect(await one(tx, 'select owner_id from public.accounts where id = $1', [r.account_id])).toEqual({ owner_id: U.otro });
       await como(tx, 'service_role');
       const { i } = await one<{ i: { ingest: boolean } }>(

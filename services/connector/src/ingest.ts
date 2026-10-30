@@ -452,7 +452,7 @@ export class Ingestor {
 
     // Lo que mandó esperando «¿dónde lo anoto?»: el número, «sí» o «no» (migración 630)
     if (!m.media) {
-      const eleccion = await this.#eleccionGasto(session, m, texto, idioma);
+      const eleccion = await this.#eleccionGasto(m, texto, idioma);
       if (eleccion) return eleccion;
     }
 
@@ -469,7 +469,7 @@ export class Ingestor {
     }
 
     // Un gasto (la foto, el PDF o «arriendo 800 lucas»): ¿dónde lo anoto? (migración 630)
-    if (m.media || looksLikeExpense(m.text)) return this.#gastoPorPrivado(m, idioma);
+    if (m.media || looksLikeExpense(m.text)) return this.#gastoPorPrivado(session, m, idioma);
 
     // Nada queda sin respuesta (la primera vez ya salió la bienvenida)
     if (primeraVez) return 'bienvenida';
@@ -490,7 +490,7 @@ export class Ingestor {
    * dónde lo anota (sus cuentas abiertas y, si es una foto o un PDF, su pago
    * de lo que debe). Si no tiene dónde, le dice qué puede hacer.
    */
-  async #gastoPorPrivado(m: IncomingMessage, idioma: Idioma): Promise<Outcome> {
+  async #gastoPorPrivado(session: SessionInfo, m: IncomingMessage, idioma: Idioma): Promise<Outcome> {
     const ahora = Date.now();
     const que: QueMando = m.media?.kind === 'pdf' ? 'pdf' : m.media ? 'foto' : 'texto';
     let archivo: GastoGuardado['archivo'] = null;
@@ -544,17 +544,19 @@ export class Ingestor {
       const abiertas: Opcion[] = cuentas.slice(0, 6).map((c) => ({ tipo: 'cuenta', id: c.id, nombre: c.name }));
       opciones = [...pagos, ...abiertas];
     }
+    // Sin dónde anotarlo: su «Cuenta con Mister Luks» (ya, o apenas entre a Luks con el link)
+    if (!opciones.length) return this.#abrirCuentaPrivada(session, m, gastos, que, idioma);
     this.#gastosPrivados.set(m.chatId, { gastos, opciones, hasta: ahora + GASTO_MS });
 
     const nombre = primerNombre(m.sender.name).startsWith('@') ? '' : primerNombre(m.sender.name);
-    const body = opciones.length ? GASTO_PRIVADO.pregunta(idioma, nombre, que, opciones, gastos.length) : GASTO_PRIVADO.sinCuenta(idioma, nombre, que);
+    const body = GASTO_PRIVADO.pregunta(idioma, nombre, que, opciones, gastos.length);
     // Varias fotos seguidas: una sola pregunta cada 2 minutos
     await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `gasto-privado:${m.chatId}:${tramo(m.sentAt, 2)}` }]);
     this.log.info(
       { chat: maskWaId(m.chatId), kind: gasto.kind, opciones: opciones.length, esperando: gastos.length },
       'Un gasto por privado: ¿dónde lo anoto?',
     );
-    return opciones.length ? 'gasto_privado:pregunta' : 'gasto_privado:sin_cuenta';
+    return 'gasto_privado:pregunta';
   }
 
   /** Sus cuentas abiertas para anotar por privado (sin la 640 en la base, las de la 480 que siguen abiertas) */
@@ -579,13 +581,15 @@ export class Ingestor {
   }
 
   /**
-   * «Sí, ábreme una cuenta» (migración 640): si su WhatsApp ya tiene usuario de
-   * Luks, la abre ya y lo que mandó entra; si no, lo deja guardado para esa
-   * cuenta y le manda el link para entrar: al verificar su número, la base la
-   * abre sola, lo lee y le avisa por aquí.
+   * Mandó un gasto y no tiene dónde anotarlo (migraciones 640 y 650): si su
+   * WhatsApp ya tiene usuario de Luks, le abre «Cuenta con Mister Luks» y lo
+   * que mandó entra; si no, lo deja guardado para esa cuenta y le manda el link
+   * para entrar: al verificar su número, la base la abre sola, lo lee y le avisa.
    */
-  async #abrirCuentaPrivada(session: SessionInfo, m: IncomingMessage, espera: GastosEnEspera, idioma: Idioma): Promise<Outcome> {
-    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+  async #abrirCuentaPrivada(session: SessionInfo, m: IncomingMessage, gastos: GastoGuardado[], que: QueMando, idioma: Idioma): Promise<Outcome> {
+    // Varias fotos seguidas: un solo aviso cada 2 minutos (la cuenta y el link son los mismos)
+    const responder = (body: string) =>
+      this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `gasto-privado:${m.chatId}:${tramo(m.sentAt, 2)}` }]);
     const r = await this.store.abrirCuentaPrivada(m.chatId, m.sender);
     if (!r.ok || !r.account_id || !r.account_name) {
       await responder(GASTO_PRIVADO.noPude(idioma, 'Luks', undefined));
@@ -594,7 +598,7 @@ export class Ingestor {
     const cuenta = r.account_id;
     if (r.abierta) {
       let leyendo = 0;
-      for (const g of espera.gastos) {
+      for (const g of gastos) {
         const i = await this.store.ingestPrivado({
           chatJid: m.chatId,
           accountId: cuenta,
@@ -615,9 +619,9 @@ export class Ingestor {
     }
 
     // Por abrir: lo que mandó queda guardado y le llega el link para entrar a Luks
-    const gastos: GastoPorAbrir[] = [];
-    for (const g of espera.gastos) {
-      gastos.push({
+    const guardados: GastoPorAbrir[] = [];
+    for (const g of gastos) {
+      guardados.push({
         wa_message_id: g.messageId,
         sender_wa_id: m.sender.id,
         sender_name: m.sender.name,
@@ -629,8 +633,9 @@ export class Ingestor {
         sent_at: g.sentAt.toISOString(),
       });
     }
-    await this.store.guardarGastosPorAbrir(cuenta, gastos);
-    await responder(GASTO_PRIVADO.cuentaPorAbrir(idioma, r.account_name));
+    await this.store.guardarGastosPorAbrir(cuenta, guardados);
+    const nombre = primerNombre(m.sender.name).startsWith('@') ? '' : primerNombre(m.sender.name);
+    await responder(GASTO_PRIVADO.sinSesion(idioma, nombre, que, r.account_name));
     const privado = privadoDe(m) ?? m.chatId;
     const v = await this.store.soyYo(session.id, privado, m.sender.phone, m.sender.lid ?? null, m.sender.name);
     await this.#encolar([
@@ -642,12 +647,12 @@ export class Ingestor {
         dedupe_key: `verify:${privado}:${tramo(m.sentAt, 10)}`,
       },
     ]);
-    this.log.info({ chat: maskWaId(m.chatId), guardados: gastos.length }, 'Cuenta por abrir (entra a Luks con el link)');
+    this.log.info({ chat: maskWaId(m.chatId), guardados: guardados.length }, 'Cuenta por abrir (entra a Luks con el link)');
     return 'gasto_privado:cuenta_por_abrir';
   }
 
   /** La respuesta a «¿dónde lo anoto?»: lo anota en esa cuenta, marca su pago, o nada. null si no era para esto */
-  async #eleccionGasto(session: SessionInfo, m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
+  async #eleccionGasto(m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
     const espera = this.#gastosPrivados.get(m.chatId);
     if (!espera) return null;
     const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
@@ -663,9 +668,6 @@ export class Ingestor {
       await responder(GASTO_PRIVADO.noAnoto(idioma));
       return 'gasto_privado:no';
     }
-
-    // Sin cuentas: «sí» → le abre la suya aquí mismo y lee lo que mandó (migración 640)
-    if (!espera.opciones.length) return this.#abrirCuentaPrivada(session, m, espera, idioma);
 
     const opcion = espera.opciones[eleccion - 1];
     if (opcion.tipo === 'pago') {

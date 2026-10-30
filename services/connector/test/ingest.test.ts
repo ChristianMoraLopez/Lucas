@@ -1152,30 +1152,30 @@ describe('por privado, lo de cada quien (migración 480)', () => {
     expect(store.uploads.has(g.mediaPath as string)).toBe(true);
   });
 
-  it('sin cuentas abiertas: lo usual es un grupo, o le abre una aquí y lee lo que mandó (migración 640)', async () => {
-    expect(await ing.onMessage(contador, wa, privado({ messageId: 'P-ARR', text: 'pagué 800.000 de arriendo' }))).toBe('gasto_privado:sin_cuenta');
-    expect(ultimo()).toContain('pero no tienes una cuenta abierta en Luks donde anotarlo');
-    expect(ultimo()).toContain('Lo usual es un grupo de WhatsApp con las personas con quienes compartes gastos y conmigo');
-    expect(ultimo()).toContain('te abro una cuenta aquí mismo: respóndeme *sí*');
-    // Sin usuario de Luks: queda por abrir con lo que mandó, y le llega el link para entrar
-    expect(await ing.onMessage(contador, wa, privado({ text: 'si' }))).toBe('gasto_privado:cuenta_por_abrir');
+  it('sin sesión en Luks: le explica y le manda el link; al entrar se abre su cuenta con lo que mandó (migración 650)', async () => {
+    store.abrirCuenta = { ok: true, abierta: false, account_id: 'nueva', account_name: 'Cuenta con Mister Luks', identity_id: 'i-1' };
+    expect(await ing.onMessage(contador, wa, privado({ messageId: 'P-ARR', text: 'pagué 800.000 de arriendo' }))).toBe('gasto_privado:cuenta_por_abrir');
+    // Lo que mandó queda guardado para esa cuenta
     expect(store.porAbrir).toEqual([
       { accountId: 'nueva', gastos: [expect.objectContaining({ wa_message_id: 'P-ARR', kind: 'text', text: 'pagué 800.000 de arriendo', media_path: null })] },
     ]);
-    expect(bandeja(PRIVADO).map((o) => o.body)).toContain(
-      '🙌 Listo. Para abrir «Gastos de Mafe» necesito que entres a Luks (es gratis): ya te mando el link. Apenas entres, la abro y leo lo que me mandaste, sin que lo vuelvas a mandar.',
-    );
-    expect(bandeja(PRIVADO).at(-1)?.reason).toBe('verify');
+    const [aviso, link] = bandeja(PRIVADO).slice(-2);
+    expect(aviso.body).toContain('🧾 Hola Mafe 👋 Recibí tu gasto, pero veo que todavía no tienes sesión en mrluks.com.');
+    expect(aviso.body).toContain('tu número queda registrado con ese correo. Apenas entres, abro «Cuenta con Mister Luks» y anoto lo que me mandaste');
+    expect(aviso.body).toContain('escríbeme «soy yo» y te mando otro');
+    expect(aviso.body).toContain('lo usual es un grupo de WhatsApp con ellas y conmigo');
+    expect(link.reason).toBe('verify');
+    // Sin preguntar «sí»: un «sí» después no hace nada raro
+    expect(await ing.onMessage(contador, wa, privado({ text: 'sí' }))).not.toBe('gasto_privado:cuenta_por_abrir');
   });
 
-  it('con su WhatsApp ya en Luks, la abre en el momento y lo que mandó entra', async () => {
-    store.abrirCuenta = { ok: true, abierta: true, account_id: 'gm', account_name: 'Gastos de Mafe', identity_id: 'i-1' };
-    await ing.onMessage(contador, wa, privado({ messageId: 'P-MER', text: 'mercado 120 lucas' }));
-    expect(await ing.onMessage(contador, wa, privado({ text: 'sí' }))).toBe('gasto_privado:cuenta_abierta');
+  it('con sesión y sin cuentas abiertas, le abre la suya en el momento y lo que mandó entra', async () => {
+    store.abrirCuenta = { ok: true, abierta: true, account_id: 'gm', account_name: 'Cuenta con Mister Luks', identity_id: 'i-1' };
+    expect(await ing.onMessage(contador, wa, privado({ messageId: 'P-MER', text: 'mercado 120 lucas' }))).toBe('gasto_privado:cuenta_abierta');
     expect(store.anotadosPorPrivado).toEqual([expect.objectContaining({ accountId: 'gm', waMessageId: 'P-MER', text: 'mercado 120 lucas' })]);
-    expect(ultimo()).toContain('🎉 Listo, abrí tu cuenta «Gastos de Mafe» y estoy leyendo lo que me mandaste.');
+    expect(ultimo()).toContain('🎉 No tenías una cuenta abierta, así que te abrí «Cuenta con Mister Luks» y estoy leyendo lo que me mandaste.');
     expect(ultimo()).toContain('/c/gm');
-    expect(ultimo()).toContain('conéctala a un grupo de WhatsApp desde la app');
+    expect(ultimo()).toContain('conectar esta cuenta a un grupo desde la app');
   });
 
   it('nada de lo que responde se anota como gasto', async () => {

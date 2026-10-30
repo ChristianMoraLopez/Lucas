@@ -436,7 +436,7 @@ export class FakeStore implements Store {
     return this.cuentasAbiertasDe.get(sender.id ?? '') ?? [];
   }
   /** «Sí, ábreme una cuenta»: lo que contesta la base (la pone cada prueba) y lo que se guardó para abrirla */
-  abrirCuenta: AbrirCuentaPrivadaResult = { ok: true, abierta: false, account_id: 'nueva', account_name: 'Gastos de Mafe', identity_id: 'i-1' };
+  abrirCuenta: AbrirCuentaPrivadaResult = { ok: true, abierta: false, account_id: 'nueva', account_name: 'Cuenta con Mister Luks', identity_id: 'i-1' };
   porAbrir: { accountId: string; gastos: GastoPorAbrir[] }[] = [];
   async abrirCuentaPrivada() {
     return this.abrirCuenta;
