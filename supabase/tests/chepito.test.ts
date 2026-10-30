@@ -87,6 +87,58 @@ describe('una cuenta de cobro desde la app', () => {
   });
 });
 
+describe('Chepito va aparte de las cuentas', () => {
+  it('cada quien tiene uno, se llama «Chepito» y no se le cambia el nombre', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const uno = await rpc<string>(tx, 'public.mi_chepito()');
+      expect(await rpc<string>(tx, 'public.mi_chepito()')).toBe(uno);
+      await como(tx, null);
+      await tx.query(`update public.accounts set name = 'Samuel' where id = $1`, [uno]);
+      expect(await one(tx, 'select name from public.accounts where id = $1', [uno])).toEqual({ name: 'Chepito' });
+    });
+  });
+});
+
+describe('editar y borrar cobros', () => {
+  it('mientras cobra se corrige a quién, cuánto y por qué; terminado, no', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const cuenta = await cuentaDeCobro(tx);
+      const id = await rpc<string>(tx, 'public.crear_cobro($1, $2, $3, $4, $5)', [cuenta, 'Juan', '300 123 4567', 50000, 'la boleta']);
+      await tx.query('select public.editar_cobro($1, $2, $3, $4)', [id, 'Juan Pablo', 70000, 'las boletas']);
+      await como(tx, null);
+      expect(
+        await one(
+          tx,
+          'select p.display_name, c.monto::int, c.concepto from public.cobros c join public.people p on p.id = c.deudor_person_id where c.id = $1',
+          [id],
+        ),
+      ).toEqual({ display_name: 'Juan Pablo', monto: 70000, concepto: 'las boletas' });
+      await impersonate(tx, U.valeria);
+      await tx.query(`select public.marcar_cobro($1, 'pagado')`, [id]);
+      expect(await falla(tx, 'select public.editar_cobro($1, $2, $3, $4)', [id, 'Juan', 1, 'otra'])).toMatch('ya terminó');
+    });
+  });
+
+  it('se borra con quien debía, y el aviso que no había salido ya no sale', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const cuenta = await cuentaDeCobro(tx);
+      const id = await rpc<string>(tx, 'public.crear_cobro($1, $2, $3, $4, $5)', [cuenta, 'Juan', '300 123 4567', 50000, 'la boleta']);
+      await como(tx, 'service_role');
+      expect(await rpc(tx, 'public.connector_chepito_avisar($1, 0, $2)', [id, 'Hola Juan'])).toBe(true);
+      await impersonate(tx, U.valeria);
+      await tx.query('select public.borrar_cobro($1)', [id]);
+      await como(tx, null);
+      expect(await one(tx, 'select count(*)::int as n from public.cobros where id = $1', [id])).toEqual({ n: 0 });
+      expect(await one(tx, `select count(*)::int as n from public.people where account_id = $1 and display_name = 'Juan'`, [cuenta])).toEqual({ n: 0 });
+      expect(
+        await one(tx, `select count(*)::int as n from public.whatsapp_outbox where dedupe_key like $1 and dropped_at is null`, [`chepito:${id}:%`]),
+      ).toEqual({
+        n: 0,
+      });
+    });
+  });
+});
+
 describe('los avisos de Mister Luks', () => {
   it('el primero sale por la bandeja de salida una vez; el siguiente, 2 días después; como mucho 4', async () => {
     await as(db, U.valeria, async (tx) => {
@@ -168,7 +220,7 @@ describe('desde WhatsApp', () => {
       [chat, numero],
     );
 
-  it('sin sesión en Luks no; con sesión, va a «Mis cobros» (que se abre la primera vez)', async () => {
+  it('sin sesión en Luks no; con sesión, va a su Chepito (que se abre la primera vez)', async () => {
     await as(db, null, async (tx) => {
       await como(tx, null);
       await tx.query('select public.connector_private_chat($1, $2)', [CONTADOR, chat]);
@@ -177,7 +229,7 @@ describe('desde WhatsApp', () => {
       await como(tx, null);
       await tx.query(`update public.whatsapp_identities set user_id = $1, verified_at = now() where phone = $2`, [U.nuevo, numero]);
       await como(tx, 'service_role');
-      expect(await crear(tx)).toMatchObject({ ok: true, account_name: 'Mis cobros', nueva_cuenta: true, telefono: '573001234567' });
+      expect(await crear(tx)).toMatchObject({ ok: true, account_name: 'Chepito', nueva_cuenta: true, telefono: '573001234567' });
       // La segunda vez, la misma cuenta (y a Juan ya le está cobrando)
       expect(await crear(tx)).toMatchObject({ ok: false, reason: 'ya_le_cobras', nueva_cuenta: false });
 

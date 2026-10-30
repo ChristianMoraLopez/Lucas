@@ -35,7 +35,10 @@ export default async function AccountPickerPage() {
   const invitaciones = (recibidas ?? []) as InvitacionRecibida[];
 
   const enArchivo = new Set(((membresias ?? []) as { account_id: string; archived_at: string | null }[]).filter((m) => m.archived_at).map((m) => m.account_id));
-  const todas = (overview ?? []) as AccountOverview[];
+  const conChepito = (overview ?? []) as AccountOverview[];
+  // Chepito (cobro) no es una cuenta: va aparte, abajo
+  const chepito = conChepito.find((a) => a.type === 'cobro');
+  const todas = conChepito.filter((a) => a.type !== 'cobro');
   // Archivada solo si está cerrada (si la reabrieran, vuelve a salir)
   const archivadas = todas.filter((a) => a.status === 'closed' && enArchivo.has(a.id));
   const accounts = todas.filter((a) => !archivadas.includes(a));
@@ -43,6 +46,7 @@ export default async function AccountPickerPage() {
   const firstName = fullName.split(/\s+/)[0] || '';
   const pending = accounts.reduce((n, a) => n + a.pending_count, 0);
   const lead = pickLead(accounts);
+  const cobrosAbiertos = chepito ? await contarCobrosAbiertos(supabase, chepito.id) : 0;
   const others = accounts.filter((a) => a !== lead);
 
   return (
@@ -123,6 +127,21 @@ export default async function AccountPickerPage() {
               ))}
             </Archivadas>
           )}
+
+          <Link href="/chepito" className="ap-row ap-chepito">
+            <LottieSlot name="chepito" width={44} height={44} label={t('Chepito, el cobrador de Mister Luks')} />
+            <span className="ap-row__txt">
+              <span className="ap-row__n">Chepito</span>
+              <span className="ap-row__s">
+                {cobrosAbiertos > 0
+                  ? t('Cobrando {cobros}', { cobros: plural(cobrosAbiertos, t('cobro'), t('cobros')) })
+                  : t('¿Alguien te debe plata? Chepito se la cobra por ti')}
+              </span>
+            </span>
+            <span className="ap-chepito__ir" aria-hidden="true">
+              →
+            </span>
+          </Link>
         </div>
 
         <aside className="ap-side">
@@ -148,10 +167,22 @@ export default async function AccountPickerPage() {
   );
 }
 
+/** Los cobros de Chepito que siguen cobrando (como cobro_abierto) */
+async function contarCobrosAbiertos(supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], accountId: string) {
+  const { count } = await supabase
+    .from('cobros')
+    .select('id', { count: 'exact', head: true })
+    .eq('account_id', accountId)
+    .is('pagado_at', null)
+    .is('no_debe_at', null)
+    .is('detenido_at', null)
+    .lt('avisos', 4);
+  return count ?? 0;
+}
+
 /** La cuenta protagonista: la activa con más por revisar; a igualdad, los eventos primero. */
 function pickLead(accounts: AccountOverview[]) {
-  // Las de cobro (Chepito) no tienen gastos: no son la protagonista
-  const active = accounts.filter((a) => a.status === 'active' && a.type !== 'cobro');
+  const active = accounts.filter((a) => a.status === 'active');
   return [...active].sort((a, b) => b.pending_count - a.pending_count || Number(b.type === 'evento') - Number(a.type === 'evento'))[0];
 }
 
@@ -212,27 +243,20 @@ function LeadAccount({ a, t }: { a: AccountOverview; t: T }) {
 
 function AccountRow({ a, i, t }: { a: AccountOverview; i?: number; t: T }) {
   const closed = a.status === 'closed';
-  const cobro = a.type === 'cobro';
   const note = a.type === 'hogar' ? (budgetNote(a, t) ?? (a.pending_count ? null : t('Al día'))) : null;
   return (
-    <Link
-      href={`/c/${a.id}/${cobro ? 'cobros' : 'resumen'}`}
-      className={`ap-row${closed ? ' is-closed' : ''}`}
-      style={i == null ? undefined : ({ '--i': i } as React.CSSProperties)}
-    >
+    <Link href={`/c/${a.id}/resumen`} className={`ap-row${closed ? ' is-closed' : ''}`} style={i == null ? undefined : ({ '--i': i } as React.CSSProperties)}>
       <span className="ap-glyph" style={{ background: `var(--tono-${accountTone(a.name)})` }} aria-hidden="true">
         {accountGlyph(a.name)}
       </span>
       <span className="ap-row__txt">
         <span className="ap-row__n">{a.name}</span>
         <span className="ap-row__s">
-          {cobro
-            ? `${t('Cobro')} · Chepito`
-            : `${t(a.type === 'evento' ? 'Evento' : 'Hogar')} · ${periodLabel(a, t)} · ${note ?? plural(a.people_count, t('persona'), t('personas'))}`}
+          {t(a.type === 'evento' ? 'Evento' : 'Hogar')} · {periodLabel(a, t)} · {note ?? plural(a.people_count, t('persona'), t('personas'))}
         </span>
       </span>
       <span className="ap-row__r">
-        {!cobro && <Amount value={a.total_cop} />}
+        <Amount value={a.total_cop} />
         {a.pending_count > 0 ? (
           <span className="ap-pend">{t('{n} por revisar', { n: a.pending_count })}</span>
         ) : closed ? (

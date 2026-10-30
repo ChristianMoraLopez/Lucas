@@ -317,6 +317,23 @@ iframe {
 .ap-row.is-closed {
   background: transparent;
 }
+/* Chepito: aparte de las cuentas, abajo, en coral (su color) */
+.ap-chepito {
+  margin-top: var(--space-2);
+  background: var(--coral-suave);
+  border-style: dashed;
+  border-color: var(--coral);
+}
+.ap-chepito:hover {
+  border-color: var(--tinta-2);
+}
+.ap-chepito > :first-child {
+  flex: none;
+}
+.ap-chepito__ir {
+  font-weight: 800;
+  color: var(--tinta-2);
+}
 .ap-glyph {
   width: 44px;
   height: 44px;
@@ -705,11 +722,6 @@ iframe {
 .nc-type--evento.is-on {
   border-color: var(--morado);
   background: var(--morado-suave);
-}
-/* Coral para el cobro (Chepito) */
-.nc-type--cobro.is-on {
-  border-color: var(--coral);
-  background: var(--coral-suave);
 }
 .nc-type b {
   font-family: var(--font-display);
@@ -7538,11 +7550,24 @@ a.gr-fila:focus-visible {
   justify-items: end;
   gap: var(--space-2);
 }
+.ch-item.is-fin {
+  background: transparent;
+}
+.ch-item--editando {
+  display: block;
+}
+.ch-editar {
+  display: grid;
+  gap: var(--space-3);
+}
 .ch-item__acts {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+.ch-editar .ch-item__acts {
+  justify-content: flex-start;
 }
 .ch-estado {
   justify-self: start;

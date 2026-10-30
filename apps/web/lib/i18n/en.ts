@@ -1996,10 +1996,17 @@ export const EN: Record<string, string> = {
   'Anotarlo en «{cuenta}»': 'Log it in “{cuenta}”',
 
   // Chepito (cobros, migración 710)
-  Cobro: 'Collection',
-  'Alguien te debe plata: Chepito, el cobrador de Mister Luks, le escribe por WhatsApp y se lo recuerda hasta que te pague.':
-    'Someone owes you money: Chepito, Mister Luks’s collector, writes to them on WhatsApp and reminds them until they pay you.',
   Cobros: 'Collections',
+  // Chepito va aparte de las cuentas (migración 720)
+  'Cobrando {cobros}': 'Collecting {cobros}',
+  cobro: 'debt',
+  cobros: 'debts',
+  '¿Alguien te debe plata? Chepito se la cobra por ti': 'Does someone owe you money? Chepito collects it for you',
+  '¿Por qué te debe?': 'Why do they owe you?',
+  '¿Borrar el cobro de {nombre}?': 'Delete the collection from {nombre}?',
+  'Mister Luks deja de cobrarle y el cobro desaparece de la lista.': 'Mister Luks stops collecting and it disappears from the list.',
+  'El cobro desaparece de la lista.': 'It disappears from the list.',
+  'Ese cobro ya terminó: no se puede editar': 'That collection is over: it can’t be edited',
   'Soy Chepito 🎩, el cobrador de Mister Luks. Le escribo por WhatsApp a quien te debe, me presento, le digo cuánto y por qué, y se lo recuerdo cada 2 días (hasta 4 veces). Solo en horario de cobranza: lunes a viernes de 8 a. m. a 7 p. m. y sábados hasta las 3 p. m.':
     'I’m Chepito 🎩, Mister Luks’s collector. I write on WhatsApp to whoever owes you, introduce myself, tell them how much and why, and remind them every 2 days (up to 4 times). Only during collection hours: Monday to Friday 8 a.m. to 7 p.m. and Saturdays until 3 p.m. (Colombia time).',
   'Chepito, el cobrador de Mister Luks': 'Chepito, Mister Luks’s collector',
@@ -2032,10 +2039,6 @@ export const EN: Record<string, string> = {
   'Dejar de cobrar': 'Stop collecting',
   '¿Dejar de cobrarle a {nombre}?': 'Stop collecting from {nombre}?',
   'Mister Luks no le vuelve a escribir por este cobro.': 'Mister Luks won’t write to them again about this.',
-  'Nombre (p. ej. Préstamos)': 'Name (e.g. Loans)',
-  'Tu nombre (así te nombra Mister Luks cuando cobra)': 'Your name (how Mister Luks names you when collecting)',
-  'Mister Luks cobra en': 'Mister Luks collects in',
-  'Después le dices a quién le cobras.': 'Then you tell him who to collect from.',
   'Esa cuenta no es de cobro': 'That isn’t a collection account',
   'Esa cuenta está cerrada': 'That account is closed',
   'No eres de esa cuenta': 'You’re not part of that account',

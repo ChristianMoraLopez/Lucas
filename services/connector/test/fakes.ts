@@ -467,7 +467,7 @@ export class FakeStore implements Store {
       ok: true,
       cobro_id: 'cb1',
       account_id: 'mc',
-      account_name: 'Mis cobros',
+      account_name: 'Chepito',
       telefono: cobro.telefono,
       pago: this.miPago,
       nueva_cuenta: true,

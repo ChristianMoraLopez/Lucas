@@ -11,7 +11,7 @@ export default async function SubirAtajoPage() {
   const { supabase } = await requireUser('/subir');
   const t = await getT();
   const { data } = await supabase.rpc('account_overview');
-  const activas = ((data ?? []) as AccountOverview[]).filter((a) => a.status === 'active');
+  const activas = ((data ?? []) as AccountOverview[]).filter((a) => a.status === 'active' && a.type !== 'cobro');
   if (activas.length === 1) redirect(`/c/${activas[0].id}/subir`);
 
   return (
