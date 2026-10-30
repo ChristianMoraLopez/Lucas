@@ -606,7 +606,7 @@ export interface Store {
   guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]): Promise<number>;
   /** La pregunta «¿en cuál anoto lo que me mandaste?» de ese chat, si espera respuesta (migración 670) */
   porAbrirEnEspera(jid: string): Promise<PorAbrirEnEspera | null>;
-  /** Chepito (migración 710): el cobro que pidió por privado, a su cuenta de cobro («Mis cobros» si no tiene) */
+  /** Chepito (migración 710): el cobro que pidió por privado, a su Chepito (que se abre si no lo tiene) */
   chepitoCrear(
     jid: string,
     sender: Sender,

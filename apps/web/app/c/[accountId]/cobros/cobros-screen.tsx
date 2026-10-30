@@ -262,14 +262,20 @@ function NuevoCobro({ accountId, pagoInicial, onCreado }: { accountId: string; p
   );
 }
 
-/** Un cobro: a quién, cuánto, por qué y cómo va; si sigue abierto, «ya me pagó» o «deja de cobrarle» */
+/** Un cobro: a quién, cuánto, por qué y cómo va; mientras cobra se corrige, «ya me pagó» o «deja de cobrarle»; y se borra */
 function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: boolean; verTelefono: boolean; onCambio: () => void }) {
   const t = useT();
   const moneda = useMoneda();
+  const id = useId();
   const [supabase] = useState(() => createClient());
   const [parar, setParar] = useState(false);
+  const [borrar, setBorrar] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nombre = c.deudor?.display_name ?? '—';
+  const [form, setForm] = useState({ nombre, monto: c.monto, concepto: c.concepto });
+  const sigue = abierto(c);
 
   const estado = c.pagado_at
     ? { tono: 'ok', texto: c.pagado_por === 'deudor' ? t('Dijo que ya te pagó') : t('Pagado') }
@@ -290,8 +296,70 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
     onCambio();
   };
 
+  const quitar = async () => {
+    setError(null);
+    const { error } = await supabase.rpc('borrar_cobro', { p_cobro_id: c.id });
+    if (error) return setError(humanError(error));
+    onCambio();
+  };
+
+  const guardar = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    const { error } = await supabase.rpc('editar_cobro', {
+      p_cobro_id: c.id,
+      p_nombre: form.nombre.trim(),
+      p_monto: form.monto,
+      p_concepto: form.concepto.trim(),
+    });
+    setBusy(false);
+    if (error) return setError(humanError(error));
+    setEditando(false);
+    onCambio();
+  };
+
+  if (editando)
+    return (
+      <li className="ch-item ch-item--editando">
+        <form className="ch-editar" onSubmit={guardar} noValidate>
+          <Field label={t('¿Quién te debe?')} id={`${id}-nombre`} value={form.nombre} onChange={(v) => setForm({ ...form, nombre: v })} />
+          <Field
+            label={t('¿Cuánto te debe?')}
+            id={`${id}-monto`}
+            num
+            inputMode="numeric"
+            value={form.monto ? dinero(form.monto, moneda, t.idioma) : ''}
+            onChange={(v) => setForm({ ...form, monto: deCampo(v) })}
+          />
+          <Field label={t('¿Por qué te debe?')} id={`${id}-por`} value={form.concepto} onChange={(v) => setForm({ ...form, concepto: v })} />
+          {error && (
+            <p className="lu-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="ch-item__acts">
+            <Button size="sm" type="submit" disabled={busy}>
+              {busy ? t('Guardando…') : t('Guardar')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setForm({ nombre, monto: c.monto, concepto: c.concepto });
+                setError(null);
+                setEditando(false);
+              }}
+            >
+              {t('Cancelar')}
+            </Button>
+          </div>
+        </form>
+      </li>
+    );
+
   return (
-    <li className="ch-item">
+    <li className={`ch-item${sigue ? '' : ' is-fin'}`}>
       <Avatar name={nombre} size="sm" registered={false} />
       <div className="ch-item__txt">
         <b>{nombre}</b>
@@ -308,13 +376,23 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
       </div>
       <div className="ch-item__fin">
         <b className="lu-num">{dinero(c.monto, moneda, t.idioma)}</b>
-        {isAdmin && abierto(c) && (
+        {isAdmin && (
           <div className="ch-item__acts">
-            <Button size="sm" onClick={() => marcar('pagado')}>
-              {t('Ya me pagó')}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setParar(true)}>
-              {t('Dejar de cobrar')}
+            {sigue && (
+              <>
+                <Button size="sm" onClick={() => marcar('pagado')}>
+                  {t('Ya me pagó')}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditando(true)}>
+                  {t('Editar')}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setParar(true)}>
+                  {t('Dejar de cobrar')}
+                </Button>
+              </>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setBorrar(true)}>
+              {t('Borrar')}
             </Button>
           </div>
         )}
@@ -327,6 +405,15 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
         onConfirm={() => marcar('detener')}
       >
         <p>{t('Mister Luks no le vuelve a escribir por este cobro.')}</p>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={borrar}
+        onOpenChange={setBorrar}
+        title={t('¿Borrar el cobro de {nombre}?', { nombre })}
+        confirmLabel={t('Borrar')}
+        onConfirm={quitar}
+      >
+        <p>{sigue ? t('Mister Luks deja de cobrarle y el cobro desaparece de la lista.') : t('El cobro desaparece de la lista.')}</p>
       </ConfirmDialog>
     </li>
   );
