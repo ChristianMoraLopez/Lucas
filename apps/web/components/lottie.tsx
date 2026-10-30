@@ -16,7 +16,9 @@ import { useEffect, useState } from 'react';
    de Tùng Hoàng Hữu, «Money Bag» de Mahendra Bhunwal, «Empty» de Mahmoud
    Madkour, «Money Transfer» de Musa Adanur y «error» de Thais Roese.
    «archivar», «borrar», «mister-luks» y «vincular-whatsapp» son de Luks: los
-   dibuja scripts/lottie-propios.py con los colores del kit y del logo. */
+   dibuja scripts/lottie-propios.py con los colores del kit y del logo. Las de
+   Chepito (el cobrador de Mister Luks, de frac, bombín y bigote) las dibuja
+   scripts/lottie-chepito.py con su propia paleta. */
 export const LOTTIES = {
   vacio: { loop: true },
   escaneo: { loop: true },
@@ -39,6 +41,14 @@ export const LOTTIES = {
   'mister-luks': { loop: false },
   'vincular-whatsapp': { loop: false },
   exportar: { loop: false },
+  // Chepito, el cobrador de Mister Luks (scripts/lottie-chepito.py): su propia marca
+  chepito: { loop: true },
+  'chepito-saluda': { loop: false },
+  'chepito-cobra': { loop: true },
+  'chepito-espera': { loop: true },
+  'chepito-envia': { loop: false },
+  'chepito-pagado': { loop: false },
+  'chepito-no-me-escribas': { loop: false },
 } as const;
 export type LottieName = keyof typeof LOTTIES;
 

@@ -246,17 +246,17 @@ export function avisoDeCobro(c: ChepitoPendiente): string {
   const monto = formatCOP(Number(c.monto), monedaDe(c), idioma);
   const concepto = limpio(c.concepto);
   const pago = comoPagarle(primerNombre(c.acreedor), c.pago, idioma);
-  const hola = en ? `👋 Hi${deudor ? ` ${deudor}` : ''}` : `👋 Hola${deudor ? ` ${deudor}` : ''}`;
+  const hola = en ? `🎩 Hi${deudor ? ` ${deudor}` : ''}` : `🎩 Hola${deudor ? ` ${deudor}` : ''}`;
 
   if (c.avisos === 0) {
     const partes = en
       ? [
-          `${hola}, I’m *Mister Luks*, a bot that helps keep track of shared expenses at home and on trips, and collects what people owe (mrluks.com).`,
+          `${hola}, I’m *Chepito*, Mister Luks’s collector. Mister Luks is a bot that keeps track of shared expenses at home and on trips (mrluks.com); I collect what people owe.`,
           `I’m writing on behalf of *${acreedor}*: they say you owe them *${monto}* for “${concepto}”.${pago ? `\n${pago}` : ''}`,
           '✅ When you pay, reply *I paid* and I’ll let them know.\n🙅 If you don’t owe anything, reply *I don’t owe*.\n🔕 If you don’t want me to write to you, reply *don’t message me*.',
         ]
       : [
-          `${hola}, soy *Mister Luks*, un bot que ayuda a llevar las cuentas de la casa y de los paseos, y a cobrar lo que se debe (mrluks.com).`,
+          `${hola}, soy *Chepito*, el cobrador de Mister Luks. Mister Luks es un bot que lleva las cuentas de la casa y de los paseos (mrluks.com); yo cobro lo que se debe.`,
           `Te escribo de parte de *${acreedor}*: dice que le debes *${monto}* por «${concepto}».${pago ? `\n${pago}` : ''}`,
           '✅ Cuando le pagues, respóndeme *ya pagué* y le aviso.\n🙅 Si no le debes nada, respóndeme *no le debo*.\n🔕 Si no quieres que te escriba, respóndeme *no me escribas*.',
         ];
@@ -265,11 +265,11 @@ export function avisoDeCobro(c: ChepitoPendiente): string {
   const ultimo = c.avisos >= 3;
   const partes = en
     ? [
-        `${hola}, it’s Mister Luks again. A reminder that you owe *${acreedor}* *${monto}* for “${concepto}”.${pago ? `\n${pago}` : ''}`,
+        `${hola}, it’s Chepito again. A reminder that you owe *${acreedor}* *${monto}* for “${concepto}”.${pago ? `\n${pago}` : ''}`,
         `✅ If you already paid, reply *I paid*. 🙅 If you don’t owe it, *I don’t owe*. 🔕 So I stop writing, *don’t message me*.${ultimo ? '\n\nThis is the last reminder I’ll send you.' : ''}`,
       ]
     : [
-        `${hola}, soy Mister Luks otra vez. Te recuerdo que le debes *${monto}* a *${acreedor}* por «${concepto}».${pago ? `\n${pago}` : ''}`,
+        `${hola}, soy Chepito otra vez. Te recuerdo que le debes *${monto}* a *${acreedor}* por «${concepto}».${pago ? `\n${pago}` : ''}`,
         `✅ Si ya le pagaste, respóndeme *ya pagué*. 🙅 Si no le debes, *no le debo*. 🔕 Para que no te escriba más, *no me escribas*.${ultimo ? '\n\nEs el último recordatorio que te mando.' : ''}`,
       ];
   return `${partes.join('\n\n')}\n\n${FIRMA[idioma]}`;
@@ -284,13 +284,13 @@ export function respuestaAlDeudor(que: QueResponde, cobros: ChepitoRespuesta[], 
   const acreedores = [...new Set(cobros.map((c) => primerNombre(c.acreedor)))].join(en ? ' and ' : ' y ');
   if (que === 'pagado')
     return en
-      ? `🙌 Thanks${deudor ? `, ${deudor}` : ''}! I’ll let ${acreedores} know you paid. I won’t write to you about this anymore.`
-      : `🙌 ¡Gracias${deudor ? `, ${deudor}` : ''}! Le aviso a ${acreedores} que ya le pagaste. No te escribo más por esto.`;
+      ? `🎩 Thanks${deudor ? `, ${deudor}` : ''}! I’ll let ${acreedores} know you paid. I won’t write to you about this anymore.`
+      : `🎩 ¡Gracias${deudor ? `, ${deudor}` : ''}! Le aviso a ${acreedores} que ya le pagaste. No te escribo más por esto.`;
   if (que === 'no_debe')
     return en
-      ? `👍 Got it${deudor ? `, ${deudor}` : ''}: I won’t write to you about this again, and I’ll let ${acreedores} know.`
-      : `👍 Entendido${deudor ? `, ${deudor}` : ''}: no te vuelvo a escribir por esto y le aviso a ${acreedores}.`;
-  return en ? `👍 Got it, I won’t write to you again. I’ll let ${acreedores} know.` : `👍 Listo, no te vuelvo a escribir. Le aviso a ${acreedores}.`;
+      ? `🎩 Got it${deudor ? `, ${deudor}` : ''}: I won’t write to you about this again, and I’ll let ${acreedores} know.`
+      : `🎩 Entendido${deudor ? `, ${deudor}` : ''}: no te vuelvo a escribir por esto y le aviso a ${acreedores}.`;
+  return en ? `🎩 Got it, I won’t write to you again. I’ll let ${acreedores} know.` : `🎩 Listo, no te vuelvo a escribir. Le aviso a ${acreedores}.`;
 }
 
 /** Lo que se le avisa a quien cobra */
@@ -303,8 +303,8 @@ export function avisoAlAcreedor(que: QueResponde, c: ChepitoRespuesta): string {
   const cuerpo =
     que === 'pagado'
       ? en
-        ? `💸 Good news! *${deudor}* says they already paid you *${monto}* for “${concepto}”, so I stopped reminding them. If the money didn’t arrive, ask me to collect again.`
-        : `💸 ¡Buenas noticias! *${deudor}* dice que ya te pagó *${monto}* por «${concepto}», así que dejé de cobrarle. Si no te ha llegado la plata, pídeme que le cobre otra vez.`
+        ? `💸 Good news! *${deudor}* says they already paid you *${monto}* for “${concepto}”, so I stopped reminding them. If the money didn’t arrive, ask Mister Luks to collect again.`
+        : `💸 ¡Buenas noticias! *${deudor}* dice que ya te pagó *${monto}* por «${concepto}», así que dejé de cobrarle. Si no te ha llegado la plata, pídele a Mister Luks que le cobre otra vez.`
       : que === 'no_debe'
         ? en
           ? `🙅 *${deudor}* says they don’t owe you *${monto}* for “${concepto}”, so I stopped writing to them. If they do, better talk to them directly.`
@@ -312,7 +312,7 @@ export function avisoAlAcreedor(que: QueResponde, c: ChepitoRespuesta): string {
         : en
           ? `🔕 *${deudor}* asked me not to write to them anymore, so I stopped collecting *${monto}* for “${concepto}”. Well… now you know they won’t pay you soon 😅`
           : `🔕 *${deudor}* me pidió que no le escriba más, así que dejé de cobrarle *${monto}* por «${concepto}». Bueno… con eso ya sabes que no te va a pagar pronto 😅`;
-  return `${cuerpo}\n\n${FIRMA[idioma]}`;
+  return `${en ? '🎩 *Chepito* here:' : '🎩 *Chepito* te cuenta:'}\n${cuerpo}\n\n${FIRMA[idioma]}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -331,8 +331,8 @@ export const CHEPITO = {
     switch (falta) {
       case 'nombre':
         return en
-          ? '🧾 Sure, I’ll collect it for you. Who owes you? Send me their name or their contact card 📇'
-          : '🧾 Listo, yo le cobro. ¿Quién te debe? Mándame su nombre o su contacto 📇';
+          ? '🎩 Sure, Chepito (my collector) will handle it. Who owes you? Send me their name or their contact card 📇'
+          : '🎩 Listo, de eso se encarga Chepito, mi cobrador. ¿Quién te debe? Mándame su nombre o su contacto 📇';
       case 'telefono':
         return en
           ? `📇 What’s ${n || 'their'}${n ? '’s' : ''} WhatsApp? Send me their contact card or the number (with the country code if it’s not from Colombia).`
@@ -354,8 +354,8 @@ export const CHEPITO = {
       : `📇 Recibí el contacto de ${primerNombre(b.nombre) || 'esa persona'}. ¿Quieres que le cobre algo? Dime cuánto te debe (por ejemplo «50 mil»), o *no*.`,
   confirmar: (b: Required<BorradorCobro>, idioma: Idioma) =>
     idioma === 'en'
-      ? `🧾 Should I collect *${pesos(b.monto, idioma)}* from *${limpio(b.nombre)}* (${telefonoBonito(b.telefono)}) for “${limpio(b.concepto)}”?\nI’ll write to them, introduce myself and remind them every 2 days, up to 4 times. Reply *yes* or *no*.`
-      : `🧾 ¿Le cobro a *${limpio(b.nombre)}* (${telefonoBonito(b.telefono)}) *${pesos(b.monto, idioma)}* por «${limpio(b.concepto)}»?\nLe escribo, me presento y se lo recuerdo cada 2 días, hasta 4 veces. Respóndeme *sí* o *no*.`,
+      ? `🧾 Should I collect *${pesos(b.monto, idioma)}* from *${limpio(b.nombre)}* (${telefonoBonito(b.telefono)}) for “${limpio(b.concepto)}”?\nChepito 🎩 writes to them, introduces himself and reminds them every 2 days, up to 4 times. Reply *yes* or *no*.`
+      : `🧾 ¿Le cobro a *${limpio(b.nombre)}* (${telefonoBonito(b.telefono)}) *${pesos(b.monto, idioma)}* por «${limpio(b.concepto)}»?\nChepito 🎩 le escribe, se presenta y se lo recuerda cada 2 días, hasta 4 veces. Respóndeme *sí* o *no*.`,
   cancelado: (idioma: Idioma) => (idioma === 'en' ? '👍 Got it, I won’t collect anything.' : '👍 Listo, no le cobro nada.'),
   /** ¿Le mando cómo pagarte? (y queda en su perfil) */
   pago: (idioma: Idioma) =>
@@ -387,8 +387,8 @@ export const CHEPITO = {
         ? 'as soon as it’s collection hours (Monday to Friday 8 a.m. to 7 p.m., Saturdays until 3 p.m.)'
         : 'apenas sea horario de cobro (lunes a viernes de 8 a. m. a 7 p. m., sábados hasta las 3 p. m.)';
     return en
-      ? `✅ Done: I’ll collect *${pesos(b.monto, idioma)}* from *${limpio(b.nombre)}* for “${limpio(b.concepto)}”. I’ll write to them ${cuando} and remind them every 2 days, up to 4 times. I’ll let you know when they say they paid.\n🔗 Follow it at ${link}`
-      : `✅ Listo: le cobro a *${limpio(b.nombre)}* *${pesos(b.monto, idioma)}* por «${limpio(b.concepto)}». Le escribo ${cuando} y se lo recuerdo cada 2 días, hasta 4 veces. Te aviso cuando me diga que te pagó.\n🔗 Lo sigues en ${link}`;
+      ? `✅ Done: Chepito 🎩 will collect *${pesos(b.monto, idioma)}* from *${limpio(b.nombre)}* for “${limpio(b.concepto)}”. He’ll write to them ${cuando} and remind them every 2 days, up to 4 times. He’ll let you know when they say they paid.\n🔗 Follow it at ${link}`
+      : `✅ Listo: Chepito 🎩 le cobra a *${limpio(b.nombre)}* *${pesos(b.monto, idioma)}* por «${limpio(b.concepto)}». Le escribe ${cuando} y se lo recuerda cada 2 días, hasta 4 veces. Te avisa cuando le diga que te pagó.\n🔗 Lo sigues en ${link}`;
   },
   /** Para cobrar necesita su usuario de Luks (con el link, su número queda con su correo) */
   sinSesion: (idioma: Idioma) =>

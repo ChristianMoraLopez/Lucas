@@ -37,7 +37,7 @@ const TYPES = [
   {
     id: 'cobro',
     title: 'Cobro',
-    text: 'Chepito: alguien te debe plata. Mister Luks le escribe por WhatsApp y se lo recuerda hasta que te pague.',
+    text: 'Alguien te debe plata: Chepito, el cobrador de Mister Luks, le escribe por WhatsApp y se lo recuerda hasta que te pague.',
   },
 ] as const;
 

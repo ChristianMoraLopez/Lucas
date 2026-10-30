@@ -1997,11 +1997,13 @@ export const EN: Record<string, string> = {
 
   // Chepito (cobros, migración 710)
   Cobro: 'Collection',
-  'Chepito: alguien te debe plata. Mister Luks le escribe por WhatsApp y se lo recuerda hasta que te pague.':
-    'Chepito: someone owes you money. Mister Luks writes to them on WhatsApp and reminds them until they pay you.',
+  'Alguien te debe plata: Chepito, el cobrador de Mister Luks, le escribe por WhatsApp y se lo recuerda hasta que te pague.':
+    'Someone owes you money: Chepito, Mister Luks’s collector, writes to them on WhatsApp and reminds them until they pay you.',
   Cobros: 'Collections',
-  'Chepito: Mister Luks le escribe por WhatsApp a quien te debe, se presenta, le dice cuánto y por qué, y se lo recuerda cada 2 días (hasta 4 veces). Solo en horario de cobranza: lunes a viernes de 8 a. m. a 7 p. m. y sábados hasta las 3 p. m.':
-    'Chepito: Mister Luks writes on WhatsApp to whoever owes you, introduces himself, tells them how much and why, and reminds them every 2 days (up to 4 times). Only during collection hours: Monday to Friday 8 a.m. to 7 p.m. and Saturdays until 3 p.m. (Colombia time).',
+  'Soy Chepito 🎩, el cobrador de Mister Luks. Le escribo por WhatsApp a quien te debe, me presento, le digo cuánto y por qué, y se lo recuerdo cada 2 días (hasta 4 veces). Solo en horario de cobranza: lunes a viernes de 8 a. m. a 7 p. m. y sábados hasta las 3 p. m.':
+    'I’m Chepito 🎩, Mister Luks’s collector. I write on WhatsApp to whoever owes you, introduce myself, tell them how much and why, and remind them every 2 days (up to 4 times). Only during collection hours: Monday to Friday 8 a.m. to 7 p.m. and Saturdays until 3 p.m. (Colombia time).',
+  'Chepito, el cobrador de Mister Luks': 'Chepito, Mister Luks’s collector',
+  'Chepito esperando': 'Chepito waiting',
   'A quién le cobras': 'Who you’re collecting from',
   'Todavía no le cobras a nadie. Cuando alguien te deba, ponlo arriba.': 'You’re not collecting from anyone yet. When someone owes you, add them above.',
   'Si la persona le escribe a Mister Luks «no me escribas», no le vuelve a escribir. Si dice «ya pagué» o «no le debo», deja de cobrarle y te avisa por WhatsApp.':
@@ -2011,7 +2013,7 @@ export const EN: Record<string, string> = {
   'Escribe su WhatsApp': 'Write their WhatsApp',
   'Escribe cuánto te debe': 'Write how much they owe you',
   'Escribe por qué te debe': 'Write what they owe you for',
-  'Listo: Mister Luks le escribe a {nombre} en horario de cobranza.': 'Done: Mister Luks will write to {nombre} during collection hours.',
+  'Listo: Chepito le escribe a {nombre} en horario de cobranza.': 'Done: Chepito will write to {nombre} during collection hours.',
   'Nuevo cobro': 'New collection',
   '¿Quién te debe?': 'Who owes you?',
   'Su WhatsApp': 'Their WhatsApp',

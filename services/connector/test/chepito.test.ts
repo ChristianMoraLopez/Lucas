@@ -115,7 +115,7 @@ describe('lo que le escribe Mister Luks a quien debe', () => {
   it('el primero se presenta: quién es, de parte de quién, cuánto, por qué, cómo pagar y qué responder', () => {
     expect(avisoDeCobro(cobro())).toBe(
       [
-        '👋 Hola Juan, soy *Mister Luks*, un bot que ayuda a llevar las cuentas de la casa y de los paseos, y a cobrar lo que se debe (mrluks.com).',
+        '🎩 Hola Juan, soy *Chepito*, el cobrador de Mister Luks. Mister Luks es un bot que lleva las cuentas de la casa y de los paseos (mrluks.com); yo cobro lo que se debe.',
         '',
         'Te escribo de parte de *Christian Mora*: dice que le debes *$50.000* por «la boleta del concierto».',
         '📲 Mándaselos a Christian: Nequi *300 111 2233*',
@@ -131,7 +131,7 @@ describe('lo que le escribe Mister Luks a quien debe', () => {
 
   it('los recordatorios son cortos, y el cuarto dice que es el último', () => {
     expect(avisoDeCobro(cobro({ avisos: 1, pago: null }))).toMatch(
-      /^👋 Hola Juan, soy Mister Luks otra vez\. Te recuerdo que le debes \*\$50\.000\* a \*Christian Mora\*/,
+      /^🎩 Hola Juan, soy Chepito otra vez\. Te recuerdo que le debes \*\$50\.000\* a \*Christian Mora\*/,
     );
     expect(avisoDeCobro(cobro({ avisos: 1 }))).not.toContain('último');
     expect(avisoDeCobro(cobro({ avisos: 3 }))).toContain('Es el último recordatorio que te mando.');
@@ -201,14 +201,14 @@ describe('pedir un cobro por privado', () => {
     expect(await ing.onMessage(contador, wa, tarjeta)).toBe('chepito:confirmar');
     expect(ultimo()).toBe(
       '🧾 ¿Le cobro a *Juan* (+57 300 123 4567) *$50.000* por «la boleta del concierto»?\n' +
-        'Le escribo, me presento y se lo recuerdo cada 2 días, hasta 4 veces. Respóndeme *sí* o *no*.',
+        'Chepito 🎩 le escribe, se presenta y se lo recuerda cada 2 días, hasta 4 veces. Respóndeme *sí* o *no*.',
     );
 
     expect(await ing.onMessage(contador, wa, dice('Sí'))).toBe('chepito:creado');
     expect(store.cobrosCreados).toEqual([
       { jid: CHRISTIAN, cobro: { nombre: 'Juan', telefono: '573001234567', monto: 50000, concepto: 'la boleta del concierto' }, avisarEnMin: 10 },
     ]);
-    expect(ultimo()).toContain('✅ Listo: le cobro a *Juan* *$50.000* por «la boleta del concierto».');
+    expect(ultimo()).toContain('✅ Listo: Chepito 🎩 le cobra a *Juan* *$50.000* por «la boleta del concierto».');
     expect(ultimo()).toContain('🔗 Lo sigues en https://mrluks.com/c/mc/cobros');
     expect(ultimo()).toContain('💳 ¿Quieres que le mande cómo pagarte?');
 
@@ -270,7 +270,7 @@ describe('lo que responde quien debe', () => {
   it('«ya pagué»: le agradece (sin la bienvenida) y le avisa a quien cobra', async () => {
     store.cobrando = [respuesta()];
     expect(await ing.onMessage(contador, wa, msg({ chatId: JUAN, sender: juan, text: 'ya pagué' }))).toBe('chepito:pagado');
-    expect(bandeja(JUAN).map((o) => o.body)).toEqual(['🙌 ¡Gracias, Juan! Le aviso a Christian que ya le pagaste. No te escribo más por esto.']);
+    expect(bandeja(JUAN).map((o) => o.body)).toEqual(['🎩 ¡Gracias, Juan! Le aviso a Christian que ya le pagaste. No te escribo más por esto.']);
     expect(ultimo()).toBe(avisoAlAcreedor('pagado', respuesta()));
     expect(ultimo()).toContain('💸 ¡Buenas noticias! *Juan* dice que ya te pagó *$50.000* por «la boleta»');
   });
@@ -282,7 +282,7 @@ describe('lo que responde quien debe', () => {
 
     store.cobrando = [respuesta({ cobro_id: 'cb2' })];
     expect(await ing.onMessage(contador, wa, msg({ chatId: JUAN, sender: juan, text: 'no me escribas' }))).toBe('chepito:no_escribas');
-    expect(ultimo(JUAN)).toBe('👍 Listo, no te vuelvo a escribir. Le aviso a Christian.');
+    expect(ultimo(JUAN)).toBe('🎩 Listo, no te vuelvo a escribir. Le aviso a Christian.');
     expect(ultimo()).toContain('con eso ya sabes que no te va a pagar pronto 😅');
   });
 

@@ -7462,9 +7462,34 @@ a.gr-fila:focus-visible {
   gap: var(--space-5);
   max-width: 760px;
 }
+.ch-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
 .ch-head p {
   margin: 4px 0 0;
   max-width: 60ch;
+}
+.ch-mascota {
+  flex: none;
+}
+.ch-vacio {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-2);
+}
+.ch-enviado {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+@media (max-width: 520px) {
+  .ch-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 .ch-form {
   display: grid;

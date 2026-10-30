@@ -1,11 +1,12 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useEffect, useId, useState } from 'react';
 import { CampoTelefono } from '@/components/campo-telefono';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
+import { Lottie } from '@/components/lottie';
 import { Avatar, Button, Field } from '@/components/lucas-ui';
 import { useMoneda } from '@/components/moneda';
 import { humanError } from '@/lib/errors';
@@ -52,6 +53,12 @@ export function CobrosScreen({ accountId, myRole, closed, pago }: { accountId: s
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
   const isAdmin = myRole !== 'member' && !closed;
+  // Saluda una vez y después se queda quieto (respira, parpadea, mueve el bigote)
+  const [saludo, setSaludo] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setSaludo(false), 2600);
+    return () => clearTimeout(t);
+  }, []);
 
   const cobros = useQuery({
     queryKey: ['cobros', accountId],
@@ -73,12 +80,18 @@ export function CobrosScreen({ accountId, myRole, closed, pago }: { accountId: s
   return (
     <div className="ch">
       <header className="ch-head">
-        <h1 className="lu-display">{t('Cobros')}</h1>
-        <p className="lu-small lu-muted">
-          {t(
-            'Chepito: Mister Luks le escribe por WhatsApp a quien te debe, se presenta, le dice cuánto y por qué, y se lo recuerda cada 2 días (hasta 4 veces). Solo en horario de cobranza: lunes a viernes de 8 a. m. a 7 p. m. y sábados hasta las 3 p. m.',
-          )}
-        </p>
+        {/* Chepito, el cobrador de Mister Luks: saluda al entrar y se queda ahí */}
+        <span className="ch-mascota">
+          <Lottie name={saludo ? 'chepito-saluda' : 'chepito'} width={120} height={120} label={t('Chepito, el cobrador de Mister Luks')} />
+        </span>
+        <div>
+          <h1 className="lu-display">{t('Cobros')}</h1>
+          <p className="lu-small lu-muted">
+            {t(
+              'Soy Chepito 🎩, el cobrador de Mister Luks. Le escribo por WhatsApp a quien te debe, me presento, le digo cuánto y por qué, y se lo recuerdo cada 2 días (hasta 4 veces). Solo en horario de cobranza: lunes a viernes de 8 a. m. a 7 p. m. y sábados hasta las 3 p. m.',
+            )}
+          </p>
+        </div>
       </header>
 
       {isAdmin && <NuevoCobro accountId={accountId} pagoInicial={pago} onCreado={refrescar} />}
@@ -94,7 +107,10 @@ export function CobrosScreen({ accountId, myRole, closed, pago }: { accountId: s
             {humanError(cobros.error)}
           </p>
         ) : lista.length === 0 ? (
-          <p className="lu-small lu-muted">{t('Todavía no le cobras a nadie. Cuando alguien te deba, ponlo arriba.')}</p>
+          <div className="ch-vacio">
+            <Lottie name="chepito-espera" width={140} height={140} label={t('Chepito esperando')} />
+            <p className="lu-small lu-muted">{t('Todavía no le cobras a nadie. Cuando alguien te deba, ponlo arriba.')}</p>
+          </div>
         ) : (
           <ul className="ch-items">
             {lista.map((c) => (
@@ -157,7 +173,7 @@ function NuevoCobro({ accountId, pagoInicial, onCreado }: { accountId: string; p
     });
     if (error) return setEstado({ error: humanError(error) });
     chispasEn(boton);
-    setEstado({ ok: t('Listo: Mister Luks le escribe a {nombre} en horario de cobranza.', { nombre: nombre.trim() }) });
+    setEstado({ ok: t('Listo: Chepito le escribe a {nombre} en horario de cobranza.', { nombre: nombre.trim() }) });
     setNombre('');
     setMonto(0);
     setConcepto('');
@@ -235,7 +251,9 @@ function NuevoCobro({ accountId, pagoInicial, onCreado }: { accountId: string; p
           </p>
         )}
         {estado.ok && (
-          <p className="lu-success pf-msg" role="status">
+          <p className="lu-success pf-msg ch-enviado" role="status">
+            {/* Chepito sale a cobrar (otra vez con cada cobro nuevo) */}
+            <Lottie key={vez} name="chepito-envia" width={64} height={64} label="" />
             {estado.ok}
           </p>
         )}
