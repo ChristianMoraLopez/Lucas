@@ -2007,6 +2007,11 @@ export const EN: Record<string, string> = {
   'El cobro desaparece de la lista.': 'It disappears from the list.',
   'Ese cobro ya terminó: no se puede editar': 'That collection is over: it can’t be edited',
   // Archivar cobros (migración 730)
+  'cobro activo': 'active collection',
+  'cobros activos': 'active collections',
+  'Tienes {cobros} y todavía ninguna cuenta.': 'You have {cobros} and no accounts yet.',
+  'Tienes {cuentas} y {cobros}; {gastos} esperan revisión.': 'You have {cuentas} and {cobros}; {gastos} waiting for review.',
+  'Tienes {cuentas} y {cobros}, y todo está revisado.': 'You have {cuentas} and {cobros}, and everything is reviewed.',
   'Ya terminaron': 'Finished',
   'Archívalos o bórralos para que Chepito quede solo con lo que sigue cobrando.': 'Archive or delete them so Chepito only keeps what he’s still collecting.',
   'Archivados ({n})': 'Archived ({n})',
