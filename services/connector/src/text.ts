@@ -243,8 +243,12 @@ export interface PendingReply {
   group_jid: string;
   wa_message_id: string;
   sender_wa_id: string | null;
-  status: 'done' | 'duplicate';
+  /** Por privado también lo que no era un gasto o no se pudo leer (migración 630) */
+  status: 'done' | 'duplicate' | 'not_expense' | 'failed';
   received_at: string;
+  /** Llegó por privado: la respuesta dice en qué cuenta quedó (migración 630) */
+  privado?: boolean;
+  account_name?: string | null;
   /** De la cuenta (migración 250); si no llegan, pesos colombianos y español */
   currency?: Moneda | null;
   language?: Idioma | null;
@@ -271,8 +275,29 @@ function linea(r: PendingReply): string {
   return partes.join(' · ');
 }
 
+/** Por privado (migración 630): cada uno, con la cuenta donde quedó; también si no era un gasto o no se pudo leer */
+function respuestaPrivada(r: PendingReply): string {
+  const en = idiomaDe(r) === 'en';
+  const cuenta = r.account_name ? (en ? ` in “${r.account_name}”` : ` en «${r.account_name}»`) : '';
+  if (r.status === 'not_expense') {
+    return en
+      ? `🤔 That doesn’t look like an expense, so I didn’t log it${cuenta}. If it was one, upload it at mrluks.com/subir.`
+      : `🤔 Eso no parece un gasto, así que no lo anoté${cuenta}. Si sí era, súbelo en mrluks.com/subir.`;
+  }
+  if (r.status === 'failed') {
+    return en
+      ? `😕 I couldn’t read it. Send me the amount in writing (for example “rent $800,000”) or upload it at mrluks.com/subir.`
+      : `😕 No pude leerlo. Mándame el monto escrito (por ejemplo «arriendo 800 lucas») o súbelo en mrluks.com/subir.`;
+  }
+  if (r.status === 'duplicate') return `🔁 ${linea(r)}${cuenta}.`;
+  if (r.expense?.status === 'confirmed') return `✅ ${en ? 'Logged' : 'Anotado'}${cuenta}: ${linea(r)}.`;
+  return en ? `🧾 Received${cuenta}: ${linea(r)}. Needs review in Luks 👀` : `🧾 Recibido${cuenta}: ${linea(r)}. Queda por revisar en Luks 👀`;
+}
+
 /** Un solo mensaje para varios gastos seguidos (así Luks no llena el grupo), en el idioma de la cuenta */
 export function formatReplies(items: PendingReply[]): string {
+  if (items[0]?.privado)
+    return `${items.map(respuestaPrivada).join('\n')}\n\n📊 ${idiomaDe(items[0]) === 'en' ? 'More detail at' : 'Más detalle en'} mrluks.com`;
   const en = items[0] ? idiomaDe(items[0]) === 'en' : false;
   if (items.length === 1) {
     const r = items[0];
@@ -360,6 +385,7 @@ const COMANDOS: Record<Idioma, string> = {
     '• «qué debo» o «cuánto me deben»: lo tuyo, a quién y de qué',
     '• «mis cuentas»: en qué cuentas estás y cómo vas',
     '• «mis gastos»: lo que has pagado',
+    '• Una foto, un PDF o «arriendo 800 lucas»: te pregunto en cuál de tus cuentas lo anoto',
     '• «ya le pagué a …»: lo marco pagado',
     '• «luks soy yo»: conecto tu número con tu cuenta de Luks',
     '• El link de un grupo: entro solito',
@@ -383,6 +409,7 @@ const COMANDOS: Record<Idioma, string> = {
     '• “what do I owe” or “how much am I owed”: your share, who you pay and for what',
     '• “my accounts”: which accounts you’re in and how you’re doing',
     '• “my expenses”: what you’ve paid',
+    '• A photo, a PDF or “rent $800”: I ask which of your accounts to log it in',
     '• “I paid …”: I mark it paid',
     '• “luks soy yo”: I link your number to your Luks account',
     '• A group link: I join on my own',
@@ -417,6 +444,11 @@ export const PISTA_AYUDA: Record<Idioma, string> = {
 
 /** Lo que Mister Luks escribe por su cuenta (va por la bandeja de salida, whatsapp_outbox) */
 export const MISTER = {
+  /** Mandó por privado el código para conectar un grupo («luks PASEO-7K2Q»): va en el grupo */
+  codigoPorPrivado: (idioma: Idioma) =>
+    idioma === 'en'
+      ? '🔗 That code connects a WhatsApp group to Luks: send it in the group you want to connect (I need to be in it). If I’m not there yet, add me or send me the group’s invite link right here.'
+      : '🔗 Ese código es para conectar un grupo de WhatsApp a Luks: mándalo en el grupo que quieres conectar (yo tengo que estar ahí). Si todavía no estoy, agrégame o mándame aquí el link de invitación del grupo.',
   /** Respondió «no me escribas» por privado */
   noTeEscribo: (idioma: Idioma) =>
     idioma === 'en'

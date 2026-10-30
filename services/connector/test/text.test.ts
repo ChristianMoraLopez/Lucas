@@ -284,3 +284,25 @@ describe('«no me escribas» (migración 600)', () => {
   );
   it.each(['no me escribas eso en el grupo', 'escríbeme', 'ya pagué', 'no me cuentes'])('«%s» → no', (t) => expect(esNoMeEscribas(t)).toBe(false));
 });
+
+describe('respuestas por privado (migración 630)', () => {
+  const base = {
+    message_id: 'm1',
+    group_jid: '573016667788@s.whatsapp.net',
+    wa_message_id: 'W1',
+    sender_wa_id: '573016667788',
+    received_at: '2026-10-30T12:00:00Z',
+    privado: true,
+    account_name: 'Casa',
+    duplicate_of: null,
+  };
+  it('dicen en qué cuenta quedó, y también si no era un gasto o no se pudo leer', () => {
+    const anotado = formatReplies([
+      { ...base, status: 'done', expense: { merchant: 'Arriendo', total_cop: 800_000, status: 'confirmed', payer: 'Mafe', split_count: 2 } },
+    ]);
+    expect(anotado).toBe('✅ Anotado en «Casa»: Arriendo · $800.000 · pagó Mafe · entre 2.\n\n📊 Más detalle en mrluks.com');
+    expect(esMensajeDeLuks(anotado)).toBe(true);
+    expect(formatReplies([{ ...base, status: 'not_expense', expense: null }])).toContain('Eso no parece un gasto, así que no lo anoté en «Casa»');
+    expect(formatReplies([{ ...base, status: 'failed', expense: null }])).toContain('No pude leerlo');
+  });
+});

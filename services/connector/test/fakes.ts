@@ -11,6 +11,8 @@ import type {
   ImportResult,
   IngestCheck,
   IngestInput,
+  IngestPrivadoInput,
+  IngestPrivadoResult,
   ItemsCantidad,
   ItemsPregunta,
   ItemsRespuesta,
@@ -425,6 +427,13 @@ export class FakeStore implements Store {
     if (!check.ingest) return check;
     this.messages.set(`${m.jid}|${m.waMessageId}`, m);
     return { ingest: true, message_id: `m-${this.messages.size}`, account_id: check.account_id, known_sender: false };
+  }
+  /** Lo que se anotó desde un chat privado (migración 630) y lo que contesta la base (la pone cada prueba) */
+  anotadosPorPrivado: IngestPrivadoInput[] = [];
+  respuestaPrivado: Partial<IngestPrivadoResult> | null = null;
+  async ingestPrivado(i: IngestPrivadoInput): Promise<IngestPrivadoResult> {
+    this.anotadosPorPrivado.push(i);
+    return { ingest: true, message_id: `p-${this.anotadosPorPrivado.length}`, account_id: i.accountId, account_name: 'Casa', ...this.respuestaPrivado };
   }
   async uploadEvidence(path: string, body: Buffer, contentType: string) {
     this.uploads.set(path, { body, contentType });

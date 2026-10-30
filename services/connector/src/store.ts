@@ -366,6 +366,37 @@ export interface IngestInput {
   sentAt: Date;
 }
 
+/** Un gasto que llegó por privado, para la cuenta que eligió quien lo mandó (migración 630) */
+export interface IngestPrivadoInput {
+  chatJid: string;
+  accountId: string;
+  waMessageId: string;
+  sender: Sender;
+  kind: 'photo' | 'pdf' | 'text';
+  text: string | null;
+  mediaPath: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  sentAt: Date;
+}
+
+export interface IngestPrivadoResult {
+  ingest: boolean;
+  reason?:
+    | 'sin_chat'
+    | 'cuenta_cerrada'
+    | 'cuenta_liquidada'
+    | 'no_es_de_la_cuenta'
+    | 'no_me_cuentes'
+    | 'vacio'
+    | 'archivo_fuera_de_la_cuenta'
+    | 'mensaje_de_luks'
+    | 'repetido';
+  message_id?: string;
+  account_id?: string;
+  account_name?: string;
+}
+
 export interface QueueHealth {
   queued: number;
   oldest_queued_s: number;
@@ -472,6 +503,8 @@ export interface Store {
   /** «la 1 son 3»: cuántas unidades trae un ítem de la lista, sin cambiar el total (migración 500) */
   itemsCantidad(jid: string, quotedId: string, sender: Sender, n: number, cantidad: number): Promise<ItemsCantidad>;
   ingest(input: IngestInput): Promise<IngestCheck>;
+  /** Un gasto que llegó por privado, en la cuenta que eligió (migración 630) */
+  ingestPrivado(input: IngestPrivadoInput): Promise<IngestPrivadoResult>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
   markReplied(messageIds: string[]): Promise<void>;
@@ -850,6 +883,24 @@ export class SupabaseStore implements Store {
   async uploadEvidence(path: string, body: Buffer, contentType: string) {
     const { error } = await this.#db.storage.from(EVIDENCE_BUCKET).upload(path, body, { contentType, upsert: true });
     if (error) throw new StoreError('storage.upload', error.message);
+  }
+
+  ingestPrivado(i: IngestPrivadoInput) {
+    return this.#rpc<IngestPrivadoResult>('connector_ingest_privado', {
+      p_chat_jid: i.chatJid,
+      p_account_id: i.accountId,
+      p_wa_message_id: i.waMessageId,
+      p_sender_wa_id: i.sender.id,
+      p_sender_phone: i.sender.phone,
+      p_sender_lid: i.sender.lid ?? null,
+      p_sender_name: i.sender.name,
+      p_kind: i.kind,
+      p_text: i.text,
+      p_media_path: i.mediaPath,
+      p_file_name: i.fileName,
+      p_mime_type: i.mimeType,
+      p_sent_at: i.sentAt.toISOString(),
+    });
   }
 
   pendingReplies(limit: number) {

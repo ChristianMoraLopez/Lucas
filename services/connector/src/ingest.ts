@@ -1,5 +1,6 @@
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
 import { contestarEliminar, esEliminar } from './eliminar.js';
+import { esAgradecimiento, GASTO_PRIVADO, leerEleccion, type Opcion, type QueMando } from './gasto-privado.js';
 import { confirmacionPrivada, contestar, contestarCantidad, leerCantidad, leerRespuesta, linkDividir, respuestaConfirmacion, siONo } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
@@ -61,6 +62,8 @@ export type Outcome =
   | `reabrir:${string}`
   | `eliminar:${string}`
   | `link_grupo:${string}`
+  | `gasto_privado:${string}`
+  | `privado:${string}`
   | `ignorado:${string}`;
 
 export interface IngestLimits extends MediaLimits {
@@ -88,6 +91,26 @@ const tramo = (d: Date, minutos: number) => Math.floor(d.getTime() / (minutos * 
 const LISTA_MS = 30 * 60_000;
 /** Lo suyo de una lista de ítems se puede confirmar o corregir por privado durante este tiempo */
 const CONFIRMAR_MS = 12 * 60 * 60_000;
+/** Lo que mandó por privado espera la respuesta a «¿dónde lo anoto?» durante este tiempo (migración 630) */
+const GASTO_MS = 30 * 60_000;
+/** Cuántas cosas guarda esperando esa respuesta (la foto, el PDF o el texto) */
+const GASTOS_MAX = 5;
+
+/** Lo que mandó por privado, guardado mientras responde dónde anotarlo (con el archivo ya revisado) */
+interface GastoGuardado {
+  messageId: string;
+  kind: 'photo' | 'pdf' | 'text';
+  text: string | null;
+  fileName: string | null;
+  sentAt: Date;
+  archivo: { body: Buffer; ext: string; contentType: string } | null;
+}
+
+interface GastosEnEspera {
+  gastos: GastoGuardado[];
+  opciones: Opcion[];
+  hasta: number;
+}
 /** Por privado, la línea de «ayuda» (todo lo que sabe hacer) sale como mucho una vez en este tiempo */
 const PISTA_MS = 24 * 60 * 60_000;
 
@@ -122,6 +145,8 @@ export class Ingestor {
   #usuariosVistos = new Map<string, string>();
   /** Por privado: hasta cuándo no se repite la línea de «ayuda» en cada chat */
   #pistas = new Map<string, number>();
+  /** Por privado: lo que mandó esperando «¿dónde lo anoto?» (migración 630) */
+  #gastosPrivados = new Map<string, GastosEnEspera>();
 
   constructor(
     private readonly store: Store,
@@ -404,6 +429,12 @@ export class Ingestor {
     const invitacion = parseInviteLink(m.text);
     if (invitacion) return this.#unirse(connector, m, invitacion, idioma);
 
+    // El código para conectar un grupo («luks PASEO-7K2Q») va en el grupo, no aquí
+    if (!m.media && parseLinkCommand(m.text)) {
+      await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body: MISTER.codigoPorPrivado(idioma), dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+      return 'privado:codigo';
+    }
+
     // «ya pagué» (respondiendo el aviso de cobro, por ejemplo): queda marcado
     const texto = aMisterLuks(m, this.#misterLuks)?.texto ?? m.text ?? '';
     if (!m.media && intencionDe(texto) === 'ya_pague') {
@@ -419,6 +450,12 @@ export class Ingestor {
       return 'ayuda';
     }
 
+    // Lo que mandó esperando «¿dónde lo anoto?»: el número, «sí» o «no» (migración 630)
+    if (!m.media) {
+      const eleccion = await this.#eleccionGasto(session, m, texto, idioma);
+      if (eleccion) return eleccion;
+    }
+
     // Lo suyo de una lista de ítems: «sí», «no» o los números para corregir
     if (!m.media) {
       const confirmacion = await this.#confirmacion(m, texto);
@@ -430,7 +467,196 @@ export class Ingestor {
       const suyo = await this.#loSuyo(m, texto, primeraVez);
       if (suyo) return suyo;
     }
-    return primeraVez ? 'bienvenida' : 'privado';
+
+    // Un gasto (la foto, el PDF o «arriendo 800 lucas»): ¿dónde lo anoto? (migración 630)
+    if (m.media || looksLikeExpense(m.text)) return this.#gastoPorPrivado(m, idioma);
+
+    // Nada queda sin respuesta (la primera vez ya salió la bienvenida)
+    if (primeraVez) return 'bienvenida';
+    const gracias = esAgradecimiento(m.text);
+    await this.#encolar([
+      {
+        chat_jid: m.chatId,
+        reason: 'answer',
+        body: gracias ? GASTO_PRIVADO.conGusto(idioma) : PRIVADO.noEntendi(idioma),
+        dedupe_key: gracias ? `answer:${m.chatId}:gracias:${tramo(m.sentAt, 10)}` : `answer:${m.chatId}:no_entendi:${tramo(m.sentAt, 10)}`,
+      },
+    ]);
+    return gracias ? 'privado:gracias' : 'suyo:no_entendi';
+  }
+
+  /**
+   * Por privado llegó un gasto (migración 630): lo guarda un rato y pregunta
+   * dónde lo anota (sus cuentas abiertas y, si es una foto o un PDF, su pago
+   * de lo que debe). Si no tiene dónde, le dice qué puede hacer.
+   */
+  async #gastoPorPrivado(m: IncomingMessage, idioma: Idioma): Promise<Outcome> {
+    const ahora = Date.now();
+    const que: QueMando = m.media?.kind === 'pdf' ? 'pdf' : m.media ? 'foto' : 'texto';
+    let archivo: GastoGuardado['archivo'] = null;
+    if (m.media) {
+      if (m.media.sizeBytes && m.media.sizeBytes > this.limits.maxDownloadBytes) {
+        await this.#encolar([
+          { chat_jid: m.chatId, reason: 'answer', body: GASTO_PRIVADO.noPude(idioma, 'Luks', undefined), dedupe_key: `answer:${m.chatId}:${m.messageId}` },
+        ]);
+        return 'archivo_muy_pesado';
+      }
+      try {
+        const listo = await prepareMedia(m.media.kind, await m.media.download(), this.limits);
+        archivo = { body: listo.body, ext: listo.ext, contentType: listo.contentType };
+      } catch (e) {
+        if (!(e instanceof MediaRejected)) throw e;
+        this.log.info({ msg_id: m.messageId, reason: e.message }, 'Archivo descartado (por privado)');
+        await this.#encolar([
+          { chat_jid: m.chatId, reason: 'answer', body: GASTO_PRIVADO.noPude(idioma, 'Luks', undefined), dedupe_key: `answer:${m.chatId}:${m.messageId}` },
+        ]);
+        return 'archivo_rechazado';
+      }
+    }
+    const gasto: GastoGuardado = {
+      messageId: m.messageId,
+      kind: m.media?.kind === 'pdf' ? 'pdf' : m.media ? 'photo' : 'text',
+      text: m.text,
+      fileName: m.media?.fileName ?? null,
+      sentAt: m.sentAt,
+      archivo,
+    };
+
+    // Ya esperaba otros (mandó varias fotos seguidas): van con la misma pregunta
+    const antes = this.#gastosPrivados.get(m.chatId);
+    const sigue = antes && antes.hasta >= ahora ? antes : null;
+    const gastos = [...(sigue?.gastos ?? []), gasto].slice(-GASTOS_MAX);
+
+    let opciones: Opcion[] = sigue?.opciones ?? [];
+    if (!sigue) {
+      const [cuentas, deudas] = await Promise.all([
+        this.store.misCuentas(m.chatId, m.sender).catch(() => null),
+        m.media ? this.store.porPagar(m.chatId, m.sender).catch(() => null) : Promise.resolve(null),
+      ]);
+      const pagos: Opcion[] = (deudas?.pendientes ?? []).slice(0, 3).map((t) => ({
+        tipo: 'pago',
+        transferId: t.id,
+        a: primerNombre(t.to_name),
+        cuenta: t.account.name,
+        monto: Number(t.amount),
+        moneda: t.account.currency,
+      }));
+      const abiertas: Opcion[] = (cuentas?.cuentas ?? [])
+        .filter((c) => c.account.id && c.account.status === 'active' && !c.optout && c.me)
+        .slice(0, 6)
+        .map((c) => ({ tipo: 'cuenta', id: c.account.id as string, nombre: c.account.name }));
+      opciones = [...pagos, ...abiertas];
+    }
+    this.#gastosPrivados.set(m.chatId, { gastos, opciones, hasta: ahora + GASTO_MS });
+
+    const nombre = primerNombre(m.sender.name).startsWith('@') ? '' : primerNombre(m.sender.name);
+    const body = opciones.length ? GASTO_PRIVADO.pregunta(idioma, nombre, que, opciones, gastos.length) : GASTO_PRIVADO.sinCuenta(idioma, nombre, que);
+    // Varias fotos seguidas: una sola pregunta cada 2 minutos
+    await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `gasto-privado:${m.chatId}:${tramo(m.sentAt, 2)}` }]);
+    this.log.info(
+      { chat: maskWaId(m.chatId), kind: gasto.kind, opciones: opciones.length, esperando: gastos.length },
+      'Un gasto por privado: ¿dónde lo anoto?',
+    );
+    return opciones.length ? 'gasto_privado:pregunta' : 'gasto_privado:sin_cuenta';
+  }
+
+  /** La respuesta a «¿dónde lo anoto?»: lo anota en esa cuenta, marca su pago, o nada. null si no era para esto */
+  async #eleccionGasto(session: SessionInfo, m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
+    const espera = this.#gastosPrivados.get(m.chatId);
+    if (!espera) return null;
+    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+    const eleccion = leerEleccion(texto, Math.max(espera.opciones.length, 1));
+    if (eleccion === null) return null;
+    if (espera.hasta < Date.now()) {
+      this.#gastosPrivados.delete(m.chatId);
+      await responder(GASTO_PRIVADO.seMePerdio(idioma));
+      return 'gasto_privado:se_perdio';
+    }
+    this.#gastosPrivados.delete(m.chatId);
+    if (eleccion === 'no') {
+      await responder(GASTO_PRIVADO.noAnoto(idioma));
+      return 'gasto_privado:no';
+    }
+
+    // Sin cuentas: «sí» → el link para crear la suya y conectar este número
+    if (!espera.opciones.length) {
+      const privado = privadoDe(m) ?? m.chatId;
+      const r = await this.store.soyYo(session.id, privado, m.sender.phone, m.sender.lid ?? null, m.sender.name);
+      if (r.verified) {
+        await responder(GASTO_PRIVADO.creaTuCuenta(idioma));
+      } else {
+        await this.#encolar([
+          {
+            chat_jid: privado,
+            reason: 'verify',
+            body: MISTER.soyYo.link(idioma, r.last4),
+            identity_id: r.identity_id,
+            dedupe_key: `verify:${privado}:${tramo(m.sentAt, 10)}`,
+          },
+        ]);
+        await this.#encolar([
+          { chat_jid: m.chatId, reason: 'answer', body: GASTO_PRIVADO.despuesDelLink(idioma), dedupe_key: `answer:${m.chatId}:${m.messageId}` },
+        ]);
+      }
+      return 'gasto_privado:crear_cuenta';
+    }
+
+    const opcion = espera.opciones[eleccion - 1];
+    if (opcion.tipo === 'pago') {
+      // Es su pago de lo que debe: como «ya pagué» (y no se anota como gasto)
+      const r = await this.store.yaPague(m.chatId, m.sender, [opcion.transferId]);
+      const nombre = primerNombre(r.pagadas[0]?.from_name ?? m.sender.name);
+      const items: OutboxItem[] = [
+        {
+          chat_jid: m.chatId,
+          reason: 'answer',
+          body: r.pagadas.length ? PAGOS.listo(idioma, nombre, r, true) : PAGOS.nada(idioma, nombre, null),
+          dedupe_key: `answer:${m.chatId}:${m.messageId}`,
+        },
+      ];
+      for (const p of r.pagadas) {
+        const chat = p.to_private_jid ?? p.group_jid;
+        if (!chat) continue;
+        const idiomaP = p.account.language ?? idioma;
+        items.push({
+          chat_jid: chat,
+          reason: 'answer',
+          body: p.to_private_jid ? PAGOS.tePagaron(idiomaP, p) : PAGOS.pagoEnGrupo(idiomaP, p),
+          dedupe_key: `pagado:${p.id}`,
+        });
+      }
+      await this.#encolar(items);
+      this.log.info({ chat: maskWaId(m.chatId), pagadas: r.pagadas.length }, 'Un gasto por privado era su pago');
+      return 'gasto_privado:pago';
+    }
+
+    // En la cuenta que eligió: cada cosa que mandó entra como un mensaje de esa cuenta
+    let anotados = 0;
+    let razon: string | undefined;
+    for (const g of espera.gastos) {
+      let mediaPath: string | null = null;
+      if (g.archivo) {
+        mediaPath = `${opcion.id}/whatsapp/${mes(g.sentAt)}/${nombreSeguro(g.messageId)}.${g.archivo.ext}`;
+        await this.store.uploadEvidence(mediaPath, g.archivo.body, g.archivo.contentType);
+      }
+      const r = await this.store.ingestPrivado({
+        chatJid: m.chatId,
+        accountId: opcion.id,
+        waMessageId: g.messageId,
+        sender: m.sender,
+        kind: g.kind,
+        text: g.text,
+        mediaPath,
+        fileName: g.fileName,
+        mimeType: g.archivo?.contentType ?? null,
+        sentAt: g.sentAt,
+      });
+      if (r.ingest || r.reason === 'repetido') anotados += 1;
+      else razon = r.reason;
+    }
+    await responder(anotados ? GASTO_PRIVADO.anotando(idioma, opcion.nombre, anotados) : GASTO_PRIVADO.noPude(idioma, opcion.nombre, razon));
+    this.log.info({ chat: maskWaId(m.chatId), anotados, razon }, 'Un gasto por privado, a una cuenta');
+    return anotados ? 'gasto_privado:anotado' : `gasto_privado:${razon ?? 'no_pude'}`;
   }
 
   /** «la 1 son 3» respondiendo la lista (en el grupo, o por privado sobre lo que confirma): la cantidad, sin cambiar el total */

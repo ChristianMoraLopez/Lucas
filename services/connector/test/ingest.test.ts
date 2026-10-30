@@ -225,9 +225,9 @@ describe('«lucas CÓDIGO»', () => {
 });
 
 describe('chats privados con Mister Luks', () => {
-  it('la primera vez, la bienvenida con la imagen y el PDF de la guía; después, nada más', async () => {
+  it('la primera vez, la bienvenida con la imagen y el PDF de la guía; después, la bienvenida no se repite', async () => {
     expect(await ing.onMessage(contador, wa, privado())).toBe('bienvenida');
-    expect(await ing.onMessage(contador, wa, privado({ text: 'gracias' }))).toBe('privado');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'gracias' }))).toBe('privado:gracias');
     expect(bandeja()).toEqual([
       expect.objectContaining({
         chat_jid: PRIVADO,
@@ -237,6 +237,8 @@ describe('chats privados con Mister Luks', () => {
         document_url: `${GUIA}/luks-guia-es.pdf`,
         document_name: 'Guía de Mister Luks.pdf',
       }),
+      // Nada queda sin respuesta
+      expect.objectContaining({ chat_jid: PRIVADO, body: '🙌 ¡Con gusto!' }),
     ]);
     expect(store.privados.has(PRIVADO)).toBe(true);
     expect(store.messages.size).toBe(0);
@@ -283,8 +285,10 @@ describe('chats privados con Mister Luks', () => {
   });
 
   it('«luks CÓDIGO» por privado no enlaza nada; y una sesión personal nunca lee chats privados', async () => {
-    expect(await ing.onMessage(contador, wa, privado({ text: 'luks PASEO-7K2Q' }))).toBe('bienvenida');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'luks PASEO-7K2Q' }))).toBe('privado:codigo');
     expect([...store.groups.values()].some((g) => g.account_id)).toBe(false);
+    // Le dice dónde va el código (no lo deja sin respuesta)
+    expect(bandeja().at(-1)?.body).toBe(MISTER.codigoPorPrivado('es'));
     const mio = new FakeConnector(personal);
     expect(await ing.onMessage(personal, mio, privado({ sessionId: 'personal' }))).toBe('ignorado:privado');
   });
@@ -1069,22 +1073,93 @@ describe('por privado, lo de cada quien (migración 480)', () => {
     expect(await ing.onMessage(contador, wa, privado({ text: 'mis cuentas' }))).toBe('suyo:lista');
   });
 
-  it('a quien no está en ninguna cuenta se lo dice; lo que no entiende, solo si pregunta algo', async () => {
+  it('a quien no está en ninguna cuenta se lo dice; lo que no entiende, también (una vez cada 10 minutos)', async () => {
     expect(await ing.onMessage(contador, wa, privado({ text: 'cuánto debo' }))).toBe('suyo:no_te_encuentro');
     expect(ultimo()).toBe(POR_PRIVADO.noTeEncuentro('es'));
     expect(await ing.onMessage(contador, wa, privado({ text: '¿y el clima?' }))).toBe('suyo:no_entendi');
     expect(await ing.onMessage(contador, wa, privado({ text: '¿y mañana?' }))).toBe('suyo:no_entendi');
     expect(bandeja(PRIVADO).filter((o) => o.body === POR_PRIVADO.noEntendi('es'))).toHaveLength(1);
-    // Sin lista, un número no es nada; y «ok» tampoco
-    expect(await ing.onMessage(contador, wa, privado({ text: '2' }))).toBe('privado');
-    expect(await ing.onMessage(contador, wa, privado({ text: 'ok' }))).toBe('privado');
+    // Sin lista, un número tampoco lo entiende (y no lo repite en 10 minutos); a un «ok» le contesta
+    expect(await ing.onMessage(contador, wa, privado({ text: '2' }))).toBe('suyo:no_entendi');
+    expect(bandeja(PRIVADO).filter((o) => o.body === POR_PRIVADO.noEntendi('es'))).toHaveLength(1);
+    expect(await ing.onMessage(contador, wa, privado({ text: 'ok' }))).toBe('privado:gracias');
   });
 
   it('si la base todavía no lo tiene (sin la 480), por privado sigue como antes', async () => {
     store.misCuentas = async () => {
       throw new Error('function connector_mis_cuentas does not exist');
     };
-    expect(await ing.onMessage(contador, wa, privado({ text: '¿qué debo?' }))).toBe('privado');
+    expect(await ing.onMessage(contador, wa, privado({ text: '¿qué debo?' }))).toBe('suyo:no_entendi');
+  });
+
+  it('un gasto por privado: pregunta en cuál cuenta y, con «sí», lo anota allá (migración 630)', async () => {
+    store.misCuentasDe.set('573016667788', [DANICHILE, CASA]);
+    // DaniChile ya está liquidada: solo ofrece Casa
+    expect(await ing.onMessage(contador, wa, privado({ messageId: 'P-ARRIENDO', text: 'arriendo 800 lucas' }))).toBe('gasto_privado:pregunta');
+    expect(ultimo()).toContain('🧾 Hola Mafe, veo que me mandaste un gasto. ¿Lo anoto en «Casa»?');
+    expect(ultimo()).toContain('también puedes mandarlo en el grupo de WhatsApp de esa cuenta');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Sí' }))).toBe('gasto_privado:anotado');
+    expect(store.anotadosPorPrivado).toEqual([
+      expect.objectContaining({ chatJid: PRIVADO, accountId: 'casa', waMessageId: 'P-ARRIENDO', kind: 'text', text: 'arriendo 800 lucas', mediaPath: null }),
+    ]);
+    expect(ultimo()).toBe('👍 Listo, lo anoto en «Casa». Ya te digo cómo quedó.');
+    // Ya no espera nada: otro «sí» no anota otra vez
+    await ing.onMessage(contador, wa, privado({ text: 'sí' }));
+    expect(store.anotadosPorPrivado).toHaveLength(1);
+  });
+
+  it('una foto por privado de quien debe: puede ser su pago; «no» no anota nada', async () => {
+    const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: '#FFFFFF' } })
+      .png()
+      .toBuffer();
+    const foto = (id: string) =>
+      privado({ messageId: id, text: null, media: { kind: 'photo', mimeType: 'image/png', fileName: null, sizeBytes: png.length, download: async () => png } });
+    store.misCuentasDe.set('573016667788', [CASA]);
+    const cuenta = { id: 'dc', name: 'DaniChile', language: 'es' as const, currency: 'COP' as const };
+    store.deudas = [
+      {
+        id: 't9',
+        settlement_id: 's9',
+        account: cuenta,
+        from_id: 'm',
+        from_name: 'Mafe',
+        to_id: 'dan',
+        to_name: 'Daniel',
+        amount: 200_000,
+        wa: '573016667788',
+        to_private_jid: null,
+        group_jid: GRUPO,
+      },
+    ];
+    expect(await ing.onMessage(contador, wa, foto('P-FOTO1'))).toBe('gasto_privado:pregunta');
+    expect(ultimo()).toContain('🧾 Hola Mafe, recibí tu foto. ¿Qué hago con él?\n1. Es mi pago a Daniel de «DaniChile» ($200.000)\n2. Anotarlo en «Casa»');
+    expect(await ing.onMessage(contador, wa, privado({ text: '1' }))).toBe('gasto_privado:pago');
+    expect(store.pagadas).toEqual(['t9']);
+    expect(store.anotadosPorPrivado).toEqual([]);
+
+    // Otra foto, y «no»
+    store.deudas = [];
+    await ing.onMessage(contador, wa, foto('P-FOTO2'));
+    expect(await ing.onMessage(contador, wa, privado({ text: 'no' }))).toBe('gasto_privado:no');
+    expect(ultimo()).toBe('👍 Listo, no lo anoto.');
+
+    // Una foto que se elige anotar va con su archivo a la carpeta de la cuenta
+    await ing.onMessage(contador, wa, foto('P-FOTO3'));
+    expect(await ing.onMessage(contador, wa, privado({ text: 'dale' }))).toBe('gasto_privado:anotado');
+    const [g] = store.anotadosPorPrivado;
+    expect(g).toMatchObject({ accountId: 'casa', kind: 'photo', mimeType: 'image/jpeg' });
+    expect(g.mediaPath).toMatch(/^casa\/whatsapp\/\d{4}-\d{2}\/P-FOTO3\.jpg$/);
+    expect(store.uploads.has(g.mediaPath as string)).toBe(true);
+  });
+
+  it('sin cuentas abiertas le dice qué puede hacer, y con «sí» el link para crear la suya', async () => {
+    expect(await ing.onMessage(contador, wa, privado({ text: 'pagué 800.000 de arriendo' }))).toBe('gasto_privado:sin_cuenta');
+    expect(ultimo()).toContain('pero no tienes una cuenta abierta en Luks donde anotarlo');
+    expect(ultimo()).toContain('mándalo en el grupo de WhatsApp de ellos donde estoy yo');
+    expect(ultimo()).toContain('mrluks.com/subir');
+    expect(await ing.onMessage(contador, wa, privado({ text: 'si' }))).toBe('gasto_privado:crear_cuenta');
+    expect(bandeja(PRIVADO).some((o) => o.reason === 'verify')).toBe(true);
+    expect(ultimo()).toBe('😉 Cuando entres, crea tu cuenta y me vuelves a mandar el gasto.');
   });
 
   it('nada de lo que responde se anota como gasto', async () => {
