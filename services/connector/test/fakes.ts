@@ -26,8 +26,10 @@ import type {
   OutboxPending,
   PendientesResult,
   PendingMembers,
+  PorAbrirEnEspera,
   QuestionData,
   QueueHealth,
+  ResolverPorAbrirResult,
   SessionRow,
   SoyYoResult,
   Store,
@@ -444,6 +446,21 @@ export class FakeStore implements Store {
   async guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]) {
     this.porAbrir.push({ accountId, gastos });
     return gastos.length;
+  }
+  /** La pregunta al entrar a Luks con cuentas que ya tenía (migración 670), por chat; y cómo se respondió */
+  enEspera = new Map<string, PorAbrirEnEspera>();
+  resueltas: { accountId: string; que: string }[] = [];
+  movidos: { from: string; to: string }[] = [];
+  async porAbrirEnEspera(jid: string) {
+    return this.enEspera.get(jid) ?? null;
+  }
+  async resolverPorAbrir(accountId: string, que: 'nueva' | 'listo' | 'no'): Promise<ResolverPorAbrirResult> {
+    this.resueltas.push({ accountId, que });
+    for (const [jid, e] of this.enEspera) if (e.account_id === accountId) this.enEspera.delete(jid);
+    return que === 'nueva' ? { ok: true, account_id: accountId, account_name: 'Cuenta con Mister Luks', leyendo: 1 } : { ok: true };
+  }
+  async moverEvidencia(from: string, to: string) {
+    this.movidos.push({ from, to });
   }
   /** Lo que se anotó desde un chat privado (migración 630) y lo que contesta la base (la pone cada prueba) */
   anotadosPorPrivado: IngestPrivadoInput[] = [];

@@ -84,11 +84,14 @@ export const GASTO_PRIVADO = {
       : `🧾 ${hola} 👋 Recibí tu ${que === 'foto' ? 'foto' : que === 'pdf' ? 'PDF' : 'gasto'}, pero veo que todavía no tienes sesión en mrluks.com.\n\n🙋 Si quieres empezar a llevar tus gastos conmigo, abre el link que te mando ahora: creas tu usuario (o entras con el que ya tienes) y tu número queda registrado con ese correo. Apenas entres, abro «${cuenta}» y anoto lo que me mandaste, sin que lo vuelvas a mandar.\n\n🔁 ¿Ya tienes Luks y no te reconocí? Entra con el mismo link, o escríbeme «soy yo» y te mando otro.\n\n👥 Si es un gasto con otras personas, lo usual es un grupo de WhatsApp con ellas y conmigo: mándalo allá.`;
   },
 
-  /** Tiene sesión pero ninguna cuenta abierta: le abrió «Cuenta con Mister Luks» y está leyendo lo que mandó */
-  cuentaAbierta: (idioma: Idioma, cuenta: string, link: string, leyendo: boolean) =>
+  /**
+   * Tiene sesión pero ninguna cuenta abierta: le abrió «Cuenta con Mister Luks» y está leyendo lo que
+   * mandó. Con «pedida», tenía otras y eligió abrir esa (migración 670)
+   */
+  cuentaAbierta: (idioma: Idioma, cuenta: string, link: string, leyendo: boolean, pedida = false) =>
     idioma === 'en'
-      ? `🎉 You didn’t have an open account, so I opened “${cuenta}” for you${leyendo ? ' and I’m reading what you sent me. I’ll tell you how it went in a moment' : ''}.\n🔗 It’s at ${link}\n\n💡 Send me your expenses right here and I’ll log them there. If it was a shared expense, the usual thing is a WhatsApp group with those people and me; you can also connect this account to a group from the app (Connect WhatsApp) so several people send receipts to it.`
-      : `🎉 No tenías una cuenta abierta, así que te abrí «${cuenta}»${leyendo ? ' y estoy leyendo lo que me mandaste. Ya te digo cómo quedó' : ''}.\n🔗 Está en ${link}\n\n💡 Mándame tus gastos por aquí y los anoto allá. Si era un gasto compartido, lo usual es un grupo de WhatsApp con esas personas y conmigo; también puedes conectar esta cuenta a un grupo desde la app (Conectar WhatsApp) para que varios manden recibos a ella.`,
+      ? `🎉 ${pedida ? 'Done, I' : 'You didn’t have an open account, so I'} opened “${cuenta}” for you${leyendo ? ' and I’m reading what you sent me. I’ll tell you how it went in a moment' : ''}.\n🔗 It’s at ${link}\n\n💡 Send me your expenses right here and I’ll log them there. If it was a shared expense, the usual thing is a WhatsApp group with those people and me; you can also connect this account to a group from the app (Connect WhatsApp) so several people send receipts to it.`
+      : `🎉 ${pedida ? 'Listo, te' : 'No tenías una cuenta abierta, así que te'} abrí «${cuenta}»${leyendo ? ' y estoy leyendo lo que me mandaste. Ya te digo cómo quedó' : ''}.\n🔗 Está en ${link}\n\n💡 Mándame tus gastos por aquí y los anoto allá. Si era un gasto compartido, lo usual es un grupo de WhatsApp con esas personas y conmigo; también puedes conectar esta cuenta a un grupo desde la app (Conectar WhatsApp) para que varios manden recibos a ella.`,
 
   anotando: (idioma: Idioma, cuenta: string, varios: number) =>
     idioma === 'en'

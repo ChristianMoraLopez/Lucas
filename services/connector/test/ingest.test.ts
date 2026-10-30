@@ -4,7 +4,7 @@ import type { IncomingMessage } from '../src/connector.js';
 import { Ingestor } from '../src/ingest.js';
 import { PRIVADO as POR_PRIVADO, PREGUNTAS } from '../src/preguntas.js';
 import { RateLimiter } from '../src/replies.js';
-import type { NumerosDeCuenta } from '../src/store.js';
+import type { NumerosDeCuenta, PorAbrirEnEspera } from '../src/store.js';
 import { esMensajeDeLuks, LINK_GRUPO, MISTER, MSG, PISTA_AYUDA, PREGUNTA_DESDE_CUANDO } from '../src/text.js';
 import { contador, FakeConnector, FakeStore, GRUPO, grupo, PASEO, personal, silentLog } from './fakes.js';
 
@@ -1176,6 +1176,60 @@ describe('por privado, lo de cada quien (migración 480)', () => {
     expect(ultimo()).toContain('🎉 No tenías una cuenta abierta, así que te abrí «Cuenta con Mister Luks» y estoy leyendo lo que me mandaste.');
     expect(ultimo()).toContain('/c/gm');
     expect(ultimo()).toContain('conectar esta cuenta a un grupo desde la app');
+  });
+
+  // Entró a Luks con el link teniendo cuentas: la base no abrió otra y le preguntó en cuál anota (migración 670)
+  const enEspera = (): PorAbrirEnEspera => ({
+    account_id: 'por-abrir',
+    account_name: 'Cuenta con Mister Luks',
+    language: 'es',
+    opciones: [
+      { id: 'casa', name: 'Casa gastos' },
+      { id: 'paseo', name: 'Paseo' },
+    ],
+    items: [
+      {
+        wa_message_id: 'P-FOTO',
+        kind: 'photo',
+        text: 'Pago octubre 2026',
+        media_path: 'por-abrir/whatsapp/2026-10/P-FOTO.jpg',
+        file_name: null,
+        mime_type: 'image/jpeg',
+        sent_at: '2026-10-30T14:37:00Z',
+      },
+    ],
+  });
+
+  it('al entrar a Luks con otras cuentas, lo que mandó va a la que elija, con su archivo', async () => {
+    store.enEspera.set(PRIVADO, enEspera());
+    expect(await ing.onMessage(contador, wa, privado({ text: '1' }))).toBe('gasto_privado:anotado');
+    expect(store.movidos).toEqual([{ from: 'por-abrir/whatsapp/2026-10/P-FOTO.jpg', to: 'casa/whatsapp/2026-10/P-FOTO.jpg' }]);
+    expect(store.anotadosPorPrivado).toEqual([
+      expect.objectContaining({
+        accountId: 'casa',
+        waMessageId: 'P-FOTO',
+        kind: 'photo',
+        text: 'Pago octubre 2026',
+        mediaPath: 'casa/whatsapp/2026-10/P-FOTO.jpg',
+      }),
+    ]);
+    expect(store.resueltas).toEqual([{ accountId: 'por-abrir', que: 'listo' }]);
+    expect(ultimo()).toBe('👍 Listo, lo anoto en «Casa gastos». Ya te digo cómo quedó.');
+    // Ya respondida: otro número no la toca
+    expect(await ing.onMessage(contador, wa, privado({ text: '2' }))).not.toBe('gasto_privado:anotado');
+    expect(store.anotadosPorPrivado).toHaveLength(1);
+  });
+
+  it('la última opción abre «Cuenta con Mister Luks» con lo que mandó; «no», nada', async () => {
+    store.enEspera.set(PRIVADO, enEspera());
+    expect(await ing.onMessage(contador, wa, privado({ text: '3' }))).toBe('gasto_privado:cuenta_abierta');
+    expect(store.resueltas).toEqual([{ accountId: 'por-abrir', que: 'nueva' }]);
+    expect(ultimo()).toMatch(/^🎉 Listo, te abrí «Cuenta con Mister Luks» y estoy leyendo lo que me mandaste/);
+
+    store.enEspera.set(PRIVADO, enEspera());
+    expect(await ing.onMessage(contador, wa, privado({ text: 'no' }))).toBe('gasto_privado:no');
+    expect(store.resueltas.at(-1)).toEqual({ accountId: 'por-abrir', que: 'no' });
+    expect(store.anotadosPorPrivado).toEqual([]);
   });
 
   it('nada de lo que responde se anota como gasto', async () => {

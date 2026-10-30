@@ -9,7 +9,7 @@ import { antesDeLaFirma, type Numeros, PREGUNTAS, PRIVADAS, PRIVADO, primerNombr
 import type { Clasificador } from './qwen.js';
 import { contestarDecision, leerDecision } from './reabrir.js';
 import type { RateLimiter } from './replies.js';
-import type { GastoPorAbrir, OutboxItem, Store } from './store.js';
+import type { GastoPorAbrir, OutboxItem, PorAbrirEnEspera, Store } from './store.js';
 import {
   aMisterLuks,
   canalDe,
@@ -654,7 +654,7 @@ export class Ingestor {
   /** La respuesta a «¿dónde lo anoto?»: lo anota en esa cuenta, marca su pago, o nada. null si no era para esto */
   async #eleccionGasto(m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
     const espera = this.#gastosPrivados.get(m.chatId);
-    if (!espera) return null;
+    if (!espera) return this.#eleccionPorAbrir(m, texto, idioma);
     const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
     const eleccion = leerEleccion(texto, Math.max(espera.opciones.length, 1));
     if (eleccion === null) return null;
@@ -720,6 +720,79 @@ export class Ingestor {
     }
     await responder(anotados ? GASTO_PRIVADO.anotando(idioma, opcion.nombre, anotados) : GASTO_PRIVADO.noPude(idioma, opcion.nombre, razon));
     this.log.info({ chat: maskWaId(m.chatId), anotados, razon }, 'Un gasto por privado, a una cuenta');
+    return anotados ? 'gasto_privado:anotado' : `gasto_privado:${razon ?? 'no_pude'}`;
+  }
+
+  /**
+   * La respuesta a la pregunta que le hizo la base al entrar a Luks con cuentas que ya
+   * tenía (migración 670): lo que mandó va a la cuenta que eligió (con sus archivos) o
+   * a la nueva, «Cuenta con Mister Luks». La última opción es la nueva. null si no era para esto
+   */
+  async #eleccionPorAbrir(m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
+    // Solo si parece una respuesta: un número o «no»
+    if (leerEleccion(texto, 9) === null) return null;
+    let espera: PorAbrirEnEspera | null;
+    try {
+      espera = await this.store.porAbrirEnEspera(m.chatId);
+    } catch (e) {
+      // Sin la migración 670 todavía: sigue como cualquier otro mensaje
+      this.log.warn({ err: (e as Error).message }, 'No se pudo leer la pregunta de la cuenta por abrir');
+      return null;
+    }
+    if (!espera) return null;
+    const eleccion = leerEleccion(texto, espera.opciones.length + 1);
+    if (eleccion === null) return null;
+    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+
+    if (eleccion === 'no') {
+      await this.store.resolverPorAbrir(espera.account_id, 'no');
+      await responder(GASTO_PRIVADO.noAnoto(idioma));
+      return 'gasto_privado:no';
+    }
+    if (eleccion > espera.opciones.length) {
+      const r = await this.store.resolverPorAbrir(espera.account_id, 'nueva');
+      if (!r.ok || !r.account_id) {
+        await responder(GASTO_PRIVADO.noPude(idioma, espera.account_name, undefined));
+        return 'gasto_privado:no_pude';
+      }
+      await responder(GASTO_PRIVADO.cuentaAbierta(idioma, r.account_name ?? espera.account_name, `${this.#web}/c/${r.account_id}`, (r.leyendo ?? 0) > 0, true));
+      return 'gasto_privado:cuenta_abierta';
+    }
+
+    // En una de sus cuentas: los archivos pasan a la carpeta de esa cuenta y cada cosa entra ahí
+    const opcion = espera.opciones[eleccion - 1];
+    let anotados = 0;
+    let razon: string | undefined;
+    for (const g of espera.items) {
+      let mediaPath: string | null = null;
+      if (g.media_path) {
+        mediaPath = `${opcion.id}/${g.media_path.split('/').slice(1).join('/')}`;
+        try {
+          await this.store.moverEvidencia(g.media_path, mediaPath);
+        } catch (e) {
+          this.log.warn({ err: (e as Error).message }, 'No se pudo mover el archivo a la cuenta que eligió');
+          razon = 'sin_archivo';
+          continue;
+        }
+      }
+      const r = await this.store.ingestPrivado({
+        chatJid: m.chatId,
+        accountId: opcion.id,
+        waMessageId: g.wa_message_id,
+        sender: m.sender,
+        kind: g.kind,
+        text: g.text,
+        mediaPath,
+        fileName: g.file_name,
+        mimeType: g.mime_type,
+        sentAt: new Date(g.sent_at),
+      });
+      if (r.ingest || r.reason === 'repetido') anotados += 1;
+      else razon = r.reason;
+    }
+    await this.store.resolverPorAbrir(espera.account_id, 'listo');
+    await responder(anotados ? GASTO_PRIVADO.anotando(idioma, opcion.name, anotados) : GASTO_PRIVADO.noPude(idioma, opcion.name, razon));
+    this.log.info({ chat: maskWaId(m.chatId), anotados, razon }, 'Lo que mandó antes de entrar a Luks, a una de sus cuentas');
     return anotados ? 'gasto_privado:anotado' : `gasto_privado:${razon ?? 'no_pude'}`;
   }
 

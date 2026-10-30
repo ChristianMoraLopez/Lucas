@@ -420,6 +420,34 @@ export interface GastoPorAbrir {
   sent_at: string;
 }
 
+/**
+ * Entró a Luks con cuentas que ya tenía (migración 670): la base no abrió otra y le preguntó en
+ * cuál anota lo que mandó. Las opciones son sus cuentas y, después, la nueva («Cuenta con Mister Luks»)
+ */
+export interface PorAbrirEnEspera {
+  account_id: string;
+  account_name: string;
+  language: Idioma;
+  opciones: { id: string; name: string }[];
+  items: {
+    wa_message_id: string;
+    kind: 'photo' | 'pdf' | 'text';
+    text: string | null;
+    media_path: string | null;
+    file_name: string | null;
+    mime_type: string | null;
+    sent_at: string;
+  }[];
+}
+
+export interface ResolverPorAbrirResult {
+  ok: boolean;
+  reason?: 'ya_no' | 'sin_usuario';
+  account_id?: string;
+  account_name?: string;
+  leyendo?: number;
+}
+
 export interface QueueHealth {
   queued: number;
   oldest_queued_s: number;
@@ -534,7 +562,13 @@ export interface Store {
   abrirCuentaPrivada(jid: string, sender: Sender): Promise<AbrirCuentaPrivadaResult>;
   /** Lo que mandó, para la cuenta que se abre cuando entre a Luks (migración 640) */
   guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]): Promise<number>;
+  /** La pregunta «¿en cuál anoto lo que me mandaste?» de ese chat, si espera respuesta (migración 670) */
+  porAbrirEnEspera(jid: string): Promise<PorAbrirEnEspera | null>;
+  /** 'nueva' la abre con lo que mandó; 'listo' (ya se anotó en otra) o 'no' cierran la pregunta */
+  resolverPorAbrir(accountId: string, que: 'nueva' | 'listo' | 'no'): Promise<ResolverPorAbrirResult>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
+  /** Mueve un archivo de una cuenta a otra (lo que mandó para la cuenta por abrir, a la que eligió) */
+  moverEvidencia(from: string, to: string): Promise<void>;
   pendingReplies(limit: number): Promise<PendingReply[]>;
   markReplied(messageIds: string[]): Promise<void>;
   queueHealth(): Promise<QueueHealth>;
@@ -935,6 +969,19 @@ export class SupabaseStore implements Store {
 
   guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]) {
     return this.#rpc<number>('connector_guardar_gastos_por_abrir', { p_account_id: accountId, p_items: gastos });
+  }
+
+  porAbrirEnEspera(jid: string) {
+    return this.#rpc<PorAbrirEnEspera | null>('connector_por_abrir_en_espera', { p_chat_jid: jid });
+  }
+
+  resolverPorAbrir(accountId: string, que: 'nueva' | 'listo' | 'no') {
+    return this.#rpc<ResolverPorAbrirResult>('connector_resolver_por_abrir', { p_account_id: accountId, p_que: que });
+  }
+
+  async moverEvidencia(from: string, to: string) {
+    const { error } = await this.#db.storage.from(EVIDENCE_BUCKET).move(from, to);
+    if (error) throw new StoreError('storage.move', error.message);
   }
 
   ingestPrivado(i: IngestPrivadoInput) {
