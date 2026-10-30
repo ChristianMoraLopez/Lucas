@@ -150,7 +150,8 @@ export default async function AccountPickerPage() {
 
 /** La cuenta protagonista: la activa con más por revisar; a igualdad, los eventos primero. */
 function pickLead(accounts: AccountOverview[]) {
-  const active = accounts.filter((a) => a.status === 'active');
+  // Las de cobro (Chepito) no tienen gastos: no son la protagonista
+  const active = accounts.filter((a) => a.status === 'active' && a.type !== 'cobro');
   return [...active].sort((a, b) => b.pending_count - a.pending_count || Number(b.type === 'evento') - Number(a.type === 'evento'))[0];
 }
 
@@ -211,20 +212,27 @@ function LeadAccount({ a, t }: { a: AccountOverview; t: T }) {
 
 function AccountRow({ a, i, t }: { a: AccountOverview; i?: number; t: T }) {
   const closed = a.status === 'closed';
+  const cobro = a.type === 'cobro';
   const note = a.type === 'hogar' ? (budgetNote(a, t) ?? (a.pending_count ? null : t('Al día'))) : null;
   return (
-    <Link href={`/c/${a.id}/resumen`} className={`ap-row${closed ? ' is-closed' : ''}`} style={i == null ? undefined : ({ '--i': i } as React.CSSProperties)}>
+    <Link
+      href={`/c/${a.id}/${cobro ? 'cobros' : 'resumen'}`}
+      className={`ap-row${closed ? ' is-closed' : ''}`}
+      style={i == null ? undefined : ({ '--i': i } as React.CSSProperties)}
+    >
       <span className="ap-glyph" style={{ background: `var(--tono-${accountTone(a.name)})` }} aria-hidden="true">
         {accountGlyph(a.name)}
       </span>
       <span className="ap-row__txt">
         <span className="ap-row__n">{a.name}</span>
         <span className="ap-row__s">
-          {t(a.type === 'evento' ? 'Evento' : 'Hogar')} · {periodLabel(a, t)} · {note ?? plural(a.people_count, t('persona'), t('personas'))}
+          {cobro
+            ? `${t('Cobro')} · Chepito`
+            : `${t(a.type === 'evento' ? 'Evento' : 'Hogar')} · ${periodLabel(a, t)} · ${note ?? plural(a.people_count, t('persona'), t('personas'))}`}
         </span>
       </span>
       <span className="ap-row__r">
-        <Amount value={a.total_cop} />
+        {!cobro && <Amount value={a.total_cop} />}
         {a.pending_count > 0 ? (
           <span className="ap-pend">{t('{n} por revisar', { n: a.pending_count })}</span>
         ) : closed ? (

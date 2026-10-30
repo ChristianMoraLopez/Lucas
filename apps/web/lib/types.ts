@@ -7,7 +7,7 @@ import { formatear, normalizar } from '@/lib/telefono';
    Se escriben a mano mientras no haya tipos generados con `supabase gen types`. */
 
 export type Role = 'owner' | 'admin' | 'member';
-export type AccountType = 'hogar' | 'evento';
+export type AccountType = 'hogar' | 'evento' | 'cobro';
 /** Un evento liquidado (settling) espera los pagos; si le llega un gasto nuevo, se reabre (active) */
 export type AccountStatus = 'active' | 'settling' | 'closed';
 

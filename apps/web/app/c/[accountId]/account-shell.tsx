@@ -33,6 +33,8 @@ const TABS: Record<AccountType, { id: string; label: string }[]> = {
     { id: 'presupuestos', label: 'Presupuesto' },
     { id: 'personas', label: 'Personas' },
   ],
+  // Chepito: solo los cobros (no tiene gastos ni grupo de WhatsApp)
+  cobro: [{ id: 'cobros', label: 'Cobros' }],
 };
 
 /**
@@ -157,12 +159,13 @@ export function AccountShell({
   const tr = useT();
   const router = useRouter();
   const pathname = usePathname();
-  const active = pathname.split('/').filter(Boolean)[2] ?? 'resumen';
+  const cobro = account.type === 'cobro';
+  const active = pathname.split('/').filter(Boolean)[2] ?? (cobro ? 'cobros' : 'resumen');
   const count = usePendingCount(account.id, pending);
   const wa = useWhatsapp(account.id, whatsapp);
   // En escritorio, WhatsApp también va en el menú lateral, justo después de Resumen
   const base = TABS[account.type].map((t) => ({ ...t, label: tr(t.label), ...(t.id === 'revisar' ? { count } : {}) }));
-  const tabs = [base[0], { id: 'whatsapp', label: 'WhatsApp', railOnly: true, dot: DOT[wa.estado] }, ...base.slice(1)];
+  const tabs = cobro ? base : [base[0], { id: 'whatsapp', label: 'WhatsApp', railOnly: true, dot: DOT[wa.estado] }, ...base.slice(1)];
 
   return (
     <MonedaProvider moneda={account.currency}>
@@ -176,15 +179,17 @@ export function AccountShell({
         onAccount={() => router.push('/')}
         brand={<LogoLink />}
         barExtra={
-          <>
-            <Guia nombre="cuenta" usuario={usuario} auto={!guiaVista} />
-            <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
-          </>
+          cobro ? undefined : (
+            <>
+              <Guia nombre="cuenta" usuario={usuario} auto={!guiaVista} />
+              <WhatsappPill accountId={account.id} wa={wa} here={active === 'whatsapp'} />
+            </>
+          )
         }
         barEnd={<MenuPrincipal nombre={nombre} guia />}
       >
         {/* Un gasto que llegó por WhatsApp a un paseo liquidado: reabrir o cuenta nueva, también desde aquí */}
-        <GastoEnEspera accountId={account.id} />
+        {!cobro && <GastoEnEspera accountId={account.id} />}
         {children}
       </AppShell>
     </MonedaProvider>

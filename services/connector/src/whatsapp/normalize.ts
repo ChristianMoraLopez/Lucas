@@ -143,8 +143,18 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
 
   let text: string | null = null;
   let media: IncomingMedia | null = null;
+  let contacto: IncomingMessage['contacto'] = null;
   const tipo = getContentType(content);
   switch (tipo) {
+    // Una tarjeta de contacto: por privado, a quién le cobra Chepito (en un grupo no se lee)
+    case 'contactMessage':
+    case 'contactsArrayMessage': {
+      if (chatKind !== 'privado') return null;
+      const c = tipo === 'contactMessage' ? content.contactMessage : content.contactsArrayMessage?.contacts?.[0];
+      contacto = leerVcard(c?.vcard ?? null, c?.displayName ?? null);
+      if (!contacto) return null;
+      break;
+    }
     case 'conversation':
       text = content.conversation ?? null;
       break;
@@ -186,7 +196,7 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
   }
 
   const limpio = text?.trim() || null;
-  if (!limpio && !media) return null;
+  if (!limpio && !media && !contacto) return null;
 
   // A quién le habla: las menciones y, si responde un mensaje, quién lo escribió
   const ctx = tipo === 'extendedTextMessage' || tipo === 'imageMessage' || tipo === 'documentMessage' ? content[tipo]?.contextInfo : null;
@@ -207,5 +217,21 @@ export function normalizeMessage(raw: WAMessage, sessionId: string, me: Me, down
     mentions,
     quotedFrom: ctx?.quotedMessage ? usuario(ctx.participant) : null,
     quotedId: ctx?.quotedMessage ? (ctx.stanzaId ?? null) : null,
+    ...(contacto ? { contacto } : {}),
   };
+}
+
+/**
+ * Una tarjeta de contacto (vCard): el nombre y el WhatsApp. El número sale del
+ * «waid=» (el de WhatsApp) o, si no está, del primer «TEL».
+ */
+export function leerVcard(vcard: string | null, nombre: string | null): { nombre: string | null; telefono: string | null } | null {
+  const v = vcard ?? '';
+  const fn = v.match(/^FN[^:\n]*:(.+)$/m)?.[1]?.trim() ?? null;
+  const waid = v.match(/waid=(\d{8,15})/i)?.[1] ?? null;
+  const tel = v.match(/^(?:item\d+\.)?TEL[^:\n]*:(.+)$/m)?.[1]?.replace(/\D/g, '') ?? null;
+  const numero = waid ?? (tel && tel.length >= 8 ? tel : null);
+  const quien = nombre?.trim() || fn;
+  if (!quien && !numero) return null;
+  return { nombre: quien || null, telefono: numero };
 }

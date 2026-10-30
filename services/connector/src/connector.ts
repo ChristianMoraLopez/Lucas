@@ -68,6 +68,8 @@ export interface IncomingMessage {
   quotedFrom?: string | null;
   /** Y el id de ese mensaje (para saber a cuál responde: la lista de ítems, por ejemplo) */
   quotedId?: string | null;
+  /** Una tarjeta de contacto (solo por privado): a quién le cobra Chepito (migración 710) */
+  contacto?: { nombre: string | null; telefono: string | null } | null;
 }
 
 /** Alguien que está en el grupo */

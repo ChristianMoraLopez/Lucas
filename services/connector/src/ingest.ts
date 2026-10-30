@@ -1,3 +1,23 @@
+import {
+  avisoAlAcreedor,
+  type BorradorCobro,
+  CHEPITO,
+  CHEPITO_ESPERA_MIN,
+  CHEPITO_MS,
+  conceptoLimpio,
+  esNoLeDebo,
+  esPedidoDeCobro,
+  faltaDe,
+  leerCobro,
+  leerComoMePagan,
+  montoDe,
+  nombreLimpio,
+  puedeCobrar,
+  type QueResponde,
+  respuestaAlDeudor,
+  telefonoDe,
+} from './chepito.js';
+import { mediosDePago } from './cobros.js';
 import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, SessionInfo } from './connector.js';
 import { contestarEliminar, esEliminar } from './eliminar.js';
 import {
@@ -18,7 +38,7 @@ import { antesDeLaFirma, type Numeros, PREGUNTAS, PRIVADAS, PRIVADO, primerNombr
 import type { Clasificador } from './qwen.js';
 import { contestarDecision, leerDecision } from './reabrir.js';
 import type { RateLimiter } from './replies.js';
-import type { GastoPorAbrir, OutboxItem, PorAbrirEnEspera, Store } from './store.js';
+import type { ChepitoRespuesta, GastoPorAbrir, OutboxItem, PorAbrirEnEspera, Store } from './store.js';
 import {
   aMisterLuks,
   canalDe,
@@ -41,6 +61,7 @@ import {
   parseHistoria,
   parseInviteLink,
   parseLinkCommand,
+  plano,
   respuestaNumerada,
 } from './text.js';
 
@@ -72,6 +93,7 @@ export type Outcome =
   | `eliminar:${string}`
   | `link_grupo:${string}`
   | `gasto_privado:${string}`
+  | `chepito:${string}`
   | `privado:${string}`
   | `ignorado:${string}`;
 
@@ -120,6 +142,13 @@ interface GastosEnEspera {
   opciones: Opcion[];
   hasta: number;
 }
+
+/** Chepito por privado (migración 710): el cobro que está pidiendo, y qué le falta */
+interface CobroEnEspera {
+  b: BorradorCobro;
+  paso: 'nombre' | 'telefono' | 'monto' | 'concepto' | 'confirmar' | 'pago';
+  hasta: number;
+}
 /** Por privado, la línea de «ayuda» (todo lo que sabe hacer) sale como mucho una vez en este tiempo */
 const PISTA_MS = 24 * 60 * 60_000;
 
@@ -156,6 +185,8 @@ export class Ingestor {
   #pistas = new Map<string, number>();
   /** Por privado: lo que mandó esperando «¿dónde lo anoto?» (migración 630) */
   #gastosPrivados = new Map<string, GastosEnEspera>();
+  /** Por privado: el cobro de Chepito que está pidiendo (migración 710) */
+  #cobros = new Map<string, CobroEnEspera>();
 
   constructor(
     private readonly store: Store,
@@ -422,9 +453,20 @@ export class Ingestor {
     // y sin la bienvenida (migración 600)
     if (!m.media && esNoMeEscribas(m.text)) {
       await this.store.answerPref(m.chatId, m.sender, 'aqui', false);
+      // Si le estaba cobrando Chepito, no se le cobra más (de nadie) y se le avisa a quien cobraba
+      const cobro = await this.#chepitoResponde(m, 'no_escribas', idioma);
+      if (cobro) return cobro;
       await this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body: MISTER.noTeEscribo(idioma), dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
       this.log.info({ chat: maskWaId(m.chatId) }, 'No me escribas por privado');
       return 'no_me_escribas';
+    }
+
+    // Le está cobrando Chepito: «ya pagué» o «no le debo» (antes de la bienvenida: no vino a eso)
+    if (!m.media && m.text) {
+      const dice = aMisterLuks(m, this.#misterLuks)?.texto ?? m.text;
+      const que = intencionDe(dice) === 'ya_pague' ? 'pagado' : esNoLeDebo(dice) ? 'no_debe' : null;
+      const cobro = que ? await this.#chepitoResponde(m, que, idioma) : null;
+      if (cobro) return cobro;
     }
 
     const nuevas = await this.#encolar([
@@ -457,6 +499,12 @@ export class Ingestor {
       ]);
       await this.#encolar([{ chat_jid: m.chatId, reason: 'guide', body: MISTER.comandos(idioma), dedupe_key: `comandos:${m.chatId}:${tramo(m.sentAt, 10)}` }]);
       return 'ayuda';
+    }
+
+    // Chepito: «Juan me debe 50 mil por la boleta», su contacto, o lo que falta de ese cobro (migración 710)
+    if (!m.media) {
+      const cobro = await this.#chepito(session, m, texto, idioma);
+      if (cobro) return cobro;
     }
 
     // Lo que mandó esperando «¿dónde lo anoto?»: el número, «sí» o «no» (migración 630)
@@ -670,6 +718,175 @@ export class Ingestor {
     ]);
     this.log.info({ chat: maskWaId(m.chatId), guardados: guardados.length }, 'Cuenta por abrir (entra a Luks con el link)');
     return 'gasto_privado:cuenta_por_abrir';
+  }
+
+  /**
+   * Chepito por privado (migración 710): «Juan me debe 50 mil por la boleta» o
+   * su contacto. Pregunta lo que falte (a quién, su WhatsApp, cuánto, por qué),
+   * confirma y crea el cobro; si no tiene en el perfil cómo le pagan, se lo
+   * pregunta (el primer aviso sale unos minutos después). null si no era esto.
+   */
+  async #chepito(session: SessionInfo, m: IncomingMessage, texto: string, idioma: Idioma): Promise<Outcome | null> {
+    const ahora = Date.now();
+    let espera = this.#cobros.get(m.chatId);
+    if (espera && espera.hasta < ahora) {
+      this.#cobros.delete(m.chatId);
+      espera = undefined;
+    }
+    const responder = (body: string) => this.#encolar([{ chat_jid: m.chatId, reason: 'answer', body, dedupe_key: `answer:${m.chatId}:${m.messageId}` }]);
+
+    if (!espera) {
+      if (!m.contacto && !esPedidoDeCobro(texto)) return null;
+      const b: BorradorCobro = m.contacto
+        ? { nombre: nombreLimpio(m.contacto.nombre), telefono: telefonoDe(m.contacto.telefono) ?? undefined }
+        : leerCobro(texto);
+      espera = { b, paso: 'nombre', hasta: ahora + CHEPITO_MS };
+      this.#cobros.set(m.chatId, espera);
+      // Solo el contacto: ¿quiere cobrarle algo?
+      if (m.contacto) {
+        espera.paso = 'monto';
+        await responder(CHEPITO.contacto(b, idioma));
+        return 'chepito:contacto';
+      }
+      return this.#chepitoSiguiente(espera, idioma, responder);
+    }
+
+    const b = espera.b;
+    espera.hasta = ahora + CHEPITO_MS;
+    if (espera.paso !== 'pago' && /^(?:no|nop|cancela(?:r|lo)?|olvidalo|dejalo|no gracias|nada|cancel)$/.test(plano(texto))) {
+      this.#cobros.delete(m.chatId);
+      await responder(CHEPITO.cancelado(idioma));
+      return 'chepito:cancelado';
+    }
+    switch (espera.paso) {
+      case 'nombre':
+      case 'telefono': {
+        // Su contacto, o el nombre y el número escritos
+        if (m.contacto) {
+          b.nombre ??= nombreLimpio(m.contacto.nombre);
+          b.telefono = telefonoDe(m.contacto.telefono) ?? b.telefono;
+        } else {
+          b.telefono ??= telefonoDe(texto) ?? undefined;
+          if (espera.paso === 'nombre') b.nombre ??= nombreLimpio(texto);
+        }
+        break;
+      }
+      case 'monto':
+        b.monto = montoDe(texto) ?? b.monto;
+        b.concepto ??= leerCobro(texto).concepto;
+        break;
+      case 'concepto':
+        b.concepto = conceptoLimpio(texto) ?? b.concepto;
+        break;
+      case 'confirmar': {
+        const e = leerEleccion(texto, 1);
+        if (e !== 1) {
+          await responder(CHEPITO.confirmar(b as Required<BorradorCobro>, idioma));
+          return 'chepito:confirmar';
+        }
+        return this.#chepitoCrear(session, m, espera, idioma, responder);
+      }
+      case 'pago': {
+        // Cómo le pagan: queda en su perfil y sale en los avisos
+        const pago = leerComoMePagan(texto);
+        if (pago === null) {
+          await responder(CHEPITO.pagoNoValido(idioma));
+          return 'chepito:pago';
+        }
+        this.#cobros.delete(m.chatId);
+        if (pago === 'no') {
+          await responder(CHEPITO.sinPago(b.nombre ?? '', idioma));
+          return 'chepito:sin_pago';
+        }
+        const r = await this.store.chepitoComoMePagan(m.sender, pago);
+        const medios = r.ok ? mediosDePago(r.pago, idioma) : null;
+        if (!medios) {
+          this.#cobros.set(m.chatId, espera);
+          await responder(CHEPITO.pagoNoValido(idioma));
+          return 'chepito:pago';
+        }
+        await responder(CHEPITO.pagoGuardado(medios, b.nombre ?? '', idioma));
+        return 'chepito:pago_guardado';
+      }
+    }
+    return this.#chepitoSiguiente(espera, idioma, responder);
+  }
+
+  /** Lo que falta, o la confirmación */
+  async #chepitoSiguiente(espera: CobroEnEspera, idioma: Idioma, responder: (body: string) => Promise<unknown>): Promise<Outcome> {
+    const falta = faltaDe(espera.b);
+    espera.paso = falta ?? 'confirmar';
+    await responder(falta ? CHEPITO.pregunta(falta, espera.b, idioma) : CHEPITO.confirmar(espera.b as Required<BorradorCobro>, idioma));
+    return `chepito:${espera.paso}`;
+  }
+
+  /** «Sí»: el cobro queda (o, sin sesión en Luks, el link para entrar y después «sí» otra vez) */
+  async #chepitoCrear(
+    session: SessionInfo,
+    m: IncomingMessage,
+    espera: CobroEnEspera,
+    idioma: Idioma,
+    responder: (body: string) => Promise<unknown>,
+  ): Promise<Outcome> {
+    const b = espera.b as Required<BorradorCobro>;
+    // Unos minutos antes del primer aviso: para que alcance a decir cómo le pagan
+    const r = await this.store.chepitoCrear(m.chatId, m.sender, b, CHEPITO_ESPERA_MIN);
+    if (!r.ok && r.reason === 'sin_sesion') {
+      await responder(CHEPITO.sinSesion(idioma));
+      const privado = privadoDe(m) ?? m.chatId;
+      const v = await this.store.soyYo(session.id, privado, m.sender.phone, m.sender.lid ?? null, m.sender.name);
+      await this.#encolar([
+        {
+          chat_jid: privado,
+          reason: 'verify',
+          body: MISTER.soyYo.link(idioma, v.last4),
+          identity_id: v.identity_id,
+          dedupe_key: `verify:${privado}:${tramo(m.sentAt, 10)}`,
+        },
+      ]);
+      return 'chepito:sin_sesion';
+    }
+    if (!r.ok) {
+      this.#cobros.delete(m.chatId);
+      await responder(CHEPITO.noPude(r.reason, b, idioma));
+      return `chepito:${r.reason ?? 'no_pude'}`;
+    }
+    const link = `${this.#web}/c/${r.account_id}/cobros`;
+    const ya = puedeCobrar(new Date(Date.now() + CHEPITO_ESPERA_MIN * 60_000));
+    const listo = CHEPITO.listo(b, link, ya, idioma);
+    this.log.info({ chat: maskWaId(m.chatId), nueva_cuenta: r.nueva_cuenta }, 'Un cobro de Chepito por privado');
+    if (r.pago) {
+      this.#cobros.delete(m.chatId);
+      await responder(listo);
+      return 'chepito:creado';
+    }
+    // Sin cómo le pagan en el perfil: se lo pregunta (lo que diga queda guardado)
+    espera.paso = 'pago';
+    await responder(`${listo}\n\n${CHEPITO.pago(idioma)}`);
+    return 'chepito:creado';
+  }
+
+  /** Lo que responde quien debe (ya pagué, no le debo, no me escribas): a él y a quien cobra. null si no le cobraban */
+  async #chepitoResponde(m: IncomingMessage, que: QueResponde, idioma: Idioma): Promise<Outcome | null> {
+    let cobros: ChepitoRespuesta[];
+    try {
+      cobros = await this.store.chepitoRespuesta(m.sender, que);
+    } catch (e) {
+      // Sin la migración 710 todavía: sigue como siempre
+      this.log.warn({ err: (e as Error).message }, 'No se pudo leer si le cobra Chepito');
+      return null;
+    }
+    if (!cobros.length) return null;
+    const items: OutboxItem[] = [
+      { chat_jid: m.chatId, reason: 'answer', body: respuestaAlDeudor(que, cobros, idioma), dedupe_key: `answer:${m.chatId}:${m.messageId}` },
+    ];
+    for (const c of cobros) {
+      if (c.acreedor_chat)
+        items.push({ chat_jid: c.acreedor_chat, reason: 'answer', body: avisoAlAcreedor(que, c), dedupe_key: `chepito-${que}:${c.cobro_id}` });
+    }
+    await this.#encolar(items);
+    this.log.info({ chat: maskWaId(m.chatId), que, cobros: cobros.length }, 'Respondió un cobro de Chepito');
+    return `chepito:${que}`;
   }
 
   /** La respuesta a «¿dónde lo anoto?»: lo anota en esa cuenta, marca su pago, o nada. null si no era para esto */

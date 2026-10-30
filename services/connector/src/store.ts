@@ -448,6 +448,48 @@ export interface ResolverPorAbrirResult {
   leyendo?: number;
 }
 
+/** Un cobro de Chepito que le toca avisar (migración 710) */
+export interface ChepitoPendiente {
+  cobro_id: string;
+  /** Cuántos avisos ya le llegaron (0: el primero, que se presenta) */
+  avisos: number;
+  telefono: string;
+  deudor: string;
+  acreedor: string;
+  monto: number;
+  concepto: string;
+  currency: Moneda;
+  language: Idioma;
+  pago: Pago | null;
+}
+
+/** El cobro que se creó por privado (o por qué no) */
+export interface ChepitoCreado {
+  ok: boolean;
+  reason?: string;
+  cobro_id?: string;
+  account_id?: string;
+  account_name?: string;
+  telefono?: string;
+  pago?: Pago | null;
+  nueva_cuenta?: boolean;
+}
+
+/** Un cobro que acaba de responder quien debe: a quién avisarle */
+export interface ChepitoRespuesta {
+  cobro_id: string;
+  account_id: string;
+  deudor: string;
+  acreedor: string;
+  monto: number;
+  concepto: string;
+  currency: Moneda;
+  language: Idioma;
+  avisos: number;
+  /** El chat de quien cobra con Mister Luks (si le ha escrito) */
+  acreedor_chat: string | null;
+}
+
 export interface QueueHealth {
   queued: number;
   oldest_queued_s: number;
@@ -564,6 +606,19 @@ export interface Store {
   guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]): Promise<number>;
   /** La pregunta «¿en cuál anoto lo que me mandaste?» de ese chat, si espera respuesta (migración 670) */
   porAbrirEnEspera(jid: string): Promise<PorAbrirEnEspera | null>;
+  /** Chepito (migración 710): el cobro que pidió por privado, a su cuenta de cobro («Mis cobros» si no tiene) */
+  chepitoCrear(
+    jid: string,
+    sender: Sender,
+    cobro: { nombre: string; telefono: string; monto: number; concepto: string },
+    avisarEnMin: number,
+  ): Promise<ChepitoCreado>;
+  /** Cómo le pagan, desde WhatsApp: se suma a lo que tenía en el perfil */
+  chepitoComoMePagan(sender: Sender, pago: Pago): Promise<{ ok: boolean; reason?: string; pago?: Pago | null }>;
+  chepitoPendientes(limit: number): Promise<ChepitoPendiente[]>;
+  /** Manda el aviso número avisos + 1 (si todavía toca) por la bandeja de salida; false si ya no tocaba */
+  chepitoAvisar(cobroId: string, avisos: number, body: string): Promise<boolean>;
+  chepitoRespuesta(sender: Sender, que: 'pagado' | 'no_debe' | 'no_escribas'): Promise<ChepitoRespuesta[]>;
   /** 'nueva' la abre con lo que mandó; 'listo' (ya se anotó en otra) o 'no' cierran la pregunta */
   resolverPorAbrir(accountId: string, que: 'nueva' | 'listo' | 'no'): Promise<ResolverPorAbrirResult>;
   uploadEvidence(path: string, body: Buffer, contentType: string): Promise<void>;
@@ -969,6 +1024,43 @@ export class SupabaseStore implements Store {
 
   guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]) {
     return this.#rpc<number>('connector_guardar_gastos_por_abrir', { p_account_id: accountId, p_items: gastos });
+  }
+
+  chepitoCrear(jid: string, sender: Sender, cobro: { nombre: string; telefono: string; monto: number; concepto: string }, avisarEnMin: number) {
+    return this.#rpc<ChepitoCreado>('connector_chepito_crear', {
+      p_chat_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_nombre: cobro.nombre,
+      p_telefono: cobro.telefono,
+      p_monto: Math.round(cobro.monto),
+      p_concepto: cobro.concepto,
+      p_avisar_en_min: avisarEnMin,
+    });
+  }
+
+  chepitoComoMePagan(sender: Sender, pago: Pago) {
+    return this.#rpc<{ ok: boolean; reason?: string; pago?: Pago | null }>('connector_chepito_como_me_pagan', {
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_llave: pago.llave ?? null,
+      p_nequi: pago.nequi ?? null,
+      p_daviplata: pago.daviplata ?? null,
+    });
+  }
+
+  chepitoPendientes(limit: number) {
+    return this.#rpc<ChepitoPendiente[]>('connector_chepito_pendientes', { p_limit: limit });
+  }
+
+  chepitoAvisar(cobroId: string, avisos: number, body: string) {
+    return this.#rpc<boolean>('connector_chepito_avisar', { p_cobro_id: cobroId, p_avisos: avisos, p_body: body });
+  }
+
+  chepitoRespuesta(sender: Sender, que: 'pagado' | 'no_debe' | 'no_escribas') {
+    return this.#rpc<ChepitoRespuesta[]>('connector_chepito_respuesta', { p_wa_id: sender.id, p_phone: sender.phone, p_lid: sender.lid ?? null, p_que: que });
   }
 
   porAbrirEnEspera(jid: string) {

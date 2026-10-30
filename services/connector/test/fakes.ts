@@ -2,6 +2,9 @@ import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
 import type {
   AbrirCuentaPrivadaResult,
+  ChepitoCreado,
+  ChepitoPendiente,
+  ChepitoRespuesta,
   Cobro,
   DecisionLiquidada,
   DesdeCuando,
@@ -24,6 +27,7 @@ import type {
   NumerosDeCuenta,
   OutboxItem,
   OutboxPending,
+  Pago,
   PendientesResult,
   PendingMembers,
   PorAbrirEnEspera,
@@ -446,6 +450,47 @@ export class FakeStore implements Store {
   async guardarGastosPorAbrir(accountId: string, gastos: GastoPorAbrir[]) {
     this.porAbrir.push({ accountId, gastos });
     return gastos.length;
+  }
+  /** Chepito (migración 710): lo que pidió cobrar, cómo le pagan, los avisos y lo que responde quien debe */
+  cobrosCreados: { jid: string; cobro: { nombre: string; telefono: string; monto: number; concepto: string }; avisarEnMin: number }[] = [];
+  respuestaCobro: Partial<ChepitoCreado> = {};
+  miPago: Pago | null = null;
+  pagosGuardados: Pago[] = [];
+  porCobrar: ChepitoPendiente[] = [];
+  avisosChepito: { cobroId: string; avisos: number; body: string }[] = [];
+  /** Lo que le estaban cobrando a quien responde (se cierra al responder) */
+  cobrando: ChepitoRespuesta[] = [];
+  respuestasChepito: string[] = [];
+  async chepitoCrear(jid: string, _sender: Sender, cobro: { nombre: string; telefono: string; monto: number; concepto: string }, avisarEnMin: number) {
+    this.cobrosCreados.push({ jid, cobro, avisarEnMin });
+    return {
+      ok: true,
+      cobro_id: 'cb1',
+      account_id: 'mc',
+      account_name: 'Mis cobros',
+      telefono: cobro.telefono,
+      pago: this.miPago,
+      nueva_cuenta: true,
+      ...this.respuestaCobro,
+    };
+  }
+  async chepitoComoMePagan(_sender: Sender, pago: Pago) {
+    this.pagosGuardados.push(pago);
+    this.miPago = { ...this.miPago, ...pago };
+    return { ok: true, pago: this.miPago };
+  }
+  async chepitoPendientes() {
+    return this.porCobrar;
+  }
+  async chepitoAvisar(cobroId: string, avisos: number, body: string) {
+    this.avisosChepito.push({ cobroId, avisos, body });
+    return true;
+  }
+  async chepitoRespuesta(_sender: Sender, que: 'pagado' | 'no_debe' | 'no_escribas') {
+    this.respuestasChepito.push(que);
+    const r = this.cobrando;
+    this.cobrando = [];
+    return r;
   }
   /** La pregunta al entrar a Luks con cuentas que ya tenía (migración 670), por chat; y cómo se respondió */
   enEspera = new Map<string, PorAbrirEnEspera>();

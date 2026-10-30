@@ -677,7 +677,7 @@ iframe {
 }
 .nc-types {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-3);
 }
 .nc-type {
@@ -705,6 +705,11 @@ iframe {
 .nc-type--evento.is-on {
   border-color: var(--morado);
   background: var(--morado-suave);
+}
+/* Coral para el cobro (Chepito) */
+.nc-type--cobro.is-on {
+  border-color: var(--coral);
+  background: var(--coral-suave);
 }
 .nc-type b {
   font-family: var(--font-display);
@@ -7448,4 +7453,103 @@ a.gr-fila:focus-visible {
 .st-d__medio:focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 1px;
+}
+
+/* ---------- Chepito: los cobros (migración 710) ---------- */
+.ch {
+  padding: var(--space-4) var(--space-4) var(--space-8);
+  display: grid;
+  gap: var(--space-5);
+  max-width: 760px;
+}
+.ch-head p {
+  margin: 4px 0 0;
+  max-width: 60ch;
+}
+.ch-form {
+  display: grid;
+  gap: var(--space-3);
+}
+.ch-pago {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.ch-pago legend {
+  margin-bottom: var(--space-2);
+}
+.ch-lista {
+  display: grid;
+  gap: var(--space-3);
+}
+.ch-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.ch-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+}
+.ch-item__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ch-item__fin {
+  display: grid;
+  justify-items: end;
+  gap: var(--space-2);
+}
+.ch-item__acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.ch-estado {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--superficie-2);
+  color: var(--tinta-2);
+}
+.ch-estado--on {
+  background: var(--morado-suave);
+  color: var(--tinta);
+}
+.ch-estado--ok {
+  background: var(--verde-suave);
+  color: var(--tinta);
+}
+.ch-estado--warn {
+  background: var(--coral-suave);
+  color: var(--coral-texto);
+}
+@media (max-width: 520px) {
+  .ch-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .ch-item__fin {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+  .ch-item__acts {
+    justify-content: flex-start;
+  }
 }

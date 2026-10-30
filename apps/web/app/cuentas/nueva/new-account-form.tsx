@@ -18,7 +18,7 @@ import { createClient } from '@/utils/supabase/client';
 const schema = z
   .object({
     name: z.string().trim().min(1, 'Ponle un nombre a la cuenta').max(60, 'Máximo 60 letras'),
-    type: z.enum(['hogar', 'evento']),
+    type: z.enum(['hogar', 'evento', 'cobro']),
     startsOn: z.string(),
     endsOn: z.string(),
     displayName: z.string().trim().min(1, 'Escribe cómo te dicen').max(40, 'Máximo 40 letras'),
@@ -34,6 +34,11 @@ type Values = z.infer<typeof schema>;
 const TYPES = [
   { id: 'hogar', title: 'Hogar', text: 'Los gastos de todos los meses: mercado, servicios, arriendo. Con presupuesto mensual.' },
   { id: 'evento', title: 'Evento', text: 'Un paseo, una vaca, un cumpleaños. Tiene inicio y fin, y al final se liquida.' },
+  {
+    id: 'cobro',
+    title: 'Cobro',
+    text: 'Chepito: alguien te debe plata. Mister Luks le escribe por WhatsApp y se lo recuerda hasta que te pague.',
+  },
 ] as const;
 
 export function NewAccountForm({ myName }: { myName: string }) {
@@ -83,9 +88,9 @@ export function NewAccountForm({ myName }: { myName: string }) {
         return;
       }
     }
-    // Primero el grupo de WhatsApp: es el motor de Luks (y trae a la gente del grupo)
+    // Primero el grupo de WhatsApp: es el motor de Luks (y trae a la gente del grupo); en un cobro, a quién se le cobra
     setYendo(true);
-    router.push(`/c/${data as string}/whatsapp`);
+    router.push(`/c/${data as string}/${v.type === 'cobro' ? 'cobros' : 'whatsapp'}`);
     router.refresh();
   });
 
@@ -117,7 +122,13 @@ export function NewAccountForm({ myName }: { myName: string }) {
         name="name"
         render={({ field }) => (
           <Field
-            label={type === 'evento' ? t('Nombre del evento (p. ej. Paseo Santa Marta)') : t('Nombre (p. ej. Casa)')}
+            label={
+              type === 'evento'
+                ? t('Nombre del evento (p. ej. Paseo Santa Marta)')
+                : type === 'cobro'
+                  ? t('Nombre (p. ej. Préstamos)')
+                  : t('Nombre (p. ej. Casa)')
+            }
             id="nombre"
             value={field.value}
             onChange={field.onChange}
@@ -153,7 +164,14 @@ export function NewAccountForm({ myName }: { myName: string }) {
       <Controller
         control={control}
         name="displayName"
-        render={({ field }) => <Field label={t('¿Cómo te dicen en el grupo?')} id="tu-nombre" value={field.value} onChange={field.onChange} />}
+        render={({ field }) => (
+          <Field
+            label={type === 'cobro' ? t('Tu nombre (así te nombra Mister Luks cuando cobra)') : t('¿Cómo te dicen en el grupo?')}
+            id="tu-nombre"
+            value={field.value}
+            onChange={field.onChange}
+          />
+        )}
       />
       <FieldError message={errors.displayName?.message} />
 
@@ -177,7 +195,7 @@ export function NewAccountForm({ myName }: { myName: string }) {
           control={control}
           name="language"
           render={({ field }) => (
-            <Field label={t('Luks responde en el grupo en')} id="idioma-cuenta">
+            <Field label={type === 'cobro' ? t('Mister Luks cobra en') : t('Luks responde en el grupo en')} id="idioma-cuenta">
               <select id="idioma-cuenta" value={field.value} onChange={field.onChange}>
                 {IDIOMAS.map((i) => (
                   <option key={i} value={i}>
@@ -201,7 +219,7 @@ export function NewAccountForm({ myName }: { myName: string }) {
         <Button type="submit" disabled={isSubmitting || yendo}>
           {isSubmitting || yendo ? t('Creando…') : t('Crear cuenta')}
         </Button>
-        <span className="lu-small lu-muted">{t('Después invitas al resto con un código.')}</span>
+        <span className="lu-small lu-muted">{type === 'cobro' ? t('Después le dices a quién le cobras.') : t('Después invitas al resto con un código.')}</span>
       </div>
     </form>
   );
