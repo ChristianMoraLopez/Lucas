@@ -183,27 +183,41 @@ describe('el primer recibo de alguien', () => {
     );
   });
 
-  it('en un grupo que no confirma, dice que de aquí en adelante no y cómo prenderlo', async () => {
+  it('en un grupo que no confirma: el primero sin aviso; el segundo, la confirmación y que desde ahora las apaga', async () => {
     store.replies = [primero(1, { confirma: false, admin: true })];
-    await loop().tick();
-    expect(wa.sent[0].text).toContain(
-      '\n\n🔕 De aquí en adelante no confirmo cada gasto, para no llenar el chat: los sigo anotando igual.\n' +
-        '💡 Si quieres que confirme cada uno, préndelo en la app: WhatsApp → «Confirmar en el grupo».\nhttps://mrluks.com/c/acc-1/whatsapp\n\n💬 ',
+    const l = loop();
+    await l.tick();
+    expect(wa.sent[0].text).not.toContain('🔕');
+
+    // El segundo de Santiago: «✅ Anotado» y el aviso, con el link para volver a prenderlas
+    store.replies = [pendiente(2, { segunda_vez: true, confirma: false, admin: true, con_sesion: true, account_id: CUENTA, sender_person_id: 'santi' })];
+    t += 20_000;
+    await l.tick();
+    expect(wa.sent[1].text).toBe(
+      '✅ Anotado: Gasto 2 · $2.000 · pagó Mafe.\n\n' +
+        '🔕 Desde ahora apago las confirmaciones para no inundar el chat: sigo anotando todo igual y lo ves en mrluks.com.\n' +
+        '💡 Si quieres volver a prenderlas, hazlo en la app: WhatsApp → «Confirmar en el grupo».\nhttps://mrluks.com/c/acc-1/whatsapp',
     );
 
-    // Quien no administra la cuenta: lo prende quien la administra (sin el link)
-    store.replies = [primero(2, { confirma: false, admin: false, sender_person_id: 'mafe' })];
+    // Quien no administra la cuenta: las prende quien la administra (sin el link)
+    store.replies = [pendiente(3, { segunda_vez: true, confirma: false, admin: false, account_id: CUENTA, sender_person_id: 'mafe' })];
     t += 20_000;
-    await loop().tick();
-    expect(wa.sent[1].text).toContain(
-      '💡 Si quieren que confirme cada uno, quien administra la cuenta lo prende en la app: WhatsApp → «Confirmar en el grupo».\n\n💬 ',
-    );
+    await l.tick();
+    expect(wa.sent[2].text).toContain('💡 Si quieren volver a prenderlas, quien administra la cuenta lo hace en la app: WhatsApp → «Confirmar en el grupo».');
+    expect(wa.sent[2].text).not.toContain('/whatsapp');
 
-    // Si el grupo confirma (o por privado), no hace falta
-    store.replies = [primero(3, { confirma: true, admin: true, sender_person_id: 'otra' })];
+    // Si el grupo confirma, el segundo es una confirmación más
+    store.replies = [pendiente(4, { segunda_vez: true, confirma: true, account_id: CUENTA, sender_person_id: 'otra' })];
     t += 20_000;
+    await l.tick();
+    expect(wa.sent[3].text).toBe('✅ Anotado: Gasto 4 · $4.000 · pagó Mafe.');
+  });
+
+  it('si mandó varios de una vez, el aviso va en el primer mensaje', async () => {
+    store.replies = [primero(1, { confirma: false, admin: true }), primero(2, { confirma: false, admin: true })];
     await loop().tick();
-    expect(wa.sent[2].text).not.toContain('🔕');
+    expect(wa.sent[0].text).toMatch(/^✅ ¡Listo, Santiago! Ya quedaron registrados tus 2 gastos/);
+    expect(wa.sent[0].text).toContain('\n\n🔕 Desde ahora apago las confirmaciones para no inundar el chat');
   });
 
   it('por privado dice en qué cuenta quedó y qué preguntarle ahí', async () => {

@@ -1615,8 +1615,8 @@ export const EN: Record<string, string> = {
   'Qué ve Luks': 'What Luks sees',
   'Solo los grupos donde lo agregues.': 'Only the groups you add him to.',
   '¿Responde en el grupo?': 'Does he reply in the group?',
-  'Al primer recibo de cada quien le dice que quedó y dónde verlo; confirmar cada gasto se prende por grupo.':
-    'On each person’s first receipt he tells them it’s logged and where to see it; confirming every expense is turned on per group.',
+  'Confirma los dos primeros recibos de cada quien; después, confirmar cada gasto se prende por grupo.':
+    'He confirms each person’s first two receipts; after that, confirming every expense is turned on per group.',
   'Ideal si': 'Best when',
   'El grupo acepta a alguien más.': 'The group can take one more person.',
   'Si WhatsApp bloquea a Mister Luks, deja de leer todos sus grupos hasta que vuelva. Lo anotado no se pierde.':

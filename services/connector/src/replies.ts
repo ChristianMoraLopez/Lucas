@@ -1,7 +1,7 @@
 import type { MessagingConnector } from './connector.js';
 import type { Logger } from './log.js';
 import type { OutboxPending, Store } from './store.js';
-import { formatPrimerGasto, formatReplies, LINK_GRUPO, LINK_VERIFICACION, type PendingReply, sinLineaDelLink } from './text.js';
+import { formatPrimerGasto, formatReplies, formatSegundoGasto, LINK_GRUPO, LINK_VERIFICACION, type PendingReply, sinLineaDelLink } from './text.js';
 
 /*
  * Límite de frecuencia para todo lo que Luks escribe en los grupos: un
@@ -59,8 +59,9 @@ export interface ReplyOptions {
 /**
  * Todo lo que escribe Mister Luks, con el mismo límite de frecuencia:
  *   · las confirmaciones de lo que el worker terminó de procesar («✅ Anotado: …»),
- *     agrupando lo que llegó seguido en un solo mensaje, y el primer recibo de
- *     cada quien («ya quedó registrado tu gasto, revísalo aquí»);
+ *     agrupando lo que llegó seguido en un solo mensaje, y los dos primeros recibos
+ *     de cada quien («ya quedó registrado tu gasto, revísalo aquí» y, con el segundo,
+ *     que desde ahora apaga las confirmaciones si el grupo no las tiene prendidas);
  *   · la bandeja de salida (whatsapp_outbox): la bienvenida, el saludo del
  *     grupo, la guía y las respuestas a los links. Un mensaje de la bandeja puede
  *     ser texto, imagen con pie y un documento: cuenta como uno solo. Los links
@@ -102,16 +103,28 @@ export class ReplyLoop {
       }
       if (!this.limiter.allow(jid)) continue;
 
-      // El primer recibo de alguien (la 660) va en su propio mensaje, con todo lo suyo que llegó seguido;
-      // lo demás, junto como siempre. Lo que quede sale en la próxima vuelta
-      const primero = items[0].primera_vez ? items[0] : null;
-      const tanda = (
-        primero
-          ? items.filter((r) => r.primera_vez && r.sender_person_id === primero.sender_person_id && r.account_id === primero.account_id)
-          : items.filter((r) => !r.primera_vez)
-      ).slice(0, this.options.batchMax);
+      // El primer y el segundo recibo de alguien (la 660 y la 690) van en su propio mensaje, con todo
+      // lo suyo que llegó seguido; lo demás, junto como siempre. Lo que quede sale en la próxima vuelta
+      const [r0] = items;
+      const tipo = r0.primera_vez ? 'primera' : r0.segunda_vez ? 'segunda' : 'otra';
+      const deQuien = (r: PendingReply) => r.sender_person_id === r0.sender_person_id && r.account_id === r0.account_id;
+      const tanda = items
+        .filter((r) =>
+          tipo === 'primera'
+            ? r.primera_vez && deQuien(r)
+            : tipo === 'segunda'
+              ? !r.primera_vez && r.segunda_vez && deQuien(r)
+              : !r.primera_vez && !r.segunda_vez,
+        )
+        .slice(0, this.options.batchMax);
+      const texto =
+        tipo === 'primera'
+          ? formatPrimerGasto(tanda, this.options.webUrl)
+          : tipo === 'segunda'
+            ? formatSegundoGasto(tanda, this.options.webUrl)
+            : formatReplies(tanda);
       try {
-        await who.connector.send(jid, { text: primero ? formatPrimerGasto(tanda, this.options.webUrl) : formatReplies(tanda) });
+        await who.connector.send(jid, { text: texto });
         this.limiter.record(jid);
         await this.store.markReplied(tanda.map((r) => r.message_id));
         sent += tanda.length;

@@ -20,6 +20,7 @@ type Pendiente = {
   message_id: string;
   group_jid: string;
   primera_vez: boolean;
+  segunda_vez: boolean;
   sender_person_id: string | null;
   sender_name: string | null;
   con_sesion: boolean;
@@ -72,7 +73,7 @@ const marcar = async (tx: Transaction, ids: string[]) => {
 };
 
 describe('el primer gasto de alguien', () => {
-  it('se le contesta aunque el grupo no confirme, con su nombre y el gasto; el siguiente ya no', async () => {
+  it('se le contesta aunque el grupo no confirme, con su nombre y el gasto; el segundo también; el tercero ya no', async () => {
     await as(db, null, async (tx) => {
       await enlazar(tx);
       const a = await anotado(tx, 'WA-1');
@@ -92,11 +93,18 @@ describe('el primer gasto de alguien', () => {
       });
       expect(p.expense?.id).toMatch(/^[0-9a-f-]{36}$/);
 
+      expect(p.segunda_vez).toBe(false);
       await marcar(tx, [a]);
+
+      // El segundo también se contesta: la confirmación y que desde ahora se apagan (la 690)
       const b = await anotado(tx, 'WA-2');
+      expect((await delGrupo(tx)).map((x) => [x.message_id, x.primera_vez, x.segunda_vez])).toEqual([[b, false, true]]);
+      await marcar(tx, [b]);
+
+      // El tercero queda callado, como cualquier gasto de un grupo que no confirma
+      const c = await anotado(tx, 'WA-2B');
       expect(await delGrupo(tx)).toEqual([]);
-      // Y queda callado, como cualquier gasto de un grupo que no confirma
-      expect(await one(tx, 'select group_reply_at is not null as callado from public.messages where id = $1', [b])).toEqual({ callado: true });
+      expect(await one(tx, 'select group_reply_at is not null as callado from public.messages where id = $1', [c])).toEqual({ callado: true });
     });
   });
 

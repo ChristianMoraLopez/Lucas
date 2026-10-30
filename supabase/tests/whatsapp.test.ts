@@ -310,7 +310,7 @@ describe('confirmaciones en el grupo', () => {
     });
   });
 
-  it('si un admin las prende, cuenta lo que procesó el worker una vez, y nada si las vuelve a apagar', async () => {
+  it('si un admin las prende, cuenta lo que procesó el worker una vez; apagadas, nada (salvo los dos primeros de cada quien)', async () => {
     await as(db, null, async (tx) => {
       await comoConnector(tx);
       await enlazar(tx);
@@ -343,6 +343,18 @@ describe('confirmaciones en el grupo', () => {
       // Las vuelve a apagar
       await impersonate(tx, U.valeria);
       await tx.query('select public.set_group_confirmations($1, false)', [g.id]);
+      await comoConnector(tx);
+      // Solo queda el segundo gasto de Mafe: con ese se le avisa que se apagan (la 690)
+      expect((await delGrupo()).map((p) => p.message_id)).toEqual([b.message_id]);
+      await tx.query('select public.connector_mark_replied($1)', [[b.message_id]]);
+      const c = await ingerir(tx, { id: 'WA-R3', from: MAFE_WA });
+      await tx.exec('reset role');
+      await tx.query(`update public.messages set status = 'done' where id = $1`, [c.message_id]);
+      await tx.query(
+        `insert into public.expenses (account_id, message_id, merchant, expense_date, total_cop, status, source, payer_person_id)
+         values ($1, $2, 'Asadero', current_date, 272500, 'confirmed', 'whatsapp', '30000000-0000-4000-8000-000000000005')`,
+        [PASEO, c.message_id],
+      );
       await comoConnector(tx);
       expect(await delGrupo()).toEqual([]);
     });

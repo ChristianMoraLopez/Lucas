@@ -252,6 +252,8 @@ export interface PendingReply {
   account_name?: string | null;
   /** Su primer gasto en la cuenta (migración 660): «ya quedó registrado, revísalo aquí», aunque el grupo no confirme */
   primera_vez?: boolean;
+  /** El segundo (migración 690): la confirmación y que de ahí en adelante se apagan */
+  segunda_vez?: boolean;
   sender_person_id?: string | null;
   sender_name?: string | null;
   /** Tiene usuario en la cuenta: el link abre el gasto en la app; si no, el link público de la cuenta (token) */
@@ -414,22 +416,33 @@ export function formatPrimerGasto(items: PendingReply[], webUrl = 'https://mrluk
       ? '💬 Whenever you want, ask me *@MrLuks how much so far*, *@MrLuks who owes whom* or *@MrLuks my expenses*. And if you have more receipts, send them here and I’ll log them.'
       : '💬 Cuando quieras, pregúntame *@MrLuks cuánto llevamos*, *@MrLuks quién le debe a quién* o *@MrLuks mis gastos*. Y si tienes más recibos, mándalos por aquí y los anoto.';
 
-  // En un grupo que no confirma cada gasto: que de aquí en adelante no, y cómo prenderlo (la 680)
-  let apagadas = '';
-  if (!r.privado && r.confirma === false) {
-    const dondeSe = r.admin && r.con_sesion && r.account_id ? `\n${webUrl}/c/${r.account_id}/whatsapp` : '';
-    apagadas = en
-      ? `\n\n🔕 From now on I won’t confirm every expense, so I don’t flood the chat: I keep logging them all the same.\n💡 ${
-          r.admin
-            ? 'If you want me to confirm each one, turn it on in the app'
-            : 'If you want me to confirm each one, whoever manages the account turns it on in the app'
-        }: WhatsApp → “Confirm in the group”.${dondeSe}`
-      : `\n\n🔕 De aquí en adelante no confirmo cada gasto, para no llenar el chat: los sigo anotando igual.\n💡 ${
-          r.admin ? 'Si quieres que confirme cada uno, préndelo en la app' : 'Si quieren que confirme cada uno, quien administra la cuenta lo prende en la app'
-        }: WhatsApp → «Confirmar en el grupo».${dondeSe}`;
-  }
+  // Si mandó varios de una vez, ya van las dos confirmaciones del principio: el aviso va aquí (la 690)
+  const apagadas = varios ? avisoApagadas(r, webUrl) : '';
 
   return `${cabeza}\n\n${revisar}${apagadas}\n\n${preguntas}`;
+}
+
+/**
+ * En un grupo que no confirma cada gasto, después de las dos primeras confirmaciones de
+ * alguien: que desde ahora las apaga para no inundar el chat, y cómo volver a prenderlas (a
+ * quien administra la cuenta, con el link; a los demás, que lo hace quien la administra)
+ */
+function avisoApagadas(r: PendingReply, webUrl: string): string {
+  if (r.privado || r.confirma !== false) return '';
+  const en = idiomaDe(r) === 'en';
+  const link = r.admin && r.con_sesion && r.account_id ? `\n${webUrl}/c/${r.account_id}/whatsapp` : '';
+  return en
+    ? `\n\n🔕 From now on I’m turning confirmations off so I don’t flood the chat: I keep logging everything the same and you can see it at mrluks.com.\n💡 ${
+        r.admin ? 'If you want them back, turn them on in the app' : 'If you want them back, whoever manages the account turns them on in the app'
+      }: WhatsApp → “Confirm in the group”.${link}`
+    : `\n\n🔕 Desde ahora apago las confirmaciones para no inundar el chat: sigo anotando todo igual y lo ves en mrluks.com.\n💡 ${
+        r.admin ? 'Si quieres volver a prenderlas, hazlo en la app' : 'Si quieren volver a prenderlas, quien administra la cuenta lo hace en la app'
+      }: WhatsApp → «Confirmar en el grupo».${link}`;
+}
+
+/** El segundo recibo de alguien (migración 690): la confirmación de siempre y, si el grupo no confirma, el aviso */
+export function formatSegundoGasto(items: PendingReply[], webUrl = 'https://mrluks.com'): string {
+  return `${formatReplies(items)}${avisoApagadas(items[0], webUrl)}`;
 }
 
 /** La pregunta al enlazar el grupo (igual en conectar_grupo, migración 340) */
