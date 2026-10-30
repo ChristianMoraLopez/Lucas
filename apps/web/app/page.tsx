@@ -8,10 +8,12 @@ import { lucas } from '@/components/lucas-core';
 import { Amount, Avatar, BillCard, LottieSlot, Sticker } from '@/components/lucas-ui';
 import { MenuPrincipal } from '@/components/menu-principal';
 import { RecomendarLuks } from '@/components/recomendar-luks';
+import { Sombrerito } from '@/components/sombrerito';
 import { eventMoment, formatRange, monthName, todayInBogota } from '@/lib/dates';
 import type { T } from '@/lib/i18n';
 import { rico } from '@/lib/i18n/rico';
 import { getT } from '@/lib/i18n/server';
+import { dinero, type Moneda } from '@/lib/moneda';
 import { type AccountOverview, accountGlyph, accountTone, asTone, type GrupoDetectado, type InvitacionRecibida, plural } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
 
@@ -46,7 +48,7 @@ export default async function AccountPickerPage() {
   const firstName = fullName.split(/\s+/)[0] || '';
   const pending = accounts.reduce((n, a) => n + a.pending_count, 0);
   const lead = pickLead(accounts);
-  const cobrosAbiertos = chepito ? await contarCobrosAbiertos(supabase, chepito.id) : 0;
+  const cobros = await cobrosDeChepito(supabase, chepito);
   const others = accounts.filter((a) => a !== lead);
 
   return (
@@ -128,20 +130,47 @@ export default async function AccountPickerPage() {
             </Archivadas>
           )}
 
-          <Link href="/chepito" className="ap-row ap-chepito">
-            <LottieSlot name="chepito" width={44} height={44} label={t('Chepito, el cobrador de Mister Luks')} />
-            <span className="ap-row__txt">
-              <span className="ap-row__n">Chepito</span>
-              <span className="ap-row__s">
-                {cobrosAbiertos > 0
-                  ? t('Cobrando {cobros}', { cobros: plural(cobrosAbiertos, t('cobro'), t('cobros')) })
-                  : t('¿Alguien te debe plata? Chepito se la cobra por ti')}
+          {/* Chepito no es una cuenta: sus cobros van aparte, abajo */}
+          <section className="ap-list ap-cobros" aria-labelledby="ap-cobros-t">
+            <div className="ap-cobros__head">
+              <span className="ap-cobros__hat" aria-hidden="true">
+                <Sombrerito size={22} />
               </span>
-            </span>
-            <span className="ap-chepito__ir" aria-hidden="true">
-              →
-            </span>
-          </Link>
+              <span id="ap-cobros-t" className="lu-label">
+                {t('Cobros')}
+              </span>
+              <Link href="/chepito" className="lu-btn lu-btn--ghost lu-btn--sm ap-cobros__nuevo">
+                {t('Nuevo cobro')}
+              </Link>
+            </div>
+            {cobros.activos.length === 0 ? (
+              <Link href="/chepito" className="ap-row ap-chepito">
+                <LottieSlot name="chepito" width={44} height={44} label={t('Chepito, el cobrador de Mister Luks')} />
+                <span className="ap-row__txt">
+                  <span className="ap-row__n">Chepito</span>
+                  <span className="ap-row__s">{t('¿Alguien te debe plata? Chepito se la cobra por ti')}</span>
+                </span>
+              </Link>
+            ) : (
+              cobros.activos.map((c) => (
+                <Link key={c.id} href="/chepito" className="ap-row">
+                  <Avatar name={c.nombre} size="sm" registered={false} />
+                  <span className="ap-row__txt">
+                    <span className="ap-row__n">{c.nombre}</span>
+                    <span className="ap-row__s">
+                      {c.concepto} · {c.avisos === 0 ? t('Le escribo en horario de cobranza') : t('Le escribí {n} de 4 veces', { n: c.avisos })}
+                    </span>
+                  </span>
+                  <b className="lu-num">{dinero(c.monto, cobros.moneda, t.idioma)}</b>
+                </Link>
+              ))
+            )}
+            {cobros.terminados > 0 && (
+              <Link href="/chepito" className="lu-small ap-cobros__fin">
+                {t('{cobros} ya terminaron: archívalos o bórralos →', { cobros: plural(cobros.terminados, t('cobro'), t('cobros')) })}
+              </Link>
+            )}
+          </section>
         </div>
 
         <aside className="ap-side">
@@ -167,17 +196,36 @@ export default async function AccountPickerPage() {
   );
 }
 
-/** Los cobros de Chepito que siguen cobrando (como cobro_abierto) */
-async function contarCobrosAbiertos(supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], accountId: string) {
-  const { count } = await supabase
-    .from('cobros')
-    .select('id', { count: 'exact', head: true })
-    .eq('account_id', accountId)
-    .is('pagado_at', null)
-    .is('no_debe_at', null)
-    .is('detenido_at', null)
-    .lt('avisos', 4);
-  return count ?? 0;
+/** Los cobros de Chepito que siguen cobrando (como cobro_abierto) y cuántos terminaron sin archivar */
+async function cobrosDeChepito(supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], chepito: AccountOverview | undefined) {
+  const vacio = { activos: [], terminados: 0, moneda: 'COP' as Moneda };
+  if (!chepito) return vacio;
+  const [{ data, error }, { data: cuenta }] = await Promise.all([
+    supabase
+      .from('cobros')
+      .select('id, monto, concepto, avisos, pagado_at, no_debe_at, detenido_at, archivado_at, deudor:people!cobros_deudor_person_id_fkey(display_name)')
+      .eq('account_id', chepito.id)
+      .order('created_at', { ascending: false }),
+    supabase.from('accounts').select('currency').eq('id', chepito.id).maybeSingle(),
+  ]);
+  if (error || !data) return vacio;
+  const filas = data as unknown as {
+    id: string;
+    monto: number;
+    concepto: string;
+    avisos: number;
+    pagado_at: string | null;
+    no_debe_at: string | null;
+    detenido_at: string | null;
+    archivado_at: string | null;
+    deudor: { display_name: string } | null;
+  }[];
+  const abierto = (c: (typeof filas)[number]) => !c.pagado_at && !c.no_debe_at && !c.detenido_at && c.avisos < 4;
+  return {
+    activos: filas.filter(abierto).map((c) => ({ id: c.id, nombre: c.deudor?.display_name ?? '—', monto: c.monto, concepto: c.concepto, avisos: c.avisos })),
+    terminados: filas.filter((c) => !abierto(c) && !c.archivado_at).length,
+    moneda: (cuenta?.currency as Moneda | undefined) ?? 'COP',
+  };
 }
 
 /** La cuenta protagonista: la activa con más por revisar; a igualdad, los eventos primero. */

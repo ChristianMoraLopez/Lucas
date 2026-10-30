@@ -888,7 +888,7 @@ export function AppShell({
 }: {
   account?: string;
   accountTone?: Tone;
-  accountGlyph?: string;
+  accountGlyph?: React.ReactNode;
   /** railOnly: solo en el menú lateral (escritorio), no en las pestañas de abajo. dot: un punto de estado sobre el ícono */
   tabs?: { id: string; label: string; count?: number; icon?: string; railOnly?: boolean; dot?: 'ok' | 'warn' | 'off' }[];
   active?: string;

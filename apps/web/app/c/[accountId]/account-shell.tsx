@@ -11,6 +11,7 @@ import { LogoLink } from '@/components/logo-link';
 import { AppShell, ICONS } from '@/components/lucas-ui';
 import { MenuPrincipal } from '@/components/menu-principal';
 import { MonedaProvider } from '@/components/moneda';
+import { Sombrerito } from '@/components/sombrerito';
 import type { Moneda } from '@/lib/moneda';
 import { useAccountChanges } from '@/lib/realtime';
 import { type AccountType, accountGlyph, accountTone, type EstadoWhatsapp, estadoWhatsapp, type WhatsappOverview } from '@/lib/types';
@@ -171,8 +172,8 @@ export function AccountShell({
     <MonedaProvider moneda={account.currency}>
       <AppShell
         account={account.name}
-        accountTone={accountTone(account.name)}
-        accountGlyph={accountGlyph(account.name)}
+        accountTone={cobro ? 'coral' : accountTone(account.name)}
+        accountGlyph={cobro ? <Sombrerito /> : accountGlyph(account.name)}
         tabs={tabs}
         active={active}
         onTab={(id) => router.push(`/c/${account.id}/${id}`)}

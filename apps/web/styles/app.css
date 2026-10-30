@@ -317,9 +317,63 @@ iframe {
 .ap-row.is-closed {
   background: transparent;
 }
+/* El bombín de Chepito (components/sombrerito.tsx): se ladea y se levanta, como saludando */
+.sombrerito {
+  display: block;
+  overflow: visible;
+}
+.sombrerito__hat {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sombrerito 3.2s ease-in-out infinite;
+}
+@keyframes sombrerito {
+  0%,
+  55%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  65% {
+    transform: translateY(-3px) rotate(-12deg);
+  }
+  75% {
+    transform: translateY(-1px) rotate(6deg);
+  }
+  85% {
+    transform: translateY(0) rotate(-2deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sombrerito__hat {
+    animation: none;
+  }
+}
 /* Chepito: aparte de las cuentas, abajo, en coral (su color) */
-.ap-chepito {
+.ap-cobros {
   margin-top: var(--space-2);
+}
+.ap-cobros__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ap-cobros__hat {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--tono-coral);
+}
+.ap-cobros__nuevo {
+  margin-left: auto;
+}
+.ap-cobros__fin {
+  color: var(--tinta-2);
+  font-weight: 600;
+}
+.ap-chepito {
   background: var(--coral-suave);
   border-style: dashed;
   border-color: var(--coral);
@@ -329,10 +383,6 @@ iframe {
 }
 .ap-chepito > :first-child {
   flex: none;
-}
-.ap-chepito__ir {
-  font-weight: 800;
-  color: var(--tinta-2);
 }
 .ap-glyph {
   width: 44px;
@@ -7549,6 +7599,10 @@ a.gr-fila:focus-visible {
   display: grid;
   justify-items: end;
   gap: var(--space-2);
+}
+.ch-archivo__t {
+  cursor: pointer;
+  margin-bottom: var(--space-3);
 }
 .ch-item.is-fin {
   background: transparent;

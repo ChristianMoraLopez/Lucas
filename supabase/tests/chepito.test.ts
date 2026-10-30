@@ -119,6 +119,19 @@ describe('editar y borrar cobros', () => {
     });
   });
 
+  it('terminado se archiva (y se saca del archivo); abierto, no', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const cuenta = await cuentaDeCobro(tx);
+      const id = await rpc<string>(tx, 'public.crear_cobro($1, $2, $3, $4, $5)', [cuenta, 'Juan', '300 123 4567', 50000, 'la boleta']);
+      expect(await falla(tx, 'select public.archivar_cobro($1)', [id])).toMatch('sigue abierto');
+      await tx.query(`select public.marcar_cobro($1, 'pagado')`, [id]);
+      await tx.query('select public.archivar_cobro($1)', [id]);
+      expect(await one(tx, 'select archivado_at is not null as a from public.cobros where id = $1', [id])).toEqual({ a: true });
+      await tx.query('select public.archivar_cobro($1, false)', [id]);
+      expect(await one(tx, 'select archivado_at is not null as a from public.cobros where id = $1', [id])).toEqual({ a: false });
+    });
+  });
+
   it('se borra con quien debía, y el aviso que no había salido ya no sale', async () => {
     await as(db, U.valeria, async (tx) => {
       const cuenta = await cuentaDeCobro(tx);
