@@ -257,6 +257,9 @@ export interface PendingReply {
   /** Tiene usuario en la cuenta: el link abre el gasto en la app; si no, el link público de la cuenta (token) */
   con_sesion?: boolean;
   token?: string | null;
+  /** El grupo confirma cada gasto, y quien mandó el recibo administra la cuenta (migración 680) */
+  confirma?: boolean;
+  admin?: boolean;
   /** De la cuenta (migración 250); si no llegan, pesos colombianos y español */
   currency?: Moneda | null;
   language?: Idioma | null;
@@ -411,7 +414,22 @@ export function formatPrimerGasto(items: PendingReply[], webUrl = 'https://mrluk
       ? '💬 Whenever you want, ask me *@MrLuks how much so far*, *@MrLuks who owes whom* or *@MrLuks my expenses*. And if you have more receipts, send them here and I’ll log them.'
       : '💬 Cuando quieras, pregúntame *@MrLuks cuánto llevamos*, *@MrLuks quién le debe a quién* o *@MrLuks mis gastos*. Y si tienes más recibos, mándalos por aquí y los anoto.';
 
-  return `${cabeza}\n\n${revisar}\n\n${preguntas}`;
+  // En un grupo que no confirma cada gasto: que de aquí en adelante no, y cómo prenderlo (la 680)
+  let apagadas = '';
+  if (!r.privado && r.confirma === false) {
+    const dondeSe = r.admin && r.con_sesion && r.account_id ? `\n${webUrl}/c/${r.account_id}/whatsapp` : '';
+    apagadas = en
+      ? `\n\n🔕 From now on I won’t confirm every expense, so I don’t flood the chat: I keep logging them all the same.\n💡 ${
+          r.admin
+            ? 'If you want me to confirm each one, turn it on in the app'
+            : 'If you want me to confirm each one, whoever manages the account turns it on in the app'
+        }: WhatsApp → “Confirm in the group”.${dondeSe}`
+      : `\n\n🔕 De aquí en adelante no confirmo cada gasto, para no llenar el chat: los sigo anotando igual.\n💡 ${
+          r.admin ? 'Si quieres que confirme cada uno, préndelo en la app' : 'Si quieren que confirme cada uno, quien administra la cuenta lo prende en la app'
+        }: WhatsApp → «Confirmar en el grupo».${dondeSe}`;
+  }
+
+  return `${cabeza}\n\n${revisar}${apagadas}\n\n${preguntas}`;
 }
 
 /** La pregunta al enlazar el grupo (igual en conectar_grupo, migración 340) */

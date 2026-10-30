@@ -23,6 +23,8 @@ type Pendiente = {
   sender_person_id: string | null;
   sender_name: string | null;
   con_sesion: boolean;
+  confirma: boolean;
+  admin: boolean;
   account_id: string;
   expense: { id: string; merchant: string } | null;
 };
@@ -82,6 +84,9 @@ describe('el primer gasto de alguien', () => {
         sender_person_id: MAFE,
         sender_name: 'Mafe',
         con_sesion: true,
+        // El grupo no confirma cada gasto y Mafe no administra el Paseo (la 680)
+        confirma: false,
+        admin: false,
         account_id: PASEO,
         expense: { merchant: 'Arriendo' },
       });

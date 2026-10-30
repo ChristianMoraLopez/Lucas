@@ -183,6 +183,29 @@ describe('el primer recibo de alguien', () => {
     );
   });
 
+  it('en un grupo que no confirma, dice que de aquí en adelante no y cómo prenderlo', async () => {
+    store.replies = [primero(1, { confirma: false, admin: true })];
+    await loop().tick();
+    expect(wa.sent[0].text).toContain(
+      '\n\n🔕 De aquí en adelante no confirmo cada gasto, para no llenar el chat: los sigo anotando igual.\n' +
+        '💡 Si quieres que confirme cada uno, préndelo en la app: WhatsApp → «Confirmar en el grupo».\nhttps://mrluks.com/c/acc-1/whatsapp\n\n💬 ',
+    );
+
+    // Quien no administra la cuenta: lo prende quien la administra (sin el link)
+    store.replies = [primero(2, { confirma: false, admin: false, sender_person_id: 'mafe' })];
+    t += 20_000;
+    await loop().tick();
+    expect(wa.sent[1].text).toContain(
+      '💡 Si quieren que confirme cada uno, quien administra la cuenta lo prende en la app: WhatsApp → «Confirmar en el grupo».\n\n💬 ',
+    );
+
+    // Si el grupo confirma (o por privado), no hace falta
+    store.replies = [primero(3, { confirma: true, admin: true, sender_person_id: 'otra' })];
+    t += 20_000;
+    await loop().tick();
+    expect(wa.sent[2].text).not.toContain('🔕');
+  });
+
   it('por privado dice en qué cuenta quedó y qué preguntarle ahí', async () => {
     store.replies = [primero(1, { privado: true, group_jid: '263951577264372@lid' })];
     await loop().tick();
