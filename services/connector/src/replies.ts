@@ -1,7 +1,7 @@
 import type { MessagingConnector } from './connector.js';
 import type { Logger } from './log.js';
 import type { OutboxPending, Store } from './store.js';
-import { formatReplies, LINK_GRUPO, LINK_VERIFICACION, type PendingReply, sinLineaDelLink } from './text.js';
+import { formatPrimerGasto, formatReplies, LINK_GRUPO, LINK_VERIFICACION, type PendingReply, sinLineaDelLink } from './text.js';
 
 /*
  * Límite de frecuencia para todo lo que Luks escribe en los grupos: un
@@ -59,7 +59,8 @@ export interface ReplyOptions {
 /**
  * Todo lo que escribe Mister Luks, con el mismo límite de frecuencia:
  *   · las confirmaciones de lo que el worker terminó de procesar («✅ Anotado: …»),
- *     agrupando lo que llegó seguido en un solo mensaje;
+ *     agrupando lo que llegó seguido en un solo mensaje, y el primer recibo de
+ *     cada quien («ya quedó registrado tu gasto, revísalo aquí»);
  *   · la bandeja de salida (whatsapp_outbox): la bienvenida, el saludo del
  *     grupo, la guía y las respuestas a los links. Un mensaje de la bandeja puede
  *     ser texto, imagen con pie y un documento: cuenta como uno solo. Los links
@@ -101,9 +102,16 @@ export class ReplyLoop {
       }
       if (!this.limiter.allow(jid)) continue;
 
-      const tanda = items.slice(0, this.options.batchMax);
+      // El primer recibo de alguien (la 660) va en su propio mensaje, con todo lo suyo que llegó seguido;
+      // lo demás, junto como siempre. Lo que quede sale en la próxima vuelta
+      const primero = items[0].primera_vez ? items[0] : null;
+      const tanda = (
+        primero
+          ? items.filter((r) => r.primera_vez && r.sender_person_id === primero.sender_person_id && r.account_id === primero.account_id)
+          : items.filter((r) => !r.primera_vez)
+      ).slice(0, this.options.batchMax);
       try {
-        await who.connector.send(jid, { text: formatReplies(tanda) });
+        await who.connector.send(jid, { text: primero ? formatPrimerGasto(tanda, this.options.webUrl) : formatReplies(tanda) });
         this.limiter.record(jid);
         await this.store.markReplied(tanda.map((r) => r.message_id));
         sent += tanda.length;

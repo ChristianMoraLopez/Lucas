@@ -167,7 +167,7 @@ Los volúmenes (`luks-ollama`, `luks-models`, `luks-kuma`) sobreviven: no se vue
 ## Notas
 
 - **Oracle apaga las máquinas gratuitas** que pasan una semana casi sin uso. Si pasa, se vuelve a encender desde *Instances → Start*. Pasar la cuenta a *Pay As You Go* lo evita.
-- **Para que WhatsApp no bloquee el número:** Luks escribe poco, con un mínimo de 20 s entre mensajes por grupo y topes por hora (`services/connector/.env`). Mister Luks no confirma cada gasto: las confirmaciones vienen apagadas en cada grupo y un admin las prende desde la web si las quiere (`GROUP_REPLIES=false` las apaga para todos).
+- **Para que WhatsApp no bloquee el número:** Luks escribe poco, con un mínimo de 20 s entre mensajes por grupo y topes por hora (`services/connector/.env`). Mister Luks no confirma cada gasto: las confirmaciones vienen apagadas en cada grupo y un admin las prende desde la web si las quiere (`GROUP_REPLIES=false` las apaga para todos). Lo único que contesta siempre es el primer recibo de cada persona en una cuenta: que ya quedó, el link para revisarlo y qué le puede preguntar (migración 660).
 - **Si ya tenías el worker solo** (`services/worker/docker-compose.yml`): `docker compose -f ../services/worker/docker-compose.yml down` y, para no volver a bajar el modelo, copia sus volúmenes antes de arrancar:
   ```bash
   docker volume create luks-ollama && docker run --rm -v worker_ollama:/de -v luks-ollama:/a alpine cp -a /de/. /a/

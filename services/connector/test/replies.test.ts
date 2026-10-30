@@ -107,6 +107,90 @@ describe('confirmaciones en el grupo', () => {
   });
 });
 
+describe('el primer recibo de alguien', () => {
+  let store: FakeStore;
+  let wa: FakeConnector;
+  let t: number;
+  const CUENTA = 'acc-1';
+  const loop = () =>
+    new ReplyLoop(
+      store,
+      new RateLimiter({ minIntervalMs: 20_000, maxPerHourPerGroup: 20, maxPerHourTotal: 60 }, () => t),
+      () => ({ connector: wa }),
+      { batchMax: 5, maxWaitMs: 30 * 60_000, webUrl: 'https://mrluks.com' },
+      silentLog,
+      () => t,
+    );
+  const primero = (i: number, over: Partial<PendingReply> = {}) =>
+    pendiente(i, {
+      primera_vez: true,
+      account_id: CUENTA,
+      account_name: 'Cuenta con Mister Luks',
+      sender_person_id: 'santi',
+      sender_name: 'Santiago Echeverría',
+      con_sesion: true,
+      token: null,
+      expense: { id: `g${i}`, merchant: 'Arriendo', total_cop: 800_000, status: 'confirmed', payer: 'Santiago', split_count: 1 },
+      ...over,
+    });
+
+  beforeEach(() => {
+    store = new FakeStore();
+    wa = new FakeConnector(contador);
+    t = 1_000_000;
+  });
+
+  it('va solo: ya quedó, el link al gasto y qué preguntarle; lo demás del grupo, en la próxima vuelta', async () => {
+    store.replies = [primero(1), pendiente(2)];
+    const l = loop();
+    expect(await l.tick()).toEqual({ sent: 1, dropped: 0, outbox: 0 });
+    expect(wa.sent[0].text).toBe(
+      '✅ ¡Listo, Santiago! Ya quedó registrado tu gasto: Arriendo · $800.000 · pagó Santiago.\n\n' +
+        '👀 Puedes revisarlo aquí:\nhttps://mrluks.com/c/acc-1/gastos/g1\n\n' +
+        '💬 Cuando quieras, pregúntame *@MrLuks cuánto llevamos*, *@MrLuks quién le debe a quién* o *@MrLuks mis gastos*. Y si tienes más recibos, mándalos por aquí y los anoto.',
+    );
+    expect(store.replied).toEqual(['m1']);
+    t += 20_000;
+    await l.tick();
+    expect(wa.sent[1].text).toBe('✅ Anotado: Gasto 2 · $2.000 · pagó Mafe.');
+  });
+
+  it('si mandó varios seguidos van juntos, con la lista de gastos y lo que falta revisar', async () => {
+    store.replies = [
+      primero(1),
+      primero(2, { expense: { id: 'g2', merchant: 'Luz', total_cop: 90_000, status: 'pending_review', payer: null, split_count: 1 } }),
+      primero(3, { sender_person_id: 'otra', sender_name: 'Mafe' }),
+    ];
+    await loop().tick();
+    expect(wa.sent[0].text).toMatch(
+      /^✅ ¡Listo, Santiago! Ya quedaron registrados tus 2 gastos:\n• Arriendo · \$800\.000 · pagó Santiago\n• Luz · \$90\.000\n\n/,
+    );
+    expect(wa.sent[0].text).toContain('👀 Uno quedó por revisar: revísalo y confírmalo aquí:\nhttps://mrluks.com/c/acc-1/gastos\n');
+    expect(store.replied).toEqual(['m1', 'm2']);
+  });
+
+  it('sin usuario en la cuenta: el link público con lo suyo; sin link público, mrluks.com; nunca saluda a un @usuario', async () => {
+    store.replies = [primero(1, { con_sesion: false, token: 'TOK', sender_name: '@juanes' })];
+    await loop().tick();
+    expect(wa.sent[0].text).toMatch(/^✅ ¡Listo! Ya quedó registrado tu gasto/);
+    expect(wa.sent[0].text).toContain('👀 Mira las cuentas y lo tuyo aquí:\nhttps://mrluks.com/r/TOK?p=santi\n');
+
+    store.replies = [primero(2, { con_sesion: false, token: null, language: 'en' })];
+    t += 20_000;
+    await loop().tick();
+    expect(wa.sent[1].text).toMatch(
+      /^✅ Done, Santiago! Your expense is logged: Arriendo · \$800,000 · paid by Santiago\.\n\n📊 More detail at mrluks\.com\n\n💬 .*@MrLuks how much so far/,
+    );
+  });
+
+  it('por privado dice en qué cuenta quedó y qué preguntarle ahí', async () => {
+    store.replies = [primero(1, { privado: true, group_jid: '263951577264372@lid' })];
+    await loop().tick();
+    expect(wa.sent[0].text).toMatch(/^✅ ¡Listo, Santiago! Ya quedó registrado tu gasto en «Cuenta con Mister Luks»: Arriendo/);
+    expect(wa.sent[0].text).toContain('pregúntame *qué debo*, *mis cuentas* o *mis gastos*');
+  });
+});
+
 describe('la bandeja de salida de Mister Luks', () => {
   let store: FakeStore;
   let wa: FakeConnector;

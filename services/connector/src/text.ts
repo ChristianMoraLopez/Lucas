@@ -248,11 +248,26 @@ export interface PendingReply {
   received_at: string;
   /** Llegó por privado: la respuesta dice en qué cuenta quedó (migración 630) */
   privado?: boolean;
+  account_id?: string;
   account_name?: string | null;
+  /** Su primer gasto en la cuenta (migración 660): «ya quedó registrado, revísalo aquí», aunque el grupo no confirme */
+  primera_vez?: boolean;
+  sender_person_id?: string | null;
+  sender_name?: string | null;
+  /** Tiene usuario en la cuenta: el link abre el gasto en la app; si no, el link público de la cuenta (token) */
+  con_sesion?: boolean;
+  token?: string | null;
   /** De la cuenta (migración 250); si no llegan, pesos colombianos y español */
   currency?: Moneda | null;
   language?: Idioma | null;
-  expense: { merchant: string; total_cop: number; status: 'confirmed' | 'pending_review'; payer: string | null; split_count: number } | null;
+  expense: {
+    id?: string;
+    merchant: string;
+    total_cop: number;
+    status: 'confirmed' | 'pending_review';
+    payer: string | null;
+    split_count: number;
+  } | null;
   duplicate_of: { merchant: string; total_cop: number; expense_date: string } | null;
 }
 
@@ -313,6 +328,90 @@ export function formatReplies(items: PendingReply[]): string {
   }
   const cola = porRevisar ? `\n👀 ${porRevisar === 1 ? 'Uno queda' : `${porRevisar} quedan`} por revisar en Luks.` : '';
   return `✅ Anotados ${items.length}:\n${lineas.join('\n')}${cola}`;
+}
+
+/** Para saludar: el primer nombre, pero no un @usuario ni un número */
+const nombreDeSaludo = (nombre: string | null | undefined) => {
+  const n = nombre?.trim().split(/\s+/)[0] ?? '';
+  return n.startsWith('@') || /\d/.test(n) ? '' : n;
+};
+
+/**
+ * El primer recibo de alguien en una cuenta (migración 660): ya quedó, aquí lo
+ * revisa y esto me puede preguntar. Todos los items son de la misma persona.
+ * Con usuario en la cuenta, el link abre el gasto (o la lista, si son varios);
+ * sin él, el link público de la cuenta con lo suyo.
+ */
+export function formatPrimerGasto(items: PendingReply[], webUrl = 'https://mrluks.com'): string {
+  const r = items[0];
+  const idioma = idiomaDe(r);
+  const en = idioma === 'en';
+  const nombre = nombreDeSaludo(r.sender_name);
+  const listo = en ? (nombre ? `Done, ${nombre}!` : 'Done!') : nombre ? `¡Listo, ${nombre}!` : '¡Listo!';
+  const cuenta = r.privado && r.account_name ? (en ? ` in “${r.account_name}”` : ` en «${r.account_name}»`) : '';
+  const varios = items.length > 1;
+  const porRevisar = items.filter((x) => x.expense?.status !== 'confirmed').length;
+
+  const cabeza = varios
+    ? en
+      ? `✅ ${listo} Your ${items.length} expenses are logged${cuenta}:\n${items.map((x) => `• ${linea(x)}`).join('\n')}`
+      : `✅ ${listo} Ya quedaron registrados tus ${items.length} gastos${cuenta}:\n${items.map((x) => `• ${linea(x)}`).join('\n')}`
+    : en
+      ? `${porRevisar ? '🧾' : '✅'} ${listo} Your expense is logged${cuenta}: ${linea(r)}.`
+      : `${porRevisar ? '🧾' : '✅'} ${listo} Ya quedó registrado tu gasto${cuenta}: ${linea(r)}.`;
+
+  let link: string | null = null;
+  if (r.con_sesion && r.account_id) {
+    link = `${webUrl}/c/${r.account_id}/gastos${!varios && r.expense?.id ? `/${r.expense.id}` : ''}`;
+  } else if (r.token) {
+    const q = new URLSearchParams();
+    if (r.sender_person_id) q.set('p', r.sender_person_id);
+    if (en) q.set('l', 'en');
+    link = `${webUrl}/r/${r.token}?${q}`;
+  }
+  // Los que quedaron por revisar: todos, uno de varios o algunos
+  const plural = porRevisar > 1;
+  const quienes =
+    porRevisar === items.length
+      ? en
+        ? plural
+          ? 'They need'
+          : 'It needs'
+        : plural
+          ? 'Quedaron'
+          : 'Quedó'
+      : en
+        ? plural
+          ? `${porRevisar} need`
+          : 'One needs'
+        : plural
+          ? `${porRevisar} quedaron`
+          : 'Uno quedó';
+  const revisar = !link
+    ? en
+      ? '📊 More detail at mrluks.com'
+      : '📊 Más detalle en mrluks.com'
+    : !r.con_sesion
+      ? en
+        ? `👀 See the account and your part here:\n${link}`
+        : `👀 Mira las cuentas y lo tuyo aquí:\n${link}`
+      : porRevisar
+        ? en
+          ? `👀 ${quienes} a review: check and confirm ${plural ? 'them' : 'it'} here:\n${link}`
+          : `👀 ${quienes} por revisar: ${plural ? 'revísalos y confírmalos' : 'revísalo y confírmalo'} aquí:\n${link}`
+        : en
+          ? `👀 You can check ${varios ? 'them' : 'it'} here:\n${link}`
+          : `👀 Puedes ${varios ? 'revisarlos' : 'revisarlo'} aquí:\n${link}`;
+
+  const preguntas = r.privado
+    ? en
+      ? '💬 Whenever you want, ask me *what do I owe*, *my accounts* or *my expenses*. And if you have more receipts, send them here and I’ll log them.'
+      : '💬 Cuando quieras, pregúntame *qué debo*, *mis cuentas* o *mis gastos*. Y si tienes más recibos, mándamelos por aquí y los anoto.'
+    : en
+      ? '💬 Whenever you want, ask me *@MrLuks how much so far*, *@MrLuks who owes whom* or *@MrLuks my expenses*. And if you have more receipts, send them here and I’ll log them.'
+      : '💬 Cuando quieras, pregúntame *@MrLuks cuánto llevamos*, *@MrLuks quién le debe a quién* o *@MrLuks mis gastos*. Y si tienes más recibos, mándalos por aquí y los anoto.';
+
+  return `${cabeza}\n\n${revisar}\n\n${preguntas}`;
 }
 
 /** La pregunta al enlazar el grupo (igual en conectar_grupo, migración 340) */

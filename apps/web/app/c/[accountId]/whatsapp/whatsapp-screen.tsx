@@ -663,7 +663,7 @@ function FormaMisterLuks({ telefono, conectado }: { telefono: string | null; con
       compara={[
         [t('Qué haces'), t('Lo agregas al grupo, o le mandas el link del grupo por privado.')],
         [t('Qué ve Luks'), t('Solo los grupos donde lo agregues.')],
-        [t('¿Responde en el grupo?'), t('Sí: confirma cada gasto («Anotado: …»).')],
+        [t('¿Responde en el grupo?'), t('Al primer recibo de cada quien le dice que quedó y dónde verlo; confirmar cada gasto se prende por grupo.')],
         [t('Lo de antes'), t('Lee desde que lo agregan. Lo anterior, con el chat exportado: se lo mandan o lo suben aquí.')],
         [t('Ideal si'), t('El grupo acepta a alguien más.')],
         [t('Ojo'), t('Si WhatsApp bloquea a Mister Luks, deja de leer todos sus grupos hasta que vuelva. Lo anotado no se pierde.')],
