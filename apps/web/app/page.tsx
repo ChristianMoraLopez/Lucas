@@ -65,14 +65,28 @@ export default async function AccountPickerPage() {
           <div className="ap-intro">
             <h1 className="lu-display">{firstName ? t('Hola, {nombre}', { nombre: firstName }) : t('Hola')}</h1>
             <p className="lu-small lu-muted" style={{ margin: 0 }}>
-              {accounts.length === 0
-                ? t('Todavía no tienes cuentas. Crea una o entra con el código que te pasaron.')
-                : pending > 0
-                  ? t('Tienes {cuentas} y {gastos} esperando revisión.', {
-                      cuentas: plural(accounts.length, t('cuenta'), t('cuentas')),
-                      gastos: plural(pending, t('gasto'), t('gastos')),
-                    })
-                  : t('Tienes {cuentas} y todo está revisado.', { cuentas: plural(accounts.length, t('cuenta'), t('cuentas')) })}
+              {/* Los cobros de Chepito se cuentan aparte de las cuentas */}
+              {cobros.activos.length > 0
+                ? accounts.length === 0
+                  ? t('Tienes {cobros} y todavía ninguna cuenta.', { cobros: plural(cobros.activos.length, t('cobro activo'), t('cobros activos')) })
+                  : pending > 0
+                    ? t('Tienes {cuentas} y {cobros}; {gastos} esperan revisión.', {
+                        cuentas: plural(accounts.length, t('cuenta'), t('cuentas')),
+                        cobros: plural(cobros.activos.length, t('cobro activo'), t('cobros activos')),
+                        gastos: plural(pending, t('gasto'), t('gastos')),
+                      })
+                    : t('Tienes {cuentas} y {cobros}, y todo está revisado.', {
+                        cuentas: plural(accounts.length, t('cuenta'), t('cuentas')),
+                        cobros: plural(cobros.activos.length, t('cobro activo'), t('cobros activos')),
+                      })
+                : accounts.length === 0
+                  ? t('Todavía no tienes cuentas. Crea una o entra con el código que te pasaron.')
+                  : pending > 0
+                    ? t('Tienes {cuentas} y {gastos} esperando revisión.', {
+                        cuentas: plural(accounts.length, t('cuenta'), t('cuentas')),
+                        gastos: plural(pending, t('gasto'), t('gastos')),
+                      })
+                    : t('Tienes {cuentas} y todo está revisado.', { cuentas: plural(accounts.length, t('cuenta'), t('cuentas')) })}
             </p>
           </div>
 
