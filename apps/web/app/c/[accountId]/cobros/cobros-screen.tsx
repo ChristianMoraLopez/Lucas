@@ -27,6 +27,7 @@ interface Cobro {
   no_debe_at: string | null;
   detenido_at: string | null;
   detenido_por: 'acreedor' | 'no_me_escribas' | null;
+  archivado_at: string | null;
   created_at: string;
   deudor: { display_name: string } | null;
 }
@@ -66,7 +67,7 @@ export function CobrosScreen({ accountId, myRole, closed, pago }: { accountId: s
       const { data, error } = await supabase
         .from('cobros')
         .select(
-          'id, monto, concepto, telefono, avisos, avisado_at, pagado_at, pagado_por, no_debe_at, detenido_at, detenido_por, created_at, deudor:people!cobros_deudor_person_id_fkey(display_name)',
+          'id, monto, concepto, telefono, avisos, avisado_at, pagado_at, pagado_por, no_debe_at, detenido_at, detenido_por, archivado_at, created_at, deudor:people!cobros_deudor_person_id_fkey(display_name)',
         )
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
@@ -76,6 +77,11 @@ export function CobrosScreen({ accountId, myRole, closed, pago }: { accountId: s
   });
   const refrescar = () => queryClient.invalidateQueries({ queryKey: ['cobros', accountId] });
   const lista = cobros.data ?? [];
+  // Los que siguen cobrando, los que ya terminaron (para archivar o borrar) y los archivados
+  const activos = lista.filter((c) => abierto(c));
+  const terminados = lista.filter((c) => !abierto(c) && !c.archivado_at);
+  const archivados = lista.filter((c) => !abierto(c) && c.archivado_at);
+  const item = (c: Cobro) => <CobroItem key={c.id} c={c} isAdmin={isAdmin} verTelefono={myRole !== 'member'} onCambio={refrescar} />;
 
   return (
     <div className="ch">
@@ -106,19 +112,32 @@ export function CobrosScreen({ accountId, myRole, closed, pago }: { accountId: s
           <p className="lu-error" role="alert">
             {humanError(cobros.error)}
           </p>
-        ) : lista.length === 0 ? (
+        ) : activos.length === 0 ? (
           <div className="ch-vacio">
             <Lottie name="chepito-espera" width={140} height={140} label={t('Chepito esperando')} />
             <p className="lu-small lu-muted">{t('Todavía no le cobras a nadie. Cuando alguien te deba, ponlo arriba.')}</p>
           </div>
         ) : (
-          <ul className="ch-items">
-            {lista.map((c) => (
-              <CobroItem key={c.id} c={c} isAdmin={isAdmin} verTelefono={myRole !== 'member'} onCambio={refrescar} />
-            ))}
-          </ul>
+          <ul className="ch-items">{activos.map(item)}</ul>
         )}
       </section>
+
+      {terminados.length > 0 && (
+        <section className="ch-lista" aria-labelledby="ch-fin-t">
+          <h2 id="ch-fin-t" className="lu-title">
+            {t('Ya terminaron')}
+          </h2>
+          <p className="lu-small lu-muted">{t('Archívalos o bórralos para que Chepito quede solo con lo que sigue cobrando.')}</p>
+          <ul className="ch-items">{terminados.map(item)}</ul>
+        </section>
+      )}
+
+      {archivados.length > 0 && (
+        <details className="ch-archivo">
+          <summary className="lu-title ch-archivo__t">{t('Archivados ({n})', { n: archivados.length })}</summary>
+          <ul className="ch-items">{archivados.map(item)}</ul>
+        </details>
+      )}
 
       <p className="lu-small lu-muted ch-nota">
         {t(
@@ -296,6 +315,13 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
     onCambio();
   };
 
+  const archivar = async (si: boolean) => {
+    setError(null);
+    const { error } = await supabase.rpc('archivar_cobro', { p_cobro_id: c.id, p_archivar: si });
+    if (error) return setError(humanError(error));
+    onCambio();
+  };
+
   const quitar = async () => {
     setError(null);
     const { error } = await supabase.rpc('borrar_cobro', { p_cobro_id: c.id });
@@ -390,6 +416,11 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
                   {t('Dejar de cobrar')}
                 </Button>
               </>
+            )}
+            {!sigue && (
+              <Button size="sm" variant="secondary" onClick={() => archivar(!c.archivado_at)}>
+                {c.archivado_at ? t('Sacar del archivo') : t('Archivar')}
+              </Button>
             )}
             <Button size="sm" variant="ghost" onClick={() => setBorrar(true)}>
               {t('Borrar')}

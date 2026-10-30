@@ -1998,7 +1998,6 @@ export const EN: Record<string, string> = {
   // Chepito (cobros, migración 710)
   Cobros: 'Collections',
   // Chepito va aparte de las cuentas (migración 720)
-  'Cobrando {cobros}': 'Collecting {cobros}',
   cobro: 'debt',
   cobros: 'debts',
   '¿Alguien te debe plata? Chepito se la cobra por ti': 'Does someone owe you money? Chepito collects it for you',
@@ -2007,6 +2006,13 @@ export const EN: Record<string, string> = {
   'Mister Luks deja de cobrarle y el cobro desaparece de la lista.': 'Mister Luks stops collecting and it disappears from the list.',
   'El cobro desaparece de la lista.': 'It disappears from the list.',
   'Ese cobro ya terminó: no se puede editar': 'That collection is over: it can’t be edited',
+  // Archivar cobros (migración 730)
+  'Ya terminaron': 'Finished',
+  'Archívalos o bórralos para que Chepito quede solo con lo que sigue cobrando.': 'Archive or delete them so Chepito only keeps what he’s still collecting.',
+  'Archivados ({n})': 'Archived ({n})',
+  '{cobros} ya terminaron: archívalos o bórralos →': '{cobros} finished: archive or delete them →',
+  'Ese cobro sigue abierto: márcalo pagado o deja de cobrar antes de archivarlo':
+    'That collection is still open: mark it paid or stop collecting before archiving it',
   'Soy Chepito 🎩, el cobrador de Mister Luks. Le escribo por WhatsApp a quien te debe, me presento, le digo cuánto y por qué, y se lo recuerdo cada 2 días (hasta 4 veces). Solo en horario de cobranza: lunes a viernes de 8 a. m. a 7 p. m. y sábados hasta las 3 p. m.':
     'I’m Chepito 🎩, Mister Luks’s collector. I write on WhatsApp to whoever owes you, introduce myself, tell them how much and why, and remind them every 2 days (up to 4 times). Only during collection hours: Monday to Friday 8 a.m. to 7 p.m. and Saturdays until 3 p.m. (Colombia time).',
   'Chepito, el cobrador de Mister Luks': 'Chepito, Mister Luks’s collector',
