@@ -7589,11 +7589,19 @@ a.gr-fila:focus-visible {
   border-radius: var(--radius-lg);
   background: var(--superficie);
 }
+/* Chepito en cada cobro, como está ese cobro */
+.ch-item__chepito {
+  margin: -8px -4px -8px -8px;
+}
 .ch-item__txt {
   display: grid;
   gap: 2px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.ch-adios {
+  display: grid;
+  justify-items: center;
 }
 .ch-item__fin {
   display: grid;
