@@ -6,8 +6,8 @@ import { CampoTelefono } from '@/components/campo-telefono';
 import { lanzarChispas } from '@/components/chispas';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useT } from '@/components/idioma';
-import { Lottie } from '@/components/lottie';
-import { Avatar, Button, Field } from '@/components/lucas-ui';
+import { Lottie, type LottieName } from '@/components/lottie';
+import { Button, Field } from '@/components/lucas-ui';
 import { useMoneda } from '@/components/moneda';
 import { humanError } from '@/lib/errors';
 import { deCampo, dinero } from '@/lib/moneda';
@@ -307,6 +307,8 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
           : c.avisos === 0
             ? { tono: 'on', texto: t('Le escribo en horario de cobranza') }
             : { tono: 'on', texto: t('Le escribí {n} de 4 veces', { n: c.avisos }) };
+  // Chepito en cada cobro: cobrando mientras sigue, feliz si le pagaron, esperando si se quedó sin pagar
+  const chepito: LottieName = c.pagado_at ? 'chepito-pagado' : sigue ? 'chepito-cobra' : 'chepito-espera';
 
   const marcar = async (que: 'pagado' | 'detener') => {
     setError(null);
@@ -386,7 +388,9 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
 
   return (
     <li className={`ch-item${sigue ? '' : ' is-fin'}`}>
-      <Avatar name={nombre} size="sm" registered={false} />
+      <span className="ch-item__chepito" aria-hidden="true">
+        <Lottie key={chepito} name={chepito} width={56} height={56} alVerse={chepito === 'chepito-pagado'} />
+      </span>
       <div className="ch-item__txt">
         <b>{nombre}</b>
         <span className="lu-small lu-muted">
@@ -435,6 +439,10 @@ function CobroItem({ c, isAdmin, verTelefono, onCambio }: { c: Cobro; isAdmin: b
         confirmLabel={t('Dejar de cobrar')}
         onConfirm={() => marcar('detener')}
       >
+        {/* Chepito se va, triste */}
+        <span className="ch-adios" aria-hidden="true">
+          <Lottie name="chepito-no-me-escribas" width={96} height={96} />
+        </span>
         <p>{t('Mister Luks no le vuelve a escribir por este cobro.')}</p>
       </ConfirmDialog>
       <ConfirmDialog
