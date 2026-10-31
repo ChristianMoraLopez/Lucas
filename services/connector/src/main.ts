@@ -107,7 +107,7 @@ const timers = [
   // Los avisos de cobro de las cuentas que los tienen prendidos (los manda la bandeja de salida)
   cada(config.misterLuks.cobrosIntervalMs, 'cobros', () => avisarCobros(store, config.misterLuks.webUrl, log)),
   // Chepito: los cobros que alguien pidió (solo en horario de cobranza en Colombia)
-  cada(config.misterLuks.cobrosIntervalMs, 'chepito', () => avisarChepito(store, log)),
+  cada(config.misterLuks.cobrosIntervalMs, 'chepito', () => avisarChepito(store, config.misterLuks.webUrl, log)),
   // ¿Quién pidió qué? de las cuentas con varios ítems que acaban de llegar a un paseo
   cada(config.misterLuks.itemsIntervalMs, 'items', () => preguntarItems(store, config.misterLuks.webUrl, log)),
 ];

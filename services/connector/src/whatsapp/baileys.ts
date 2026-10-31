@@ -17,6 +17,7 @@ import makeWASocket, {
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, SessionInfo } from '../connector.js';
 import type { SessionCipher } from '../crypto.js';
 import type { Logger } from '../log.js';
+import { miniaturaDeGif } from '../media.js';
 import type { Store } from '../store.js';
 import { useDbAuthState } from './auth-state.js';
 import { MensajesEnviados } from './enviados.js';
@@ -145,7 +146,9 @@ export class BaileysConnector implements MessagingConnector {
         ? { text: m.text }
         : 'imageUrl' in m
           ? { image: { url: m.imageUrl }, caption: m.caption }
-          : { document: { url: m.documentUrl }, fileName: m.fileName, mimetype: m.mimeType, caption: m.caption };
+          : 'gifUrl' in m
+            ? { video: { url: m.gifUrl }, gifPlayback: true, caption: m.caption, ...(await miniaturaDeGif(m.gifUrl)) }
+            : { document: { url: m.documentUrl }, fileName: m.fileName, mimetype: m.mimeType, caption: m.caption };
     const enviado = await this.#sock.sendMessage(chatId, contenido);
     this.#enviados.guardar(enviado?.key.id, chatId, enviado?.message);
     return enviado?.key.id ?? null;

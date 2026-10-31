@@ -237,6 +237,15 @@ const primerNombre = (s: string | null | undefined) => limpio(s).split(/\s+/)[0]
 const idiomaDe = (x: { language?: string | null }): Idioma => (x.language === 'en' ? 'en' : 'es');
 const monedaDe = (x: { currency?: string | null }): Moneda => (x.currency as Moneda) || 'COP';
 
+/**
+ * Chepito se ve en el mensaje: un GIF (un .mp4 que se repite) con el aviso de
+ * pie. En el primero saluda con el sombrero; en los recordatorios muestra la
+ * cuenta. Salen de scripts/chepito-gif.mjs de la web.
+ */
+export function gifDeChepito(c: Pick<ChepitoPendiente, 'avisos' | 'language'>, webUrl: string): string {
+  return `${webUrl}/brand/chepito-${c.avisos === 0 ? 'hola' : 'cobra'}-${idiomaDe(c)}.mp4`;
+}
+
 /** El aviso número avisos + 1: el primero se presenta; el cuarto es el último */
 export function avisoDeCobro(c: ChepitoPendiente): string {
   const idioma = idiomaDe(c);
@@ -251,12 +260,12 @@ export function avisoDeCobro(c: ChepitoPendiente): string {
   if (c.avisos === 0) {
     const partes = en
       ? [
-          `${hola}, I’m *Chepito*, Mister Luks’s collector. Mister Luks is a bot that keeps track of shared expenses at home and on trips (mrluks.com); I collect what people owe.`,
+          `${hola}, I’m *Chepito* and I work for Mister Luks, a bot that keeps track of shared expenses at home and on trips (mrluks.com). He keeps the accounts; I collect them. 😉`,
           `I’m writing on behalf of *${acreedor}*: they say you owe them *${monto}* for “${concepto}”.${pago ? `\n${pago}` : ''}`,
           '✅ When you pay, reply *I paid* and I’ll let them know.\n🙅 If you don’t owe anything, reply *I don’t owe*.\n🔕 If you don’t want me to write to you, reply *don’t message me*.',
         ]
       : [
-          `${hola}, soy *Chepito*, el cobrador de Mister Luks. Mister Luks es un bot que lleva las cuentas de la casa y de los paseos (mrluks.com); yo cobro lo que se debe.`,
+          `${hola}, soy *Chepito* y trabajo para Mister Luks, un bot que lleva las cuentas de la casa y de los paseos (mrluks.com). Él las lleva; yo las cobro. 😉`,
           `Te escribo de parte de *${acreedor}*: dice que le debes *${monto}* por «${concepto}».${pago ? `\n${pago}` : ''}`,
           '✅ Cuando le pagues, respóndeme *ya pagué* y le aviso.\n🙅 Si no le debes nada, respóndeme *no le debo*.\n🔕 Si no quieres que te escriba, respóndeme *no me escribas*.',
         ];
@@ -428,13 +437,13 @@ export const CHEPITO = {
 // ---------------------------------------------------------------------------
 
 /** Los avisos que tocan, solo en horario de cobranza: cada uno sale por la bandeja de salida */
-export async function avisarChepito(store: Store, log: Logger, ahora: Date = new Date()): Promise<number> {
+export async function avisarChepito(store: Store, webUrl: string, log: Logger, ahora: Date = new Date()): Promise<number> {
   if (!puedeCobrar(ahora)) return 0;
   const pendientes = await store.chepitoPendientes(20);
   let enviados = 0;
   for (const c of pendientes) {
     try {
-      if (await store.chepitoAvisar(c.cobro_id, c.avisos, avisoDeCobro(c))) enviados += 1;
+      if (await store.chepitoAvisar(c.cobro_id, c.avisos, avisoDeCobro(c), gifDeChepito(c, webUrl))) enviados += 1;
     } catch (e) {
       log.warn({ err: (e as Error).message }, 'No se pudo mandar un aviso de Chepito');
     }

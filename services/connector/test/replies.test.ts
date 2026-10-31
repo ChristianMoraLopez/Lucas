@@ -274,6 +274,19 @@ describe('la bandeja de salida de Mister Luks', () => {
     expect(store.outbox[0]).toMatchObject({ sent: true, waId: 'W-1' });
   });
 
+  it('Chepito: un .mp4 va como GIF con el texto de pie; si el GIF no se pudo, va el texto solo', async () => {
+    const gif = 'https://mrluks.com/brand/chepito-hola-es.mp4';
+    await store.outboxEnqueue([{ chat_jid: PRIVADO, reason: 'answer', body: '🎩 Hola Juan', image_url: gif, dedupe_key: 'chepito:1:1' }]);
+    expect(await loop().tick()).toEqual({ sent: 0, dropped: 0, outbox: 1 });
+    expect(wa.enviados).toEqual([{ chatId: PRIVADO, gifUrl: gif, caption: '🎩 Hola Juan' }]);
+
+    wa.failGif = true;
+    await store.outboxEnqueue([{ chat_jid: GRUPO, reason: 'answer', body: '🎩 Hola Pedro', image_url: gif, dedupe_key: 'chepito:2:1' }]);
+    expect(await loop().tick()).toEqual({ sent: 0, dropped: 0, outbox: 1 });
+    expect(wa.enviados.at(-1)).toEqual({ chatId: GRUPO, text: '🎩 Hola Pedro' });
+    expect(store.outbox.at(-1)).toMatchObject({ sent: true });
+  });
+
   it('respeta el límite: lo segundo para el mismo chat espera; otro chat, no', async () => {
     await store.outboxEnqueue([
       { chat_jid: PRIVADO, reason: 'welcome', body: 'Hola', dedupe_key: 'a' },

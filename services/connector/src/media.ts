@@ -46,3 +46,34 @@ export async function prepareMedia(kind: MediaKind, raw: Buffer, limits: MediaLi
   }
   throw new MediaRejected('La imagen quedó demasiado pesada aun comprimida');
 }
+
+/** La miniatura y el tamaño de un GIF, para que se vea antes de bajarlo */
+export interface Miniatura {
+  jpegThumbnail?: string;
+  width?: number;
+  height?: number;
+}
+
+const miniaturas = new Map<string, Miniatura>();
+
+/**
+ * La miniatura de un GIF que se manda por URL (un .mp4): sale del .jpg que está
+ * a su lado. Baileys solo la saca de un video con ffmpeg, y sin miniatura
+ * WhatsApp muestra un cuadro gris hasta que lo bajan. Si no está, va sin ella.
+ */
+export async function miniaturaDeGif(url: string): Promise<Miniatura> {
+  const ya = miniaturas.get(url);
+  if (ya) return ya;
+  try {
+    const res = await fetch(url.replace(/\.mp4$/i, '.jpg'), { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return {};
+    const img = sharp(Buffer.from(await res.arrayBuffer()), { failOn: 'error' });
+    const { width, height } = await img.metadata();
+    const jpg = await img.resize({ width: 96, height: 96, fit: 'inside' }).jpeg({ quality: 60 }).toBuffer();
+    const m = { jpegThumbnail: jpg.toString('base64'), width, height };
+    miniaturas.set(url, m);
+    return m;
+  } catch {
+    return {};
+  }
+}

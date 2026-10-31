@@ -162,7 +162,16 @@ export class ReplyLoop {
           const codigo = await this.store.groupLinkMint(o.id);
           body = codigo ? body.replaceAll(LINK_GRUPO, `${this.options.webUrl ?? 'https://mrluks.com'}/g/${codigo}`) : sinLineaDelLink(body);
         }
-        if (o.image_url) waId = await who.connector.send(jid, { imageUrl: o.image_url, caption: body ?? undefined });
+        // Un .mp4 va como GIF: se repite solo, sin sonido (Chepito, la 740). Si no se pudo, va el texto solo
+        if (o.image_url && /\.mp4$/i.test(o.image_url)) {
+          const gif = o.image_url;
+          const conector = who.connector;
+          waId = await conector.send(jid, { gifUrl: gif, caption: body ?? undefined }).catch((e: Error) => {
+            if (!body) throw e;
+            this.log.warn({ err: e.message, gif }, 'No se pudo mandar el GIF; va el texto solo');
+            return conector.send(jid, { text: body });
+          });
+        } else if (o.image_url) waId = await who.connector.send(jid, { imageUrl: o.image_url, caption: body ?? undefined });
         else if (body) waId = await who.connector.send(jid, { text: body });
         if (o.document_url && o.document_name) {
           const doc = await who.connector.send(jid, { documentUrl: o.document_url, fileName: o.document_name, mimeType: 'application/pdf' });

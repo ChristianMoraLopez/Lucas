@@ -457,7 +457,7 @@ export class FakeStore implements Store {
   miPago: Pago | null = null;
   pagosGuardados: Pago[] = [];
   porCobrar: ChepitoPendiente[] = [];
-  avisosChepito: { cobroId: string; avisos: number; body: string }[] = [];
+  avisosChepito: { cobroId: string; avisos: number; body: string; gifUrl: string }[] = [];
   /** Lo que le estaban cobrando a quien responde (se cierra al responder) */
   cobrando: ChepitoRespuesta[] = [];
   respuestasChepito: string[] = [];
@@ -482,8 +482,8 @@ export class FakeStore implements Store {
   async chepitoPendientes() {
     return this.porCobrar;
   }
-  async chepitoAvisar(cobroId: string, avisos: number, body: string) {
-    this.avisosChepito.push({ cobroId, avisos, body });
+  async chepitoAvisar(cobroId: string, avisos: number, body: string, gifUrl: string) {
+    this.avisosChepito.push({ cobroId, avisos, body, gifUrl });
     return true;
   }
   async chepitoRespuesta(_sender: Sender, que: 'pagado' | 'no_debe' | 'no_escribas') {
@@ -547,6 +547,8 @@ export class FakeConnector implements MessagingConnector {
   /** Grupos de los que se pidió quiénes están */
   pedidos: string[] = [];
   failSend = false;
+  /** Falla solo al mandar un GIF (no se pudo bajar el .mp4) */
+  failGif = false;
 
   constructor(
     readonly session: SessionInfo,
@@ -574,6 +576,7 @@ export class FakeConnector implements MessagingConnector {
   }
   async send(chatId: string, m: Outgoing) {
     if (this.failSend) throw new Error('sin señal');
+    if (this.failGif && 'gifUrl' in m) throw new Error('404');
     this.enviados.push({ chatId, ...m });
     if ('text' in m) this.sent.push({ chatId, text: m.text });
     return `W-${this.enviados.length}`;
