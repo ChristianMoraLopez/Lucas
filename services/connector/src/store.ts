@@ -616,8 +616,8 @@ export interface Store {
   /** Cómo le pagan, desde WhatsApp: se suma a lo que tenía en el perfil */
   chepitoComoMePagan(sender: Sender, pago: Pago): Promise<{ ok: boolean; reason?: string; pago?: Pago | null }>;
   chepitoPendientes(limit: number): Promise<ChepitoPendiente[]>;
-  /** Manda el aviso número avisos + 1 (si todavía toca) por la bandeja de salida; false si ya no tocaba */
-  chepitoAvisar(cobroId: string, avisos: number, body: string): Promise<boolean>;
+  /** Manda el aviso número avisos + 1 (si todavía toca) por la bandeja de salida, con el GIF de Chepito (la 740); false si ya no tocaba */
+  chepitoAvisar(cobroId: string, avisos: number, body: string, gifUrl: string): Promise<boolean>;
   chepitoRespuesta(sender: Sender, que: 'pagado' | 'no_debe' | 'no_escribas'): Promise<ChepitoRespuesta[]>;
   /** 'nueva' la abre con lo que mandó; 'listo' (ya se anotó en otra) o 'no' cierran la pregunta */
   resolverPorAbrir(accountId: string, que: 'nueva' | 'listo' | 'no'): Promise<ResolverPorAbrirResult>;
@@ -1055,8 +1055,8 @@ export class SupabaseStore implements Store {
     return this.#rpc<ChepitoPendiente[]>('connector_chepito_pendientes', { p_limit: limit });
   }
 
-  chepitoAvisar(cobroId: string, avisos: number, body: string) {
-    return this.#rpc<boolean>('connector_chepito_avisar', { p_cobro_id: cobroId, p_avisos: avisos, p_body: body });
+  chepitoAvisar(cobroId: string, avisos: number, body: string, gifUrl: string) {
+    return this.#rpc<boolean>('connector_chepito_avisar', { p_cobro_id: cobroId, p_avisos: avisos, p_body: body, p_gif_url: gifUrl });
   }
 
   chepitoRespuesta(sender: Sender, que: 'pagado' | 'no_debe' | 'no_escribas') {

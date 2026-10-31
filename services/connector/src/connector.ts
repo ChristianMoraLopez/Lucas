@@ -98,10 +98,11 @@ export interface GroupInfo {
   participants: number | null;
 }
 
-/** Lo que manda Mister Luks: un texto, o una imagen (con pie) o un documento por URL */
+/** Lo que manda Mister Luks: un texto, o una imagen o un GIF (con pie) o un documento por URL */
 export type Outgoing =
   | { text: string }
   | { imageUrl: string; caption?: string }
+  | { gifUrl: string; caption?: string }
   | { documentUrl: string; fileName: string; mimeType: string; caption?: string };
 
 /** Qué pasó al entrar a un grupo con su link de invitación */

@@ -6,6 +6,7 @@ import {
   esNoLeDebo,
   esPedidoDeCobro,
   festivosDeColombia,
+  gifDeChepito,
   leerCobro,
   leerComoMePagan,
   puedeCobrar,
@@ -97,6 +98,7 @@ describe('lo que dice quien pide el cobro', () => {
   });
 });
 
+const WEB = 'https://mrluks.com';
 const cobro = (over: Partial<ChepitoPendiente> = {}): ChepitoPendiente => ({
   cobro_id: 'cb1',
   avisos: 0,
@@ -115,7 +117,7 @@ describe('lo que le escribe Mister Luks a quien debe', () => {
   it('el primero se presenta: quién es, de parte de quién, cuánto, por qué, cómo pagar y qué responder', () => {
     expect(avisoDeCobro(cobro())).toBe(
       [
-        '🎩 Hola Juan, soy *Chepito*, el cobrador de Mister Luks. Mister Luks es un bot que lleva las cuentas de la casa y de los paseos (mrluks.com); yo cobro lo que se debe.',
+        '🎩 Hola Juan, soy *Chepito* y trabajo para Mister Luks, un bot que lleva las cuentas de la casa y de los paseos (mrluks.com). Él las lleva; yo las cobro. 😉',
         '',
         'Te escribo de parte de *Christian Mora*: dice que le debes *$50.000* por «la boleta del concierto».',
         '📲 Mándaselos a Christian: Nequi *300 111 2233*',
@@ -140,10 +142,15 @@ describe('lo que le escribe Mister Luks a quien debe', () => {
   it('solo en horario de cobranza', async () => {
     const store = new FakeStore();
     store.porCobrar = [cobro()];
-    expect(await avisarChepito(store, silentLog, co('2026-11-01T10:00:00'))).toBe(0);
+    expect(await avisarChepito(store, WEB, silentLog, co('2026-11-01T10:00:00'))).toBe(0);
     expect(store.avisosChepito).toEqual([]);
-    expect(await avisarChepito(store, silentLog, co('2026-11-03T10:00:00'))).toBe(1);
-    expect(store.avisosChepito).toEqual([{ cobroId: 'cb1', avisos: 0, body: avisoDeCobro(cobro()) }]);
+    expect(await avisarChepito(store, WEB, silentLog, co('2026-11-03T10:00:00'))).toBe(1);
+    expect(store.avisosChepito).toEqual([{ cobroId: 'cb1', avisos: 0, body: avisoDeCobro(cobro()), gifUrl: 'https://mrluks.com/brand/chepito-hola-es.mp4' }]);
+  });
+
+  it('Chepito sale en GIF: saluda en el primero y muestra la cuenta en los recordatorios, en su idioma', () => {
+    expect(gifDeChepito(cobro(), WEB)).toBe('https://mrluks.com/brand/chepito-hola-es.mp4');
+    expect(gifDeChepito(cobro({ avisos: 2, language: 'en' }), WEB)).toBe('https://mrluks.com/brand/chepito-cobra-en.mp4');
   });
 });
 

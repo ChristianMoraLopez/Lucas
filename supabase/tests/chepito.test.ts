@@ -185,6 +185,35 @@ describe('los avisos de Mister Luks', () => {
     });
   });
 
+  it('sale con el GIF de Chepito y el texto de pie; solo un .mp4 por https (la 740)', async () => {
+    await as(db, U.valeria, async (tx) => {
+      const cuenta = await cuentaDeCobro(tx);
+      const id = await rpc<string>(tx, 'public.crear_cobro($1, $2, $3, $4, $5)', [cuenta, 'Juan', '3001234567', 50000, 'la boleta']);
+      await como(tx, 'service_role');
+      const gif = 'https://mrluks.com/brand/chepito-hola-es.mp4';
+      expect(await rpc(tx, 'public.connector_chepito_avisar($1, 0, $2, $3)', [id, 'Hola Juan', gif])).toBe(true);
+      expect(await one(tx, 'select body, image_url from public.whatsapp_outbox where dedupe_key = $1', [`chepito:${id}:1`])).toEqual({
+        body: 'Hola Juan',
+        image_url: gif,
+      });
+
+      await tx.query(`update public.cobros set avisado_at = now() - interval '2 days' where id = $1`, [id]);
+      expect(await rpc(tx, 'public.connector_chepito_avisar($1, 1, $2, $3)', [id, 'Otra vez', 'http://otro.com/x.mp4'])).toBe(true);
+      expect(await one(tx, 'select body, image_url from public.whatsapp_outbox where dedupe_key = $1', [`chepito:${id}:2`])).toEqual({
+        body: 'Otra vez',
+        image_url: null,
+      });
+    });
+  });
+
+  it('el aviso de 4 parámetros es solo del connector', async () => {
+    await as(db, U.valeria, async (tx) => {
+      await expect(tx.query(`select public.connector_chepito_avisar('00000000-0000-4000-8000-000000000000', 0, 'x', 'https://a.com/b.mp4')`)).rejects.toThrow(
+        /permission denied/,
+      );
+    });
+  });
+
   it('«ya pagué» lo deja pagado; «no le debo» y «no me escribas» lo detienen (y a ese número no se le cobra más)', async () => {
     await as(db, U.valeria, async (tx) => {
       const cuenta = await cuentaDeCobro(tx);
