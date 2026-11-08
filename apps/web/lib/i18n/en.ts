@@ -334,6 +334,19 @@ export const EN: Record<string, string> = {
   'Archivando…': 'Archiving…',
   Archivar: 'Archive',
   'Volver a usar': 'Use again',
+  'Noche nueva': 'New night',
+  '¿Otra noche con «{nombre}»?': 'Another night with “{nombre}”?',
+  'Borrón y cuenta nueva: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de las noches anteriores queda guardado y abajo ven cuánto llevan en todas.':
+    'A clean slate: same people and WhatsApp group, with balances back at zero. Earlier nights stay saved, and below you can see the total across all of them.',
+  // ---------- Todas las noches (todas-las-noches) ----------
+  'Todas las noches': 'All nights',
+  'Todas las veces': 'All times',
+  '{n} juntas, {gastos}': '{n} together, {gastos}',
+  noche: 'night',
+  noches: 'nights',
+  vez: 'time',
+  veces: 'times',
+  esta: 'this one',
   'Abriendo…': 'Opening…',
   '¿Volvieron a salir?': 'Going out again?',
   'Usa «{nombre}» otra vez: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de antes queda guardado.':

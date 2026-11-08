@@ -2,6 +2,7 @@ import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
 import type {
   AbrirCuentaPrivadaResult,
+  BusquedaGastos,
   ChepitoCreado,
   ChepitoPendiente,
   ChepitoRespuesta,
@@ -406,6 +407,13 @@ export class FakeStore implements Store {
   misCuentasDe = new Map<string, NumerosDeCuenta[]>();
   async misCuentas(_jid: string, sender: Sender): Promise<MisCuentas> {
     return { identity_id: `i-${sender.id}`, cuentas: this.misCuentasDe.get(sender.id ?? '') ?? [] };
+  }
+  /** Lo que devuelve la búsqueda de gastos, y con qué la llamaron */
+  hallados: BusquedaGastos = { ok: true, seguros: { n: 0, total: 0, gastos: [] }, quizas: { n: 0, gastos: [] } };
+  busquedas: { jid: string; grupos: string[][]; categorias: string[]; categoriaBasta: boolean }[] = [];
+  async buscarGastos(jid: string, _sender: Sender, grupos: string[][], categorias: string[], categoriaBasta: boolean) {
+    this.busquedas.push({ jid, grupos, categorias, categoriaBasta });
+    return this.hallados;
   }
   async answerPref(jid: string, sender: Sender, mode: 'privado' | 'aqui', onlyPending: boolean) {
     const id = sender.id ?? '';

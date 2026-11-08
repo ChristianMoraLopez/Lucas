@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { as, createDb, impersonate, one, PASEO, U } from './harness';
 
 // Una cuenta liquidada y cerrada se vuelve a usar desde la app: la siguiente en ceros, con la
-// misma gente, sus categorías y su grupo (00000000000750_volver_a_usar.sql)
+// misma gente, sus categorías y su grupo (00000000000750_volver_a_usar.sql); y todas las noches juntas (la 770)
 
 let db: PGlite;
 beforeAll(async () => {
@@ -80,6 +80,39 @@ describe('volver a usar una cuenta cerrada', () => {
       // Otro clic no abre otra: va a la misma
       await impersonate(tx, U.laura);
       expect(await one(tx, 'select public.volver_a_usar($1) as id', [PASEO])).toEqual({ id });
+    });
+  });
+
+  it('todas las noches: la cadena entera desde cualquiera de sus cuentas, con lo gastado en cada una y la suma (la 770)', async () => {
+    await as(db, null, async (tx) => {
+      await cerrado(tx);
+      const { id } = await one<{ id: string }>(tx, 'select public.volver_a_usar($1) as id', [PASEO]);
+      await tx.exec('reset role');
+      await tx.query(
+        `insert into public.expenses (account_id, merchant, expense_date, total_cop, status, source, payer_person_id)
+         values ($1, 'Pizzas', current_date, 160000, 'pending_review', 'web', (select id from public.people where account_id = $1 and display_name = 'Valeria'))`,
+        [id],
+      );
+      const antes = await one<{ total: number; n: number }>(
+        tx,
+        'select coalesce(sum(total_cop), 0)::bigint as total, count(*)::int as n from public.expenses where account_id = $1',
+        [PASEO],
+      );
+      type Noches = { total: number; gastos: number; noches: { id: string; name: string; total: number; gastos: number }[] };
+      await impersonate(tx, U.mafe);
+      for (const desde of [id, PASEO]) {
+        const { r } = await one<{ r: Noches }>(tx, 'select public.todas_las_noches($1) as r', [desde]);
+        expect(r.noches.map((n) => [n.name, Number(n.total)])).toEqual([
+          ['Paseo Santa Marta 2', 160_000],
+          ['Paseo Santa Marta', Number(antes.total)],
+        ]);
+        expect(Number(r.total)).toBe(Number(antes.total) + 160_000);
+        expect(Number(r.gastos)).toBe(antes.n + 1);
+      }
+    });
+    // Quien no está en la cuenta no la ve
+    await as(db, U.nuevo, async (tx) => {
+      await expect(tx.query('select public.todas_las_noches($1)', [PASEO])).rejects.toThrow(/No eres miembro/);
     });
   });
 

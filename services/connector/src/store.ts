@@ -330,6 +330,24 @@ export interface Pago {
   daviplata?: string;
 }
 
+/** Un gasto que encontró la búsqueda (connector_buscar_gastos, migración 760) */
+export interface GastoHallado {
+  fecha: string;
+  comercio: string;
+  total: number;
+  moneda: string;
+  categoria: string | null;
+  cuenta: string;
+  pago: string | null;
+}
+
+/** Lo que encontró: lo que lo dice (seguros) y lo que solo está en la categoría (quizás) */
+export interface BusquedaGastos {
+  ok: boolean;
+  seguros: { n: number; total: number; gastos: GastoHallado[] };
+  quizas: { n: number; gastos: GastoHallado[] };
+}
+
 /** connector_mis_cuentas (migración 480): por privado, las cuentas de quien escribe, primero donde le falta pagar */
 export interface MisCuentas {
   identity_id: string;
@@ -562,6 +580,8 @@ export interface Store {
   question(jid: string, sender: Sender): Promise<QuestionData | null>;
   /** Por privado: las cuentas de quien escribe, con sus números (migración 480) */
   misCuentas(jid: string, sender: Sender): Promise<MisCuentas>;
+  /** «¿Cuándo compré comida para el perro?»: en sus cuentas (por privado) o en la del grupo (migración 760) */
+  buscarGastos(jid: string, sender: Sender, grupos: string[][], categorias: string[], categoriaBasta: boolean): Promise<BusquedaGastos>;
   /** «privado» o «aquí»; con onlyPending, solo si había una pregunta suya esperando en ese grupo */
   answerPref(
     jid: string,
@@ -857,6 +877,18 @@ export class SupabaseStore implements Store {
       p_name: sender.name,
     });
     return 'identity_id' in r ? r : null;
+  }
+
+  buscarGastos(jid: string, sender: Sender, grupos: string[][], categorias: string[], categoriaBasta: boolean) {
+    return this.#rpc<BusquedaGastos>('connector_buscar_gastos', {
+      p_jid: jid,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_grupos: grupos,
+      p_categorias: categorias,
+      p_categoria_basta: categoriaBasta,
+    });
   }
 
   misCuentas(jid: string, sender: Sender) {

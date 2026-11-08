@@ -29,11 +29,14 @@ export function FinDeCuenta({
   accountName,
   archivada,
   puedeBorrar,
+  evento = false,
 }: {
   accountId: string;
   accountName: string;
   archivada: boolean;
   puedeBorrar: boolean;
+  /** Un paseo o una salida: el botón dice «Noche nueva» */
+  evento?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -84,7 +87,7 @@ export function FinDeCuenta({
               {estado === 'archivando' ? t('Archivando…') : t('Archivar')}
             </Button>
           )}
-          {puedeBorrar && <VolverAUsar accountId={accountId} accountName={accountName} />}
+          {puedeBorrar && <VolverAUsar accountId={accountId} accountName={accountName} evento={evento} />}
           {puedeBorrar && <BorrarCuenta accountId={accountId} accountName={accountName} />}
         </div>
       )}
@@ -101,11 +104,22 @@ export function FinDeCuenta({
 }
 
 /**
- * «Volver a usar»: una cuenta liquidada y cerrada (Gentelinda) vuelve a empezar
- * en ceros, con la misma gente, sus categorías y su grupo (migración 750). La
- * cerrada queda guardada y archivada para quien la vuelve a usar.
+ * «Noche nueva» (en un evento) o «Volver a usar»: una cuenta liquidada
+ * (Gentelinda) vuelve a empezar en ceros, con la misma gente, sus categorías y
+ * su grupo (migración 750). La anterior queda guardada; lo de todas las noches
+ * se ve junto en el resumen (la 770).
  */
-export function VolverAUsar({ accountId, accountName, tarjeta = false }: { accountId: string; accountName: string; tarjeta?: boolean }) {
+export function VolverAUsar({
+  accountId,
+  accountName,
+  tarjeta = false,
+  evento = false,
+}: {
+  accountId: string;
+  accountName: string;
+  tarjeta?: boolean;
+  evento?: boolean;
+}) {
   const t = useT();
   const router = useRouter();
   const [yendo, setYendo] = useState(false);
@@ -127,7 +141,7 @@ export function VolverAUsar({ accountId, accountName, tarjeta = false }: { accou
   const boton = (
     <Button size="sm" className="fa-boton" onClick={usar} disabled={yendo}>
       {ICONS.desarchivar}
-      {yendo ? t('Abriendo…') : t('Volver a usar')}
+      {yendo ? t('Abriendo…') : evento ? t('Noche nueva') : t('Volver a usar')}
     </Button>
   );
   const fallo = error && (
@@ -145,11 +159,15 @@ export function VolverAUsar({ accountId, accountName, tarjeta = false }: { accou
   return (
     <section className="va" aria-labelledby="va-t">
       <div>
-        <b id="va-t">{t('¿Volvieron a salir?')}</b>
+        <b id="va-t">{evento ? t('¿Otra noche con «{nombre}»?', { nombre: accountName }) : t('¿Volvieron a salir?')}</b>
         <p className="lu-small">
-          {t('Usa «{nombre}» otra vez: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de antes queda guardado.', {
-            nombre: accountName,
-          })}
+          {evento
+            ? t(
+                'Borrón y cuenta nueva: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de las noches anteriores queda guardado y abajo ven cuánto llevan en todas.',
+              )
+            : t('Usa «{nombre}» otra vez: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de antes queda guardado.', {
+                nombre: accountName,
+              })}
         </p>
       </div>
       {boton}

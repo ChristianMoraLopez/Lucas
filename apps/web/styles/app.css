@@ -6312,6 +6312,60 @@ a.gr-fila:focus-visible {
 .fa-nota {
   margin: 0;
 }
+/* Todas las noches de un mismo grupo (cada «Noche nueva» empieza en ceros) */
+.tn {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+}
+.tn-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.tn-head .lu-num {
+  font-size: 20px;
+}
+.tn-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.tn-noche {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+}
+.tn-noche:hover,
+.tn-noche:focus-visible {
+  background: var(--superficie-2);
+}
+.tn-noche.is-actual {
+  background: var(--morado-suave);
+}
+.tn-noche__n {
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tn-noche .lu-small {
+  grid-column: 1;
+}
+.tn-noche .lu-num {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
 /* «¿Volvieron a salir?» arriba del resumen de una cuenta cerrada */
 .va {
   display: flex;

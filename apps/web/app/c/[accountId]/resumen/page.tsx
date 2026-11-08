@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { VolverAUsar } from '@/components/archivo-cuenta';
 import { LiveRefresh } from '@/components/live-refresh';
+import { NochesDelGrupo, type TodasLasNoches } from '@/components/todas-las-noches';
 import { WhatsappHero } from '@/components/whatsapp-hero';
 import { getT } from '@/lib/i18n/server';
 import { esMoneda } from '@/lib/moneda';
@@ -16,11 +17,13 @@ export default async function ResumenPage({ params, searchParams }: PageProps<'/
 
   // ?mes=2026-08 para ver meses anteriores del hogar
   const month = typeof mes === 'string' && /^\d{4}-\d{2}$/.test(mes) ? `${mes}-01` : null;
-  const [{ data, error }, { data: me }, { data: wa }, { data: cuenta }, t] = await Promise.all([
+  const [{ data, error }, { data: me }, { data: wa }, { data: cuenta }, { data: noches }, t] = await Promise.all([
     supabase.rpc('account_dashboard', { p_account_id: accountId, p_month: month }),
     supabase.from('account_members').select('role').eq('account_id', accountId).eq('user_id', userId).maybeSingle(),
     supabase.rpc('whatsapp_overview', { p_account_id: accountId }),
     supabase.from('accounts').select('currency').eq('id', accountId).maybeSingle(),
+    // Las noches de antes del mismo grupo (la 770); sin la migración, no sale nada
+    supabase.rpc('todas_las_noches', { p_account_id: accountId }),
     getT(),
   ]);
   const moneda = esMoneda(cuenta?.currency) ? cuenta.currency : 'COP';
@@ -31,14 +34,22 @@ export default async function ResumenPage({ params, searchParams }: PageProps<'/
   const invitar = (me?.role === 'owner' || me?.role === 'admin') && d.account.status !== 'closed';
   // Sin grupo de WhatsApp, lo primero es conectarlo (es el motor de Luks)
   const admin = me?.role === 'owner' || me?.role === 'admin';
-  // Cerrada: quien administra la puede volver a usar (la misma gente, en ceros)
-  const aviso =
-    d.account.status === 'closed' ? (
-      admin ? (
-        <VolverAUsar accountId={accountId} accountName={d.account.name} tarjeta />
-      ) : null
-    ) : wa && estadoWhatsapp(wa as WhatsappOverview).estado === 'sin-grupo' ? (
+  // Liquidada o cerrada: quien administra la vuelve a usar («Noche nueva»: la misma gente, en ceros)
+  const evento = d.account.type === 'evento';
+  const liquidada = d.account.status === 'closed' || (evento && d.account.status === 'settling');
+  const primero =
+    liquidada && admin ? (
+      <VolverAUsar accountId={accountId} accountName={d.account.name} evento={evento} tarjeta />
+    ) : d.account.status !== 'closed' && wa && estadoWhatsapp(wa as WhatsappOverview).estado === 'sin-grupo' ? (
       <WhatsappHero accountId={accountId} />
+    ) : null;
+  const todas = noches ? <NochesDelGrupo d={noches as TodasLasNoches} actual={accountId} t={t} /> : null;
+  const aviso =
+    primero || todas ? (
+      <>
+        {primero}
+        {todas}
+      </>
     ) : null;
 
   return (

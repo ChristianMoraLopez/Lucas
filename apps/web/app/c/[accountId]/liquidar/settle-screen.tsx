@@ -455,7 +455,9 @@ export function SettleScreen({
           queSe={queSe}
           busy={busy}
           onAccion={setConfirmar}
-          fin={cerrada ? <FinDeCuenta accountId={accountId} accountName={d.account.name} archivada={archivada} puedeBorrar={puedeBorrar} /> : null}
+          fin={
+            cerrada ? <FinDeCuenta accountId={accountId} accountName={d.account.name} archivada={archivada} puedeBorrar={puedeBorrar} evento={evento} /> : null
+          }
         />
         {error && (
           <p className="lu-small st-error" role="alert">

@@ -1,3 +1,4 @@
+import { busquedaDe, respuestaBusqueda } from './buscar.js';
 import {
   avisoAlAcreedor,
   type BorradorCobro,
@@ -38,7 +39,7 @@ import { antesDeLaFirma, type Numeros, PREGUNTAS, PRIVADAS, PRIVADO, primerNombr
 import type { Clasificador } from './qwen.js';
 import { contestarDecision, leerDecision } from './reabrir.js';
 import type { RateLimiter } from './replies.js';
-import type { ChepitoRespuesta, GastoPorAbrir, OutboxItem, PorAbrirEnEspera, Store } from './store.js';
+import type { BusquedaGastos, ChepitoRespuesta, GastoPorAbrir, OutboxItem, PorAbrirEnEspera, Store } from './store.js';
 import {
   aMisterLuks,
   canalDe,
@@ -87,6 +88,7 @@ export type Outcome =
   | 'chat_muy_pesado'
   | `pregunta:${string}`
   | `suyo:${string}`
+  | `buscar:${string}`
   | `pago:${string}`
   | `items:${string}`
   | `reabrir:${string}`
@@ -517,6 +519,12 @@ export class Ingestor {
     if (!m.media) {
       const confirmacion = await this.#confirmacion(m, texto);
       if (confirmacion) return confirmacion;
+    }
+
+    // «¿Cuándo fue la última vez que compré comida para el perro?» (migración 760)
+    if (!m.media) {
+      const buscado = await this.#buscar(m, texto, m.chatId, idioma);
+      if (buscado) return buscado;
     }
 
     // Lo suyo: «qué debo», «de qué», «mis cuentas», «mis gastos», o el número de la lista
@@ -1193,6 +1201,29 @@ export class Ingestor {
    * cada 10 minutos por persona.
    */
   /**
+   * Le preguntan por un gasto de antes (migración 760): «¿cuándo fue la última
+   * vez que compré comida para el perro?», «¿qué días gasté en mascotas?»,
+   * «¿cuánto he gastado en taxis?». Responde en el mismo chat. null si no
+   * pregunta eso.
+   */
+  async #buscar(m: IncomingMessage, texto: string, chat: string, idioma: Idioma): Promise<Outcome | null> {
+    const b = busquedaDe(texto);
+    if (!b) return null;
+    let r: BusquedaGastos;
+    try {
+      r = await this.store.buscarGastos(m.chatId, m.sender, b.grupos, b.categorias, b.categoriaBasta);
+    } catch (e) {
+      // Sin la 760 en la base sigue como antes
+      this.log.warn({ err: (e as Error).message }, 'No se pudo buscar el gasto');
+      return null;
+    }
+    if (!r.ok) return null;
+    await this.#encolar([{ chat_jid: chat, reason: 'answer', body: respuestaBusqueda(b, r, idioma), dedupe_key: `answer:${chat}:${m.messageId}` }]);
+    this.log.info({ chat: maskWaId(chat), modo: b.modo, seguros: r.seguros.n, quizas: r.quizas.n }, 'Búsqueda de gastos');
+    return `buscar:${b.modo}`;
+  }
+
+  /**
    * Le preguntan algo a Mister Luks (fase 7): «cuánto llevamos», «quién le debe
    * a quién», «cuánto debo», «mis gastos», «privado» o «aquí», «no me cuentes».
    * Los números salen de la base. Lo del grupo se responde en el grupo; lo de
@@ -1202,6 +1233,11 @@ export class Ingestor {
    * Devuelve null si no era una pregunta («luks taxi 45 lucas» es un gasto).
    */
   async #pregunta(session: SessionInfo, m: IncomingMessage, texto: string, explicito: boolean): Promise<Outcome | null> {
+    // «Luks, ¿cuándo compramos pizza?»: lo busca en la cuenta del grupo (y sus noches anteriores) y responde ahí
+    if (session.kind === 'contador') {
+      const buscado = await this.#buscar(m, texto, m.chatId, idiomaDeNumero(m.sender.phone));
+      if (buscado) return buscado;
+    }
     let intencion = intencionDe(texto);
     if (!intencion && looksLikeExpense(texto)) return null;
     if (!intencion && texto && this.mister.clasificar) intencion = await this.mister.clasificar(texto);
