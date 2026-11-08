@@ -160,3 +160,12 @@ def test_un_recibo_con_el_anio_anterior_de_hace_unos_dias_es_de_este_anio():
     assert _este_anio(date(2025, 10, 25), date(2026, 10, 19)) == date(2025, 10, 25)
     assert _este_anio(date(2026, 10, 18), date(2026, 10, 19)) == date(2026, 10, 18)
     assert _este_anio(None, date(2026, 10, 19)) is None
+
+
+def test_los_productos_se_guardan_aunque_no_sumen_el_total():
+    # Para dividir por consumo los ítems deben sumar el total; para clasificar y buscar basta con saber qué compró
+    texto = "HOMECENTER\nCHUNKY ADULTOS 4KG 32.900\nBOLSA REUTILIZABLE 1.500\nSUBTOTAL 34.400\nTOTAL 99.900"
+    d = reconcile(doc(texto), llm(total_cop=99_900), today=HOY, received=HOY, account=HOGAR)
+    assert d.items == []
+    assert any("CHUNKY" in p.upper() for p in d.productos)
+    assert not any(p.upper().startswith(("SUBTOTAL", "TOTAL")) for p in d.productos)

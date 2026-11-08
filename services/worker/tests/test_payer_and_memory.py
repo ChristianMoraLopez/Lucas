@@ -149,3 +149,15 @@ def test_palabras_clave_de_la_descripcion_y_antes_que_las_de_siempre():
     assert d.category_name == "Salud"
     # Sin la categoría en la cuenta, la droguería sigue cayendo en «Otros»
     assert sin_laya.classify(ClassifyInput(merchant="Droguería La Rebaja"), CATS, []).category_name == "Otros"
+
+
+def test_un_producto_conocido_manda_sobre_el_comercio():
+    # En Homecenter se compra de todo: si «Chunky» ya se confirmó en Mascotas, eso es lo que fue
+    cats = [*CATS, Category("mascotas", "Mascotas")]
+    memoria = [MemoryEntry("m9", "HOMECENTER", "homecenter", "mercado", 5)]
+    conocidos = {"chunky adultos 4kg": ("mascotas", 2)}
+    inp = ClassifyInput(merchant="Homecenter", items=["Chunky Adultos 4kg", "Bolsa"])
+    d = CategoryClassifier(None).classify(inp, cats, memoria, productos=conocidos)
+    assert (d.category_name, d.source, d.confidence) == ("Mascotas", "productos", 0.82)
+    # Sin productos conocidos, el comercio como siempre
+    assert CategoryClassifier(None).classify(inp, cats, memoria, productos={}).source == "memory"

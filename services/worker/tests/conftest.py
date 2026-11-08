@@ -144,6 +144,10 @@ class FakeDb:
         self.pagos.append({"message_id": p_message_id, "monto": p_monto, "para": p_para})
         return self.pago(p_monto, p_para) if callable(self.pago) else self.pago
 
+    def _worker_product_memory(self, p_account_id: str) -> list[dict[str, Any]]:
+        # Lo que la cuenta ya confirmó de cada producto (migración 780): en las pruebas, nada
+        return []
+
     def _worker_message_context(self, p_message_id: str) -> dict[str, Any] | None:
         m = self.messages.get(p_message_id)
         if not m:

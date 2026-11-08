@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from rapidfuzz import fuzz
 
 from .extract.cascade import Extraction
-from .extract.items import items_cuadran, items_del_recibo
+from .extract.items import items_cuadran, items_del_recibo, leer_items, leer_por_unidades
 from .extract.numbers import monto_sin_puntuacion, normalize_merchant
 from .extract.rules import best_date
 from .llm.schema import ReceiptExtraction, ReceiptItem
@@ -39,6 +39,9 @@ class Draft:
     total_cop: int
     description_en: str | None
     items: list[ReceiptItem] = field(default_factory=list)
+    # Todo lo que se leyó que compró, sume o no el total: no es para dividir sino para clasificar y
+    # buscar («comida para perro» aunque el recibo diga Homecenter). Va en ai_snapshot.productos
+    productos: list[str] = field(default_factory=list)
     subtotal_cop: int | None = None
     tax_cop: int | None = None
     tip_cop: int | None = None
@@ -286,6 +289,7 @@ def reconcile(
         total_cop=total,
         description_en=(llm.description_en or None) if llm else None,
         items=items,
+        productos=_productos(ex, llm, items),
         subtotal_cop=(llm.subtotal_cop if llm else None) or ex.hints.subtotal or (ex.qr.subtotal if ex.qr else None),
         tax_cop=(llm.tax_cop if llm else None) or ex.hints.tax or (ex.qr.tax if ex.qr else None),
         tip_cop=(llm.tip_cop if llm else None) or ex.hints.tip,
@@ -295,6 +299,40 @@ def reconcile(
         sources=sources,
         notes=notes,
     )
+
+
+_NO_ES_PRODUCTO = re.compile(
+    r"^(?:sub ?total|total|iva|impuesto|propina|servicio|cambio|efectivo|tarjeta|descuento|ahorro|valor|base|"
+    r"recibido|vueltas|redondeo|nit|cufe|cude|fecha|hora|caja|cajero|bolsas?|domicilio|envio)\b",
+    re.IGNORECASE,
+)
+
+
+def _productos(ex: Extraction, llm: ReceiptExtraction | None, items: list[ReceiptItem]) -> list[str]:
+    """Los nombres de todo lo que se leyó que compró, aunque no sumen el total (máximo 40, sin repetir)"""
+    nombres: list[str] = [i.name for i in items]
+    if ex.kind != "text":
+        leidos, _ = leer_items(ex.text)
+        nombres += [i.name for i in leidos] + [i.name for i in leer_por_unidades(ex.text)]
+    else:
+        nombres += [i.name for i in ex.hints.items]
+    nombres += [i.name for i in (llm.items if llm else []) if i.name and i.name != "?"]
+    vistos: set[str] = set()
+    out: list[str] = []
+    for n in nombres:
+        n = re.sub(r"\s+", " ", n or "").strip(" .,-*:")
+        clave = normalize_merchant(n)
+        if (
+            not clave
+            or len(clave) < 3
+            or not re.search(r"[a-z]{3}", clave)
+            or _NO_ES_PRODUCTO.match(clave)
+            or clave in vistos
+        ):
+            continue
+        vistos.add(clave)
+        out.append(n[:60])
+    return out[:40]
 
 
 def _items(ex: Extraction, llm: ReceiptExtraction | None, total: int) -> tuple[list[ReceiptItem], str | None]:

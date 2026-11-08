@@ -1,5 +1,8 @@
 """La cascada de clasificación.
 
+0. Memoria de productos de la cuenta: si lo que compró ya se confirmó en una
+   categoría («Chunky» en Mascotas), manda sobre el comercio (en Homecenter
+   se compra de todo). La aprende la base al confirmar (migración 780).
 1. Memoria de comercios de la cuenta (lo que las personas ya confirmaron).
 2. Laya (la variante configurada), si está cargado.
 3. Palabras clave del mensaje o del recibo: primero las de las categorías
@@ -12,6 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from ..extract.numbers import normalize_merchant
 from .categories import BY_NAME, OTHER, custom_keyword_category, keyword_category
 from .laya import CategoryModel
 from .memory import MemoryEntry, match_memory
@@ -33,7 +37,7 @@ class CategoryDecision:
     category_id: str | None
     category_name: str | None
     confidence: float
-    source: str  # memory | laya | keywords | default
+    source: str  # productos | memory | laya | keywords | default
     memory_id: str | None = None
     memory_score: float | None = None
     probabilities: dict[str, float] = field(default_factory=dict)
@@ -50,9 +54,21 @@ class CategoryClassifier:
         categories: list[Category],
         memory: list[MemoryEntry],
         keyword_text: str | None = None,
+        productos: dict[str, tuple[str, int]] | None = None,
     ) -> CategoryDecision:
         por_id = {c.id: c for c in categories}
         por_nombre = {c.name: c for c in categories}
+
+        # 0. Lo que compró, si ya se sabe de qué categoría es (cada producto vota con sus confirmaciones)
+        votos: dict[str, int] = {}
+        for nombre in inp.items:
+            clave = normalize_merchant(nombre)
+            if clave and productos and (conocido := productos.get(clave)) and conocido[0] in por_id:
+                votos[conocido[0]] = votos.get(conocido[0], 0) + max(1, conocido[1])
+        if votos:
+            ganador, peso = max(votos.items(), key=lambda kv: kv[1])
+            cat = por_id[ganador]
+            return CategoryDecision(cat.id, cat.name, 0.9 if peso >= 3 else 0.82, "productos")
 
         # 1. Memoria
         if (m := match_memory(inp.merchant, memory)) and m.entry.category_id in por_id:

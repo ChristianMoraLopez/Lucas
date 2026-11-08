@@ -101,6 +101,15 @@ class MessageProcessor:
 
     # -- duplicados ------------------------------------------------------------
 
+    def _productos_conocidos(self, account_id: str) -> dict[str, tuple[str, int]]:
+        """Lo que la cuenta ya confirmó de cada producto (migración 780): {normalizado: (categoría, veces)}"""
+        try:
+            filas = self.db.rpc("worker_product_memory", {"p_account_id": account_id}) or []
+        except Exception as e:  # sin la 780 en la base se clasifica como antes
+            log.warning("Sin memoria de productos: %s", type(e).__name__)
+            return {}
+        return {f["normalized"]: (f["category_id"], int(f.get("hits") or 0)) for f in filas if f.get("category_id")}
+
     def _duplicado(self, account_id: str, cufe: str | None, image_hash: str | None) -> str | None:
         return self.db.rpc(
             "worker_find_duplicate",
@@ -341,12 +350,13 @@ class MessageProcessor:
                     merchant=draft.merchant,
                     description_en=draft.description_en,
                     message_text=msg.get("text_body"),
-                    items=[i.name for i in draft.items],
+                    items=draft.productos or [i.name for i in draft.items],
                     document_text=ex.text if kind != "text" else None,
                 ),
                 categories,
                 memory,
                 keyword_text=ex.text[:600],
+                productos=self._productos_conocidos(account_id) if draft.productos else None,
             )
         if decision.source == "memory" and (m := match_memory(draft.merchant, memory)) and m.exact:
             draft.confidence["merchant"] = max(draft.confidence["merchant"], 0.95)  # un comercio conocido
@@ -381,6 +391,8 @@ class MessageProcessor:
             "category_model": decision.model,
             "category_probabilities": decision.probabilities or None,
             "memory_score": decision.memory_score,
+            # Todo lo que se leyó que compró (para buscar y para aprender la categoría de cada producto, la 780)
+            "productos": draft.productos or None,
             "subtotal_cop": draft.subtotal_cop,
             "tax_cop": draft.tax_cop,
             "tip_cop": draft.tip_cop,
