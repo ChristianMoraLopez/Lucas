@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import logging
+from collections.abc import Iterator
 
 import cv2
 import numpy as np
@@ -160,11 +161,75 @@ def enhance(img: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
 
-def qr_variants(img: np.ndarray) -> list[np.ndarray]:
-    """Versiones de la foto para buscar el QR, de la más barata a la más agresiva."""
+def qr_variants(img: np.ndarray) -> Iterator[np.ndarray]:
+    """Versiones de la foto para buscar el QR, de la más barata a la más agresiva.
+
+    Se generan a medida que se piden: si el QR sale en la primera, no se gasta
+    CPU en las demás. El QR de la DIAN es denso (unos 70 módulos de lado) y en
+    una foto de WhatsApp a veces queda de 2 o 3 píxeles por módulo: si se ve un
+    QR que no se deja leer, se pone de frente, se agranda y se le sube la
+    nitidez antes de volver a intentar.
+    """
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
-    otsu = cv2.threshold(cv2.GaussianBlur(gray, (3, 3), 0), 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-    adapt = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 10)
-    grande = cv2.resize(gray, None, fx=1.6, fy=1.6, interpolation=cv2.INTER_CUBIC)
-    return [gray, clahe, otsu, adapt, grande]
+    yield gray
+    yield cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
+    yield cv2.threshold(cv2.GaussianBlur(gray, (3, 3), 0), 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    yield cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 10)
+    grande = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    yield grande
+    for quad in [*_donde_hay_qr(gray), *(q / 2 for q in _donde_hay_qr(grande))]:
+        for v in (_qr_de_frente(gray, quad), _qr_recortado(gray, quad)):
+            yield from _qr_nitido(v)
+
+
+def _donde_hay_qr(gray: np.ndarray) -> list[np.ndarray]:
+    """Las esquinas de lo que parece un QR aunque no se haya podido leer (zxing y OpenCV)"""
+    import zxingcpp
+
+    quads: list[np.ndarray] = []
+    try:
+        for r in zxingcpp.read_barcodes(gray, formats=zxingcpp.BarcodeFormat.QRCode, return_errors=True):
+            if not r.valid:
+                p = r.position
+                esquinas = (p.top_left, p.top_right, p.bottom_right, p.bottom_left)
+                quads.append(np.float32([[e.x, e.y] for e in esquinas]))
+    except Exception as e:  # imagen rara: no es motivo para tumbar el trabajo
+        log.debug("zxing no pudo buscar QR: %s", e)
+    try:
+        ok, pts = cv2.QRCodeDetectorAruco().detectMulti(gray)
+        if ok and pts is not None:
+            quads += [np.float32(q) for q in pts]
+    except cv2.error as e:
+        log.debug("OpenCV no pudo buscar QR: %s", e)
+    return quads
+
+
+def _qr_de_frente(gray: np.ndarray, quad: np.ndarray, lado: int = 900) -> np.ndarray:
+    """El QR de frente y grande: de sus cuatro esquinas a un cuadrado, con margen blanco"""
+    m = lado * 0.12
+    destino = np.float32([[m, m], [lado - m, m], [lado - m, lado - m], [m, lado - m]])
+    t = cv2.getPerspectiveTransform(quad.astype(np.float32), destino)
+    return cv2.warpPerspective(gray, t, (lado, lado), flags=cv2.INTER_CUBIC, borderValue=255)
+
+
+def _qr_recortado(gray: np.ndarray, quad: np.ndarray, objetivo: int = 1000) -> np.ndarray:
+    """El rectángulo alrededor del QR (con margen), agrandado: por si las esquinas quedaron mal"""
+    x, y, w, h = cv2.boundingRect(quad.astype(np.int32))
+    mx, my = w // 4, h // 4
+    recorte = gray[max(0, y - my) : y + h + my, max(0, x - mx) : x + w + mx]
+    if recorte.size == 0:
+        return gray
+    f = min(5.0, max(2.0, objetivo / max(recorte.shape[:2])))
+    return cv2.resize(recorte, None, fx=f, fy=f, interpolation=cv2.INTER_CUBIC)
+
+
+def _qr_nitido(gray: np.ndarray) -> Iterator[np.ndarray]:
+    """El QR agrandado tal cual, más nítido (de suave a fuerte) y en blanco y negro"""
+    yield gray
+    for sigma, k in ((2, 0.8), (4, 1.5), (6, 2.5), (8, 3.5)):
+        borroso = cv2.GaussianBlur(gray.astype(np.float32), (0, 0), sigma)
+        nitido = np.clip(gray + k * (gray.astype(np.float32) - borroso), 0, 255).astype(np.uint8)
+        yield nitido
+        yield cv2.threshold(nitido, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    bloque = max(15, (min(gray.shape[:2]) // 20) | 1)
+    yield cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, bloque, 8)

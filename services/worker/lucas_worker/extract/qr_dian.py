@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import date
 
@@ -120,11 +121,11 @@ def parse_dian_qr(text: str | None) -> DianQr | None:
     return qr if qr.useful else None
 
 
-def read_qr_texts(images: list[np.ndarray]) -> list[str]:
-    """Textos de todos los QR que zxing-cpp encuentre en las imágenes (sin repetir)."""
+def read_qr_texts(images: Iterable[np.ndarray]) -> Iterator[str]:
+    """Los textos de los QR que zxing-cpp encuentre en las imágenes, sin repetir, a medida que aparecen."""
     import zxingcpp
 
-    textos: list[str] = []
+    vistos: set[str] = set()
     for img in images:
         try:
             resultados = zxingcpp.read_barcodes(img, formats=zxingcpp.BarcodeFormat.QRCode)
@@ -132,15 +133,16 @@ def read_qr_texts(images: list[np.ndarray]) -> list[str]:
             log.debug("zxing no pudo leer la imagen: %s", e)
             continue
         for r in resultados:
-            if r.valid and r.text and r.text not in textos:
-                textos.append(r.text)
-        if textos:
-            break  # con encontrarlo en una variante basta
-    return textos
+            if r.valid and r.text and r.text not in vistos:
+                vistos.add(r.text)
+                yield r.text
 
 
-def find_dian_qr(images: list[np.ndarray]) -> DianQr | None:
+def find_dian_qr(images: Iterable[np.ndarray]) -> DianQr | None:
+    """El QR de la DIAN. Un recibo puede traer otros (el de la app del supermercado, el de
+    una encuesta): esos no paran la búsqueda, se sigue con las demás versiones de la foto."""
     for texto in read_qr_texts(images):
         if qr := parse_dian_qr(texto):
             return qr
+        log.debug("QR que no es de la DIAN: %.80s", texto)
     return None

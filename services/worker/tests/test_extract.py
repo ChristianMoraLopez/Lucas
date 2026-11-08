@@ -122,3 +122,51 @@ def test_enderezar_no_rompe_una_imagen_en_blanco():
     blanca = np.full((400, 300, 3), 255, dtype=np.uint8)
     out, pasos = im.straighten(blanca)
     assert out.shape[2] == 3 and pasos == []
+
+
+def _foto_con_qr_chico(px_modulo: float, borroso: float) -> np.ndarray:
+    """La parte de abajo de un recibo fotografiada por WhatsApp: el QR de la DIAN denso y
+    chiquito, y debajo uno grande de la app del supermercado. Girada, borrosa y en JPEG."""
+    import cv2
+    import zxingcpp
+
+    def modulos(texto: str) -> np.ndarray:
+        bc = zxingcpp.create_barcode(texto, zxingcpp.BarcodeFormat.QRCode)
+        return np.array(zxingcpp.write_barcode_to_image(bc, scale=1, add_quiet_zones=False))
+
+    def pegar(foto: np.ndarray, mods: np.ndarray, x: int, y: int, px: float) -> int:
+        lado = round(mods.shape[0] * px)
+        grande = cv2.resize(mods, None, fx=16, fy=16, interpolation=cv2.INTER_NEAREST)
+        chico = cv2.resize(grande, (lado, lado), interpolation=cv2.INTER_AREA)
+        zona = foto[y : y + lado, x : x + lado]
+        foto[y : y + lado, x : x + lado] = np.where(chico < 128, 40 + chico * 0.3, zona).astype(np.uint8)
+        return lado
+
+    dian = modulos(
+        "NumFac:UZ8612345\nFecFac:2026-11-02\nHorFac:13:47:18-05:00\nNitFac:890930534\nDocAdq:1020304050\n"
+        f"ValFac:857.00\nValIva:163.00\nValOtroIm:0.00\nValTolFac:1020.00\nCUFE:{CUFE}\n"
+        f"QRCode:https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey={CUFE}"
+    )
+    foto = np.full((1600, 1200), 120, np.uint8)
+    foto[:, 150:1050] = 236
+    lado = pegar(foto, dian, 600 - round(dian.shape[0] * px_modulo) // 2, 600, px_modulo)
+    pegar(foto, modulos("https://www.supermercado.example/descuentos"), 460, 600 + lado + 60, 9)
+    foto = cv2.warpAffine(foto, cv2.getRotationMatrix2D((600, 800), 3.5, 1.0), (1200, 1600), borderValue=120)
+    foto = cv2.GaussianBlur(foto, (0, 0), borroso)
+    color = cv2.cvtColor(foto, cv2.COLOR_GRAY2BGR)
+    for calidad in (75, 80):  # WhatsApp y el connector
+        _, buf = cv2.imencode(".jpg", color, [cv2.IMWRITE_JPEG_QUALITY, calidad])
+        color = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    return color
+
+
+@pytest.mark.parametrize(("px_modulo", "borroso"), [(3.2, 1.0), (2.6, 1.1)])
+def test_qr_de_la_dian_chiquito_y_borroso_con_otro_qr_al_lado(px_modulo, borroso):
+    # El QR de la app del supermercado se lee primero: no para la búsqueda del de la DIAN,
+    # que se encuentra agrandándolo y subiéndole la nitidez
+    from lucas_worker.extract.qr_dian import find_dian_qr
+
+    foto = im.resize_long_side(_foto_con_qr_chico(px_modulo, borroso), 2000)
+    qr = find_dian_qr(im.qr_variants(foto))
+    assert qr is not None
+    assert (qr.total, qr.tax, qr.cufe) == (1_020, 163, CUFE)

@@ -61,6 +61,22 @@ def test_el_llm_copia_el_valor_sin_la_coma_decimal_y_se_usa_el_del_texto():
     assert any("sin los separadores" in n for n in d.notes)
 
 
+# La foto de la parte de abajo de un recibo del Éxito/Cadena: solo la tabla de tarifas, sin «TOTAL»
+TARIFAS = """DISCRIMINACION TARIFAS IMPUESTOS
+TARIFA COMPRA BASE IMPUESTO
+1-IVA=19% 1.020 857 163
+RES.DIAN# 18764096950343 VIG 24 MESES DEL 2025-08-12 AL 2027-08-12
+F.Expedicion:2026-11-02 13:47:18
+efactura CadenaS.A. 890930534-0"""
+
+
+def test_el_llm_pega_las_columnas_de_la_tabla_de_tarifas_y_se_usa_la_compra():
+    # «1.020 857 163» son compra, base e impuesto: $1.020, no $1.020.857.163
+    d = reconcile(doc(TARIFAS), llm(total_cop=1_020_857_163), today=HOY, received=HOY, account=HOGAR)
+    assert d.total_cop == 1_020
+    assert any("sin los separadores" in n for n in d.notes)
+
+
 def test_un_total_grande_que_si_esta_en_el_recibo_no_se_toca():
     d = reconcile(doc("TIENDA\nTOTAL 2.864.453"), llm(total_cop=2_864_453), today=HOY, received=HOY, account=HOGAR)
     assert d.total_cop == 2_864_453

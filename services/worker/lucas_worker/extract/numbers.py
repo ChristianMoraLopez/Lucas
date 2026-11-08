@@ -225,11 +225,23 @@ def parse_number(token: str) -> int | None:
     return None
 
 
+def _columnas(token: str) -> list[str]:
+    """«1.020 857 163» no es un número sino tres columnas (compra, base e impuesto de la tabla
+    de tarifas): los miles van con punto y después hay espacios. «11 300» sí es uno solo."""
+    partes = token.split()
+    if len(partes) > 1 and re.search(r"[.,]", partes[0]):
+        return partes
+    return [token]
+
+
 def monto_sin_puntuacion(valor: int, text: str | None) -> int | None:
-    """El LLM a veces copia «$28.644,53» sin puntos ni coma: 2864453 en vez de 28.644.
-    Si un número del texto tiene esos mismos dígitos y se lee distinto, lo que dice el texto."""
+    """El LLM a veces copia «$28.644,53» sin puntos ni coma: 2864453 en vez de 28.644; o pega
+    las columnas «1.020 857 163» en 1020857163. Si un número del texto tiene esos mismos
+    dígitos y se lee distinto, lo que dice el texto (en las columnas, la primera)."""
     for m in _NUMERO.finditer(text or ""):
-        if re.sub(r"\D", "", m.group(1)) == str(valor) and (v := parse_number(m.group(1))) is not None and v != valor:
+        if re.sub(r"\D", "", m.group(1)) != str(valor):
+            continue
+        if (v := parse_number(_columnas(m.group(1))[0])) is not None and v != valor:
             return v
     return None
 
@@ -238,7 +250,8 @@ def find_amounts(line: str) -> list[int]:
     """Todos los montos de una línea, en orden."""
     out: list[int] = []
     for m in _NUMERO.finditer(line):
-        v = parse_number(m.group(1))
-        if v is not None:
-            out.append(v)
+        for token in _columnas(m.group(1)):
+            v = parse_number(token)
+            if v is not None:
+                out.append(v)
     return out

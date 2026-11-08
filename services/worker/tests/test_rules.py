@@ -70,6 +70,10 @@ def test_numeros_de_recibos(token, esperado):
 def test_montos_de_una_linea():
     assert find_amounts("TOTAL A PAGAR $ 244.912") == [244_912]
     assert find_amounts("2 Pandebono 5.000") == [2, 5_000]
+    # Las columnas de la tabla de tarifas (compra, base, impuesto) son tres montos, no uno de mil millones
+    assert find_amounts("1-IVA=19% 1.020 857 163") == [1, 19, 1_020, 857, 163]
+    # …pero los miles con espacio siguen siendo un solo número
+    assert find_amounts("TOTAL 11 300") == [11_300]
 
 
 def test_normalizar_comercios_como_postgres():
