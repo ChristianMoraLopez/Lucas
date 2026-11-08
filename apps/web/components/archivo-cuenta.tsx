@@ -84,6 +84,7 @@ export function FinDeCuenta({
               {estado === 'archivando' ? t('Archivando…') : t('Archivar')}
             </Button>
           )}
+          {puedeBorrar && <VolverAUsar accountId={accountId} accountName={accountName} />}
           {puedeBorrar && <BorrarCuenta accountId={accountId} accountName={accountName} />}
         </div>
       )}
@@ -96,6 +97,64 @@ export function FinDeCuenta({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * «Volver a usar»: una cuenta liquidada y cerrada (Gentelinda) vuelve a empezar
+ * en ceros, con la misma gente, sus categorías y su grupo (migración 750). La
+ * cerrada queda guardada y archivada para quien la vuelve a usar.
+ */
+export function VolverAUsar({ accountId, accountName, tarjeta = false }: { accountId: string; accountName: string; tarjeta?: boolean }) {
+  const t = useT();
+  const router = useRouter();
+  const [yendo, setYendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const usar = async () => {
+    setError(null);
+    setYendo(true);
+    const { data, error } = await createClient().rpc('volver_a_usar', { p_account_id: accountId });
+    if (error) {
+      setYendo(false);
+      setError(humanError(error));
+      return;
+    }
+    router.push(`/c/${data as string}/resumen`);
+    router.refresh();
+  };
+
+  const boton = (
+    <Button size="sm" className="fa-boton" onClick={usar} disabled={yendo}>
+      {ICONS.desarchivar}
+      {yendo ? t('Abriendo…') : t('Volver a usar')}
+    </Button>
+  );
+  const fallo = error && (
+    <p className="lu-error" role="alert">
+      {error}
+    </p>
+  );
+  if (!tarjeta)
+    return (
+      <>
+        {boton}
+        {fallo}
+      </>
+    );
+  return (
+    <section className="va" aria-labelledby="va-t">
+      <div>
+        <b id="va-t">{t('¿Volvieron a salir?')}</b>
+        <p className="lu-small">
+          {t('Usa «{nombre}» otra vez: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de antes queda guardado.', {
+            nombre: accountName,
+          })}
+        </p>
+      </div>
+      {boton}
+      {fallo}
+    </section>
   );
 }
 

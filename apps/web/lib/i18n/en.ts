@@ -333,6 +333,11 @@ export const EN: Record<string, string> = {
   'Sacar del archivo': 'Unarchive',
   'Archivando…': 'Archiving…',
   Archivar: 'Archive',
+  'Volver a usar': 'Use again',
+  'Abriendo…': 'Opening…',
+  '¿Volvieron a salir?': 'Going out again?',
+  'Usa «{nombre}» otra vez: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de antes queda guardado.':
+    'Use “{nombre}” again: same people and WhatsApp group, with balances back at zero. Everything from before stays saved.',
   'Archivarla la quita de tu inicio sin borrar nada. Los demás la siguen viendo.':
     'Archiving removes it from your home screen without deleting anything. Everyone else still sees it.',
   'Listo: «{nombre}» se borró.': 'Done: “{nombre}” was deleted.',

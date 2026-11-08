@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { VolverAUsar } from '@/components/archivo-cuenta';
 import { LiveRefresh } from '@/components/live-refresh';
 import { WhatsappHero } from '@/components/whatsapp-hero';
 import { getT } from '@/lib/i18n/server';
@@ -29,8 +30,16 @@ export default async function ResumenPage({ params, searchParams }: PageProps<'/
   // Invitar por WhatsApp: solo quien administra, y mientras la cuenta reciba gente
   const invitar = (me?.role === 'owner' || me?.role === 'admin') && d.account.status !== 'closed';
   // Sin grupo de WhatsApp, lo primero es conectarlo (es el motor de Luks)
+  const admin = me?.role === 'owner' || me?.role === 'admin';
+  // Cerrada: quien administra la puede volver a usar (la misma gente, en ceros)
   const aviso =
-    wa && d.account.status !== 'closed' && estadoWhatsapp(wa as WhatsappOverview).estado === 'sin-grupo' ? <WhatsappHero accountId={accountId} /> : null;
+    d.account.status === 'closed' ? (
+      admin ? (
+        <VolverAUsar accountId={accountId} accountName={d.account.name} tarjeta />
+      ) : null
+    ) : wa && estadoWhatsapp(wa as WhatsappOverview).estado === 'sin-grupo' ? (
+      <WhatsappHero accountId={accountId} />
+    ) : null;
 
   return (
     <>

@@ -6312,6 +6312,31 @@ a.gr-fila:focus-visible {
 .fa-nota {
   margin: 0;
 }
+/* «¿Volvieron a salir?» arriba del resumen de una cuenta cerrada */
+.va {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 2px solid var(--morado);
+  border-radius: var(--radius-lg);
+  background: var(--morado-suave);
+}
+.va > div {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 240px;
+}
+.va p {
+  margin: 0;
+  color: var(--tinta-2);
+}
+.va svg {
+  width: 18px;
+  height: 18px;
+}
 .fa-listo {
   display: flex;
   align-items: center;
