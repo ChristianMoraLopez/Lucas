@@ -63,6 +63,8 @@ class ItemMensaje:
 
     name: str
     total_cop: int
+    # «4 pony malta 12 mil»: cuántas (el precio es de todas)
+    quantity: int = 1
 
 
 @dataclass
@@ -189,7 +191,7 @@ _QUIEN_PAGO = re.compile(r"^\s*[A-ZÁÉÍÓÚÑ][\wáéíóúñ]*\s+(?=(?:pag[o�
 _INICIO = re.compile(
     r"^[\s,.;:-]*(?:(?:yo|nosotros|hoy|ayer|de|del|el|la|los|las|en|un|una|unos|unas|para|por|que|se|nos|me|le|les|y"
     r"|todo|toda|todos|esto|eso|es|fue|era|son|fueron"
-    r"|gast\w*|pagu[eé]|pag[oó]|pagamos|pagaron|puso|invit[oó]|compr\w*|cost\w*|sali[oó]|valieron|vali[oó]|cobr\w*|invert\w*)"
+    r"|gast\w*|pagu[eé]|pag[oó]|pagamos|pagaron|puso|invit[oó]|compr\w*|ped[ií]\w*|cost\w*|sali[oó]|valieron|vali[oó]|cobr\w*|invert\w*)"
     r"[\s,.;:]+)+",
     re.IGNORECASE,
 )
@@ -254,6 +256,7 @@ def items_del_mensaje(text: str, montos: list[MontoEscrito]) -> tuple[list[ItemM
     a0, _ = linea(montos[0].inicio)
     despues = not re.search(r"[^\W\d_]", text[a0 : montos[0].inicio])
     nombres: list[str | None] = []
+    cantidades: list[int] = []
     for k, m in enumerate(montos):
         a, b = linea(m.inicio)
         if despues:
@@ -262,9 +265,16 @@ def items_del_mensaje(text: str, montos: list[MontoEscrito]) -> tuple[list[ItemM
         else:
             desde = montos[k - 1].fin if k else 0
             trozo = text[max(desde, a) : m.inicio]
-        nombre = merchant_from_text(trozo)
-        nombres.append(None if nombre == "Gasto sin nombre" else nombre)
-    items = [ItemMensaje(n, m.valor) for n, m in zip(nombres, montos, strict=True) if n] if all(nombres) else []
+        nombre = re.sub(r"\s+(?:por|de|del|a|en|y|e|con|x)$", "", merchant_from_text(trozo), flags=re.IGNORECASE)
+        nombres.append(None if nombre in ("Gasto sin nombre", "") else nombre)
+        # «8 pizzas»: la cantidad, si va pegada al nombre
+        cant = re.search(r"(?:^|\s)(\d{1,3})\s+(?=[^\W\d_])", trozo)
+        cantidades.append(int(cant.group(1)) if cant and 1 < int(cant.group(1)) <= 200 else 1)
+    items = (
+        [ItemMensaje(n, m.valor, c) for n, m, c in zip(nombres, montos, cantidades, strict=True) if n]
+        if all(nombres)
+        else []
+    )
 
     # Las líneas sin montos son el nombre de todo («Todo es viaje de amazonas»)
     con_montos = {linea(m.inicio) for m in montos}

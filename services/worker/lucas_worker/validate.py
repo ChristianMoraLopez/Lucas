@@ -349,7 +349,9 @@ def _items(ex: Extraction, llm: ReceiptExtraction | None, total: int) -> tuple[l
         if ex.kind != "text"
         # Un mensaje con varias cosas («5 k bloqueador 4.5 k de cerveza»): cada una es un ítem
         else [
-            ReceiptItem(name=i.name, quantity=1, unit_price_cop=i.total_cop, total_cop=i.total_cop)
+            ReceiptItem(
+                name=i.name, quantity=i.quantity, unit_price_cop=i.total_cop // i.quantity, total_cop=i.total_cop
+            )
             for i in ex.hints.items
         ]
     )

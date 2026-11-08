@@ -222,3 +222,12 @@ def test_sin_linea_aparte_el_nombre_son_las_cosas():
     # Montos sin nombre: se suman, pero sin ítems
     h = analyze_message("5k 10k", HOY)
     assert (h.amount, h.items) == (15_000, [])
+
+
+def test_lo_que_pidieron_escrito_con_cantidades():
+    # «4 pony malta 12 mil»: 4 es cuántas, no plata; «pedimos» y «por» no son parte del nombre
+    from lucas_worker.extract.rules import analyze_message
+
+    h = analyze_message("pedimos 8 pizzas por 160 lucas y 4 pony malta 12 mil", HOY)
+    assert h.amount == 172_000
+    assert [(i.name, i.quantity, i.total_cop) for i in h.items] == [("Pizzas", 8, 160_000), ("Pony malta", 4, 12_000)]
