@@ -150,10 +150,19 @@ def _es_titulo(linea: str) -> bool:
     return len(palabras) >= 2 and sum(p in _TITULOS for p in palabras) >= 2 and not _montos(linea)
 
 
+# «10PTCMBF4921 JUGO…», «PTCMNC377 TINTO…»: el número de fila y el código del producto (letras y números)
+_CODIGO_FILA = re.compile(r"^\s*\d{0,3}\s*(?=[A-Za-z]*\d)[A-Za-z]{2,}[A-Za-z0-9]{3,}\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,})")
+# «… UND», «… UN 1»: la unidad (y la cantidad) que quedan pegadas al nombre
+# (solo la columna de unidades: «500 ML» o «600 GR» son parte del producto)
+_UNIDAD_FINAL = re.compile(r"\s+(?:und|unid|uds?)\.?(?:\s+\d{1,3})?$", re.IGNORECASE)
+
+
 def _letras(texto: str) -> str:
-    """El nombre sin códigos ni símbolos sueltos al principio y sin la moneda al final."""
-    t = re.sub(r"^[\W\d_]+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])", "", texto.strip())
+    """El nombre sin códigos ni símbolos sueltos al principio y sin la unidad ni la moneda al final."""
+    t = _CODIGO_FILA.sub("", texto.strip(), count=1)
+    t = re.sub(r"^[\W\d_]+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])", "", t)
     t = re.sub(r"[\s€$*]+$", "", t)
+    t = _UNIDAD_FINAL.sub("", t)
     return " ".join(t.split())
 
 
@@ -205,7 +214,11 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
             resto = _PRECIO_PEGADO.sub(" ", resto, count=1)
             montos = _montos(resto)
         if not montos:
-            nombre = [*nombre[-1:], linea]  # un nombre ocupa a lo sumo dos renglones
+            # Una fila con su código («10PTCMBF4921 JUGO…») es otro ítem, aunque su precio no se haya podido leer:
+            # no se pega al nombre del siguiente
+            nombre = (
+                [linea] if _CODIGO_FILA.match(linea) else [*nombre[-1:], linea]
+            )  # un nombre ocupa a lo sumo dos renglones
             continue
 
         # Una línea con plata: cierra un ítem. Su nombre es lo que va antes del
@@ -223,6 +236,9 @@ def leer_items(texto: str | None) -> tuple[list[ItemLeido], bool]:
         if cantidad_final:
             antes_del_monto = antes_del_monto[: cantidad_final.start()]
         texto_linea = _letras(_PROMO.sub("", antes_del_monto))
+        # Una fila con su propio código ya trae su nombre: lo de arriba (una fila sin precio legible) no es suyo
+        if _CODIGO_FILA.match(linea):
+            nombre = []
         # «2 × 5.000 10.000» es solo del último renglón con letras de arriba (puede haber un código de barras en medio)
         con_letras = [p for p in nombre if re.search(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}", p)]
         partes = con_letras[-1:] if por else [*nombre]

@@ -6312,6 +6312,36 @@ a.gr-fila:focus-visible {
 .fa-nota {
   margin: 0;
 }
+/* «Lo tuyo de aquí también cuenta en…» (lo-mio-tambien) */
+.lm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-lg);
+  background: var(--superficie);
+}
+.lm > div {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 240px;
+}
+.lm p {
+  margin: 0;
+}
+.lm select {
+  font: inherit;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-md);
+  background: var(--superficie);
+  color: var(--tinta);
+}
 /* Todas las noches de un mismo grupo (cada «Noche nueva» empieza en ceros) */
 .tn {
   display: grid;

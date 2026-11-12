@@ -335,6 +335,11 @@ export const EN: Record<string, string> = {
   Archivar: 'Archive',
   'Volver a usar': 'Use again',
   'Noche nueva': 'New night',
+  // ---------- Lo tuyo también en otra cuenta (lo-mio-tambien) ----------
+  'Lo tuyo de aquí también cuenta en…': 'Your share here also counts in…',
+  'Cuando un gasto quede confirmado, lo que te tocó entra por revisar en esa cuenta, pagado por ti. Solo lo tuyo; los demás eligen lo suyo.':
+    'When an expense is confirmed, your share goes to that account for review, paid by you. Only yours; everyone else picks their own.',
+  'En ninguna otra': 'Nowhere else',
   '¿Otra noche con «{nombre}»?': 'Another night with “{nombre}”?',
   'Borrón y cuenta nueva: la misma gente y su grupo de WhatsApp, con los saldos en cero. Lo de las noches anteriores queda guardado y abajo ven cuánto llevan en todas.':
     'A clean slate: same people and WhatsApp group, with balances back at zero. Earlier nights stay saved, and below you can see the total across all of them.',

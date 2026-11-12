@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lucas_worker.extract.items import items_cuadran, items_del_recibo
+from lucas_worker.extract.items import items_cuadran, items_del_recibo, leer_items
 
 GOURMET = """·GOURMET
 26-200-032719
@@ -338,3 +338,22 @@ def test_cuadran_con_propina_pero_no_si_pasan_el_total():
     assert items_cuadran([50_000, 30_000], 88_000)  # 10 % de servicio aparte
     assert not items_cuadran([50_000, 60_000], 100_000)
     assert not items_cuadran([10_000], 100_000)
+
+
+def test_codigo_del_producto_y_fila_sin_precio_legible():
+    # Codart: el número de fila y el código van pegados al nombre, la unidad es una columna, y el
+    # jugo no tiene precio legible: no se pega a la soda
+    texto = (
+        "# CODART DESCRIPCION MED CANT PVP TOTAL IMP\n"
+        "1 PTCMNC377 TINTO AMER UND 1 5.400 5.400 8%\n"
+        "10PTCMBF4921 JUGO SER F UND 1 %. 006. 0066\n"
+        "11PTCMBF7506 SODA LITCH UND 1 10.900 10.900 8%\n"
+        "12PTCMBF328 LIMONADA UND 1 7.100 7.100  8%\n"
+        "Total Lineas Facturadas 12"
+    )
+    items, _ = leer_items(texto)
+    assert [(i.name, i.total_cop) for i in items] == [
+        ("Tinto Amer", 5_400),
+        ("Soda Litch", 10_900),
+        ("Limonada", 7_100),
+    ]
