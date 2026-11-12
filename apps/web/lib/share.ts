@@ -142,6 +142,7 @@ export function grupoMessage({
   link,
   t = ES,
   moneda = 'COP',
+  expenses,
 }: {
   accountName: string;
   /** «septiembre 2026» en un hogar; nada en un evento */
@@ -156,6 +157,8 @@ export function grupoMessage({
   link?: string | null;
   t?: T;
   moneda?: Moneda;
+  /** Los gastos con su división: con ellos sale «en qué se gastó cada uno» */
+  expenses?: Pick<SettlementExpense, 'merchant' | 'shares' | 'items'>[];
 }) {
   const $ = (n: number) => dinero(n, moneda, t.idioma);
   const lineas = [`🧾 *${sinFormato(accountName)}*${periodo ? ` · ${periodo}` : ''}`];
@@ -179,9 +182,47 @@ export function grupoMessage({
     lineas.push(t('✨ Nadie le debe a nadie: cada quien puso lo suyo.'));
   }
 
+  const enQue = expenses ? enQueSeGasto(expenses, nombre, $, t) : [];
+  if (enQue.length) lineas.push('', t('🍽️ *En qué se gastó cada uno*'), ...enQue);
+
   if (link) lineas.push('', t('👀 Cuánto puso cada uno y en qué se fue la plata:'), link);
   lineas.push('', `_${publicidad(t)}_`);
   return lineas.join('\n');
+}
+
+/**
+ * «• Sergio: *$62.400* · combo sándwich, soda litchi»: lo que le tocó a cada
+ * uno y en qué. Los ítems que marcó como suyos; si no marcó ninguno (o se
+ * dividió por partes iguales), los comercios de lo que le tocó. Del que más
+ * gastó al que menos.
+ */
+export function enQueSeGasto(
+  expenses: Pick<SettlementExpense, 'merchant' | 'shares' | 'items'>[],
+  nombre: (personId: string) => string,
+  $: (n: number) => string,
+  t: T = ES,
+): string[] {
+  const porPersona = new Map<string, { parte: number; items: string[]; comercios: string[] }>();
+  for (const e of expenses) {
+    for (const s of e.shares) {
+      const parte = Number(s.amount_cop) || 0;
+      if (parte <= 0) continue;
+      const p = porPersona.get(s.person_id) ?? { parte: 0, items: [], comercios: [] };
+      p.parte += parte;
+      const suyos = (e.items ?? []).filter((it) => it.people.some((x) => x.id === s.person_id)).map((it) => sinFormato(it.name).toLowerCase());
+      if (suyos.length) p.items.push(...suyos);
+      else p.comercios.push(sinFormato(e.merchant));
+      porPersona.set(s.person_id, p);
+    }
+  }
+  const MAX = 4;
+  return [...porPersona.entries()]
+    .sort((a, b) => b[1].parte - a[1].parte)
+    .map(([id, p]) => {
+      const cosas = [...new Set([...p.items, ...p.comercios])];
+      const lista = cosas.slice(0, MAX).join(', ') + (cosas.length > MAX ? t(' y {n} más', { n: cosas.length - MAX }) : '');
+      return `• ${sinFormato(nombre(id))}: *${$(p.parte)}*${lista ? ` · ${lista}` : ''}`;
+    });
 }
 
 type DatosLiquidar = {

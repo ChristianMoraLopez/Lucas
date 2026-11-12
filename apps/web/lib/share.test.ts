@@ -80,6 +80,43 @@ describe('compartir las cuentas', () => {
     expect(grupoMessage({ ...base, transfers: [] })).toContain('Nadie le debe a nadie');
   });
 
+  it('en qué se gastó cada uno: sus ítems si los marcó, si no los comercios; del que más gastó al que menos', () => {
+    const nombres: Record<string, string> = { yo: 'Christian', a: 'Sergio', b: 'Caro' };
+    const m = grupoMessage({
+      accountName: 'Moritas',
+      total: 100_000,
+      people: 3,
+      porCabeza: null,
+      nombre: (id: string) => nombres[id],
+      liquidada: false,
+      transfers: [],
+      expenses: [
+        {
+          merchant: 'Codart',
+          shares: [
+            { person_id: 'a', amount_cop: 44_500 },
+            { person_id: 'yo', amount_cop: 29_900 },
+          ],
+          items: [
+            { name: 'Combo Sándwich', quantity: 1, total: 33_600, people: [{ id: 'a', units: 1 }] },
+            { name: 'Soda litchi', quantity: 1, total: 10_900, people: [{ id: 'a', units: 1 }] },
+            { name: 'Calentado', quantity: 1, total: 24_500, people: [{ id: 'yo', units: 1 }] },
+            { name: 'Tinto americano', quantity: 1, total: 5_400, people: [{ id: 'yo', units: 1 }] },
+          ],
+        },
+        { merchant: 'Uber', shares: [{ person_id: 'b', amount_cop: 25_600 }], items: [] },
+      ] as never,
+    });
+    expect(m).toContain(
+      [
+        '🍽️ *En qué se gastó cada uno*',
+        '• Sergio: *$44.500* · combo sándwich, soda litchi',
+        '• Christian: *$29.900* · calentado, tinto americano',
+        '• Caro: *$25.600* · Uber',
+      ].join('\n'),
+    );
+  });
+
   it('recomendar Luks: para el grupo y para tus gastos personales, con mrluks.com', () => {
     const r = recomendacionMessage();
     expect(r.url).toBe('https://mrluks.com');

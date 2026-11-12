@@ -335,6 +335,9 @@ export const EN: Record<string, string> = {
   Archivar: 'Archive',
   'Volver a usar': 'Use again',
   'Noche nueva': 'New night',
+  // ---------- En qué se gastó cada uno (share.ts) ----------
+  '🍽️ *En qué se gastó cada uno*': '🍽️ *What each person spent on*',
+  ' y {n} más': ' and {n} more',
   // ---------- Lo tuyo también en otra cuenta (lo-mio-tambien) ----------
   'Lo tuyo de aquí también cuenta en…': 'Your share here also counts in…',
   'Cuando un gasto quede confirmado, lo que te tocó entra por revisar en esa cuenta, pagado por ti. Solo lo tuyo; los demás eligen lo suyo.':

@@ -237,6 +237,7 @@ export function SettleScreen({
       link: tk ? sharedLink(origin, tk, { month: mesDelLink, idioma: t.idioma }) : null,
       t,
       moneda: $.moneda,
+      expenses: d.expenses,
     });
 
   const correr = async (clave: string, fn: () => PromiseLike<{ error: { message?: string } | null }>) => {
