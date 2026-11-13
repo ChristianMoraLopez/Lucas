@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { esMoneda } from '@/lib/moneda';
 import type { Dashboard } from '@/lib/types';
 import { requireUser } from '@/utils/supabase/server';
+import type { Entrada } from './entradas';
 import { PresupuestoScreen } from './presupuesto-screen';
 
 /** Cuántos días atrás se miran para saber a qué ritmo se está gastando */
@@ -27,12 +28,23 @@ export default async function PresupuestosPage({ params }: PageProps<'/c/[accoun
   const d = data as Dashboard;
 
   const desde = restarDias(d.today, DIAS_RITMO - 1);
-  const { data: recientes } = await supabase
-    .from('expenses')
-    .select('total_cop')
-    .eq('account_id', accountId)
-    .gte('expense_date', desde)
-    .lte('expense_date', d.today);
+  const [{ data: recientes }, { data: ingresos }] = await Promise.all([
+    supabase.from('expenses').select('total_cop').eq('account_id', accountId).gte('expense_date', desde).lte('expense_date', d.today),
+    // Lo que entró este mes (migración 810)
+    supabase
+      .from('incomes')
+      .select('id, amount_cop, income_date, description, source, created_by, person:people(display_name)')
+      .eq('account_id', accountId)
+      .gte('income_date', d.month)
+      .order('income_date', { ascending: false })
+      .order('created_at', { ascending: false }),
+  ]);
+  const entradas: Entrada[] = (ingresos ?? []).map(({ person, ...e }) => ({
+    ...e,
+    amount_cop: Number(e.amount_cop),
+    source: e.source as Entrada['source'],
+    person: (Array.isArray(person) ? person[0] : person)?.display_name ?? null,
+  }));
   const gastoReciente = (recientes ?? []).reduce((s, e) => s + Number(e.total_cop), 0);
 
   return (
@@ -46,6 +58,8 @@ export default async function PresupuestosPage({ params }: PageProps<'/c/[accoun
       ritmo={Math.round(gastoReciente / DIAS_RITMO)}
       diasRitmo={DIAS_RITMO}
       puedeEditar={me?.role === 'owner' || me?.role === 'admin'}
+      entradas={entradas}
+      usuario={userId}
       moneda={esMoneda(cuenta?.currency) ? cuenta.currency : 'COP'}
     />
   );

@@ -2092,6 +2092,16 @@ export const EN: Record<string, string> = {
   'No sé qué hacer con ese cobro': 'I don’t know what to do with that collection',
 
   // Presupuesto: ¿les alcanza? (modelo de Ecuaciones Diferenciales)
+  '¿Qué entró este mes?': 'What came in this month?',
+  'Anoten aquí el sueldo o lo que les entre, o escríbanlo en el grupo: «hoy entraron 200 lucas».':
+    'Log your paycheck or any money that comes in here, or write it in the group: “we got 200K today”.',
+  Entrada: 'Income',
+  '¿Cuánto entró?': 'How much came in?',
+  '¿Qué fue?': 'What was it?',
+  'Quincena, prima, una venta…': 'Paycheck, bonus, a sale…',
+  'Anotar la entrada': 'Log the income',
+  'Anotar una entrada': 'Log income',
+  'Este mes entró {entro} y salió {salio}': 'This month {entro} came in and {salio} went out',
   '¿Cuánto ganan al mes?': 'How much do you earn a month?',
   'Entre todos los del hogar, después de descuentos': 'Everyone in the household together, after deductions',
   'Les pagan': 'You get paid',

@@ -8117,3 +8117,34 @@ a.gr-fila:focus-visible {
   flex: none;
   accent-color: var(--verde);
 }
+.pr-entro {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--verde);
+}
+.pr-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.pr-lista li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 36px;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--borde);
+}
+.pr-lista li:first-child {
+  border-top: 0;
+}
+.pr-lista__que {
+  display: grid;
+  min-width: 0;
+}
+.pr-lista__monto {
+  font-weight: 700;
+  color: var(--verde);
+}

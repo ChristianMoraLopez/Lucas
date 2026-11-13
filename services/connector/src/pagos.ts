@@ -58,7 +58,7 @@ const decimales = (t: Transferencia) => (t.account.currency === 'USD' || t.accou
 
 /** «33.789», «$33789», «33 mil», «33k», «33 lucas», «12,50» → en pesos (o dólares) */
 export function montoEn(texto: string): number | null {
-  const m = texto.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)\s*(mil|k|lucas?|luquitas?)?(?![\p{L}\d])/iu);
+  const m = texto.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d{1,2})?)\s*(mil|k|lucas?|lukas?|luquitas?|lukitas?)?(?![\p{L}\d])/iu);
   if (!m) return null;
   const n = /[.,]\d{3}(?:\D|$)/.test(m[1]) ? Number(m[1].replace(/[.,]/g, '')) : Number(m[1].replace(',', '.'));
   return Number.isFinite(n) ? n * (m[2] ? 1000 : 1) : null;

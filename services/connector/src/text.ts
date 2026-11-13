@@ -15,7 +15,7 @@ export function parseLinkCommand(text: string | null | undefined): string | null
  */
 const MONTO = [
   /\$\s*\d/,
-  /\d[\d.,]*\s*(?:lucas?|luquitas?|mil|k|palos?|millones?|mill[oó]n|barras?|pesos|cop)(?![a-z])/i,
+  /\d[\d.,]*\s*(?:lucas?|lukas?|luquitas?|lukitas?|mil|k|palos?|millones?|mill[oó]n|barras?|pesos|cop)(?![a-z])/i,
   /(?<![\d.,])\d{1,3}(?:[.,]\d{3})+(?![\d])/,
   /(?<![\d+])\d{4,9}(?!\d)/,
 ];

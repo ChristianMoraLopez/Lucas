@@ -13,6 +13,7 @@ import { DECIMALES, deCampo, dinero, type Moneda } from '@/lib/moneda';
 import { EJEMPLO_INFORME, type Escenario, type Evento, type FrecuenciaPago, pagosDelSueldo, proyectar } from '@/lib/proyeccion';
 import { createClient } from '@/utils/supabase/client';
 import { ComoLoCalcula } from './como-lo-calcula';
+import { type Entrada, Entradas } from './entradas';
 import { GraficaSaldo } from './grafica-saldo';
 
 interface Props {
@@ -26,6 +27,9 @@ interface Props {
   diasRitmo: number;
   puedeEditar: boolean;
   moneda: Moneda;
+  /** Lo que entró este mes (migración 810) */
+  entradas: Entrada[];
+  usuario: string;
 }
 
 /** Un ingreso o un gasto grande, como lo escribe la persona: fecha y monto */
@@ -69,8 +73,11 @@ const redondo = (n: number, moneda: Moneda) => {
   return Math.max(0, Math.round(n / paso) * paso);
 };
 
+const entro = (p: Props) => p.entradas.reduce((s, e) => s + e.amount_cop, 0);
+
 function inicial(p: Props): Form {
-  const quedan = p.budget ? p.budget - p.spent : 0;
+  // Con presupuesto: lo que queda de él; sin presupuesto: lo que entró menos lo que salió este mes
+  const quedan = p.budget ? p.budget - p.spent : entro(p) - p.spent;
   const saldo = redondo(Math.max(quedan, 0), p.moneda);
   const gastoHoy = redondo(p.ritmo, p.moneda);
   return {
@@ -189,6 +196,7 @@ function Pantalla(p: Props) {
         </header>
 
         <BillCard label={t('Saldo de hoy')} amount={form.saldo} moneda={p.moneda} roll>
+          <span>{t('Este mes entró {entro} y salió {salio}', { entro: fmt(entro(p)), salio: fmt(p.spent) })}</span>
           <span>{t('Gastan {monto} al día', { monto: fmt(form.gastoHoy) })}</span>
           {form.sueldo > 0 && <span>{t('Ganan {monto} al mes', { monto: fmt(form.sueldo) })}</span>}
         </BillCard>
@@ -262,6 +270,8 @@ function Pantalla(p: Props) {
       </div>
 
       <aside className="hd-aside">
+        <Entradas accountId={p.accountId} today={p.today} entradas={p.entradas} usuario={p.usuario} administra={p.puedeEditar} moneda={p.moneda} />
+
         <section className="pr-card" aria-labelledby="pr-datos">
           <div className="hd-sec">
             <h2 className="lu-title" id="pr-datos">

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GroupMember, Sender, SessionKind } from './connector.js';
+import type { RegistroIngreso } from './ingresos.js';
 import type { GastoConItems } from './recibo.js';
 import type { Idioma, Moneda, PendingReply } from './text.js';
 
@@ -603,6 +604,8 @@ export interface Store {
   porPagar(jid: string, sender: Sender): Promise<PendientesResult>;
   /** «Ya pagué»: las marca pagadas (solo las que paga quien escribe) */
   yaPague(jid: string, sender: Sender, transferIds: string[]): Promise<YaPagueResult>;
+  /** «Hoy entraron 200 lucas»: un ingreso de la cuenta del grupo, en la unidad grande (migración 810) */
+  registrarIngreso(jid: string, waMessageId: string, sender: Sender, monto: number, concepto: string | null): Promise<RegistroIngreso>;
   /** Las cuentas recién llegadas para preguntar quién pidió qué (migración 440) */
   itemsPorPreguntar(limit: number): Promise<ItemsPregunta[]>;
   /** La lista quedó en la bandeja de salida con esa clave */
@@ -957,6 +960,17 @@ export class SupabaseStore implements Store {
       p_phone: sender.phone,
       p_lid: sender.lid ?? null,
       p_transfer_ids: transferIds,
+    });
+  }
+  registrarIngreso(jid: string, waMessageId: string, sender: Sender, monto: number, concepto: string | null) {
+    return this.#rpc<RegistroIngreso>('connector_registrar_ingreso', {
+      p_jid: jid,
+      p_wa_message_id: waMessageId,
+      p_wa_id: sender.id,
+      p_phone: sender.phone,
+      p_lid: sender.lid ?? null,
+      p_amount: monto,
+      p_description: concepto,
     });
   }
   decidirLiquidada(jid: string, quotedId: string | null, sender: Sender, modo: 'reabrir' | 'nueva' | 'pago') {

@@ -1,5 +1,6 @@
 import pino from 'pino';
 import type { ConnectorHandlers, GroupInfo, GroupMember, JoinResult, MessagingConnector, Outgoing, Sender, SessionInfo } from '../src/connector.js';
+import type { RegistroIngreso } from '../src/ingresos.js';
 import type {
   AbrirCuentaPrivadaResult,
   BusquedaGastos,
@@ -303,6 +304,23 @@ export class FakeStore implements Store {
           todos_pagaron: this.deudas.filter((x) => x.settlement_id === t.settlement_id).every((x) => this.pagadas.includes(x.id)),
         })),
       quedan: (await this.porPagar(jid, sender)).pendientes,
+    };
+  }
+  /** Los ingresos anotados por WhatsApp (migración 810) */
+  ingresos: { jid: string; msg: string; sender: string | null; monto: number; concepto: string | null }[] = [];
+  async registrarIngreso(jid: string, msg: string, sender: Sender, monto: number, concepto: string | null): Promise<RegistroIngreso> {
+    const cuenta = this.groups.get(jid)?.account_id;
+    if (!cuenta) return { ok: false, reason: 'sin_cuenta' };
+    const ya = this.ingresos.find((i) => i.jid === jid && i.msg === msg);
+    if (!ya) this.ingresos.push({ jid, msg, sender: sender.id, monto, concepto });
+    const entro = this.ingresos.filter((i) => i.jid === jid).reduce((s, i) => s + i.monto, 0);
+    return {
+      ok: true,
+      nuevo: !ya,
+      monto,
+      account: { id: cuenta, name: 'Casa', language: 'es', currency: 'COP' },
+      entro_mes: entro,
+      salio_mes: 0,
     };
   }
   /** Números verificados: número (o «lid:…») → primer nombre de su usuario */

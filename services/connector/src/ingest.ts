@@ -31,6 +31,7 @@ import {
   pareceEleccion,
   type QueMando,
 } from './gasto-privado.js';
+import { type Ingreso, leerIngreso, respuestaIngreso } from './ingresos.js';
 import { confirmacionPrivada, contestar, contestarCantidad, leerCantidad, leerRespuesta, linkDividir, respuestaConfirmacion, siONo } from './items.js';
 import { type Logger, maskWaId } from './log.js';
 import { type MediaLimits, MediaRejected, prepareMedia } from './media.js';
@@ -96,6 +97,7 @@ export type Outcome =
   | `link_grupo:${string}`
   | `gasto_privado:${string}`
   | `chepito:${string}`
+  | `ingreso:${string}`
   | `privado:${string}`
   | `ignorado:${string}`;
 
@@ -367,6 +369,12 @@ export class Ingestor {
 
     // Las cuentas o un cobro que mandaron desde Luks, o una respuesta de Luks: no es un gasto
     if (esMensajeDeLuks(m.text)) return 'de_luks';
+
+    // «Hoy entraron 200 lucas», «me pagaron la quincena»: plata que entra, no un gasto (migración 810)
+    if (!m.media) {
+      const ingreso = leerIngreso(aMisterLuks(m, this.#misterLuks)?.texto ?? m.text);
+      if (ingreso) return this.#ingreso(session, m, ingreso);
+    }
     if (!m.media && !looksLikeExpense(m.text)) return 'charla';
 
     // Con quién lo mandó: de quien dijo «no me cuentes» ya no se baja ni se guarda nada
@@ -1388,6 +1396,26 @@ export class Ingestor {
    * lo dice Mister Luks por su privado (si ya le escribió) o en el grupo.
    * Devuelve null si era un gasto («luks ya pagué la luz 120 lucas»).
    */
+  /**
+   * Un ingreso del grupo (migración 810): queda en la cuenta y, si Mister Luks
+   * está en el grupo, lo confirma con lo que ha entrado y salido en el mes. Con
+   * quien dijo «no me cuentes» o antes de desde cuándo anotar, no se anota.
+   */
+  async #ingreso(session: SessionInfo, m: IncomingMessage, ingreso: Ingreso): Promise<Outcome> {
+    const check = await this.store.shouldIngest(m.chatId, m.messageId, m.sentAt, m.sender.id);
+    if (!check.ingest || !check.account_id) return `ignorado:${check.reason ?? 'sin_cuenta'}`;
+    const r = await this.store.registrarIngreso(m.chatId, m.messageId, m.sender, ingreso.monto, ingreso.concepto);
+    if (!r.ok) return `ignorado:ingreso_${r.reason ?? 'error'}`;
+    if (session.kind === 'contador') {
+      const idioma: Idioma = r.account?.language ?? idiomaDeNumero(m.sender.phone);
+      await this.#encolar([
+        { chat_jid: m.chatId, reason: 'answer', body: respuestaIngreso(r, ingreso, idioma), dedupe_key: `ingreso:${m.chatId}:${m.messageId}` },
+      ]);
+    }
+    this.log.info({ chat: maskWaId(m.chatId), nuevo: r.nuevo }, 'Ingreso anotado');
+    return r.nuevo === false ? 'ingreso:repetido' : 'ingreso:anotado';
+  }
+
   async #yaPague(session: SessionInfo, m: IncomingMessage, texto: string, sinHablarle = false): Promise<Outcome | null> {
     const enGrupo = m.chatKind === 'grupo';
     const d = await this.store.porPagar(m.chatId, m.sender);
