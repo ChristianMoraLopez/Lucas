@@ -7774,3 +7774,346 @@ a.gr-fila:focus-visible {
     justify-content: flex-start;
   }
 }
+
+/* ---------- presupuesto: ¿les alcanza? (modelo de Ecuaciones Diferenciales) ---------- */
+.pr .hd-main,
+.pr .hd-aside {
+  gap: var(--space-6);
+}
+.pr-result {
+  position: relative;
+}
+.pr-sticker {
+  position: absolute;
+  right: -6px;
+  top: -12px;
+}
+.pr-head {
+  display: grid;
+  gap: var(--space-1);
+}
+.pr-card {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.pr-card .hd-sec {
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+.pr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.pr-k input[type="range"] {
+  width: 100%;
+  accent-color: var(--morado);
+}
+.pr-k__ends {
+  display: flex;
+  justify-content: space-between;
+}
+.pr-eventos {
+  display: grid;
+  gap: var(--space-2);
+}
+.pr-eventos ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.pr-vacio {
+  margin: 0;
+}
+.pr-ev {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) 36px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--verde);
+  background: var(--superficie-2);
+}
+.pr-ev--gasto {
+  border-left-color: var(--coral);
+}
+.pr-ev select,
+.pr-ev input:not([type="checkbox"]) {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  min-width: 0;
+  width: 100%;
+}
+.pr-ev__x {
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  border: 0;
+  background: transparent;
+  color: var(--tinta-2);
+  cursor: pointer;
+  height: 36px;
+  border-radius: 50%;
+}
+.pr-ev__x:hover {
+  background: var(--borde);
+}
+.pr-ev__reinicia {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pr-ev__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.pr-alerta {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--coral-suave);
+  color: var(--coral-texto);
+}
+.pr-alerta.is-bien {
+  background: var(--verde-suave);
+  color: var(--verde);
+}
+.pr-alerta .lu-label {
+  color: inherit;
+}
+.pr-datos {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+.pr-datos div {
+  display: grid;
+  gap: 2px;
+}
+.pr-datos dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 17px;
+}
+.pr-graf {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.pr-graf svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.pr-graf__rej {
+  stroke: var(--borde);
+  stroke-width: 1;
+}
+.pr-graf__eje {
+  fill: var(--tinta-2);
+  font-size: 11px;
+  font-family: var(--font-num);
+}
+.pr-graf__linea {
+  fill: none;
+  stroke: var(--morado);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.pr-graf__constante {
+  fill: none;
+  stroke: var(--tinta-2);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+}
+.pr-graf__umbral {
+  stroke: var(--coral);
+  stroke-width: 2;
+  stroke-dasharray: 2 4;
+}
+.pr-graf__base {
+  stroke: var(--verde);
+  stroke-width: 2;
+  stroke-dasharray: 2 4;
+}
+.pr-graf__ingreso,
+.pr-graf__gasto {
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+.pr-graf__ingreso {
+  stroke: var(--verde);
+}
+.pr-graf__gasto {
+  stroke: var(--coral);
+}
+.pr-graf__alerta {
+  fill: var(--naranja);
+  stroke: var(--superficie);
+  stroke-width: 2;
+}
+.pr-graf__cero {
+  fill: var(--coral);
+  stroke: var(--superficie);
+  stroke-width: 2;
+}
+.pr-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.pr-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pr-leyenda i {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 3px solid var(--morado);
+}
+.pr-leyenda i.is-constante {
+  border-top: 2px dashed var(--tinta-2);
+}
+.pr-leyenda i.is-umbral {
+  border-top: 2px dotted var(--coral);
+}
+.pr-leyenda i.is-base {
+  border-top: 2px dotted var(--verde);
+}
+.pr-nota,
+.pr-fuente {
+  margin: 0;
+}
+.pr-calc summary {
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  list-style: none;
+}
+.pr-calc summary::-webkit-details-marker {
+  display: none;
+}
+.pr-calc summary .lu-title::after {
+  content: " ›";
+  display: inline-block;
+  transition: transform var(--dur-fast) ease;
+}
+.pr-calc[open] summary .lu-title::after {
+  transform: rotate(90deg);
+}
+.pr-pasos {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+}
+.pr-pasos h3 {
+  margin: 0 0 var(--space-1);
+  font-size: 16px;
+}
+.pr-pasos p {
+  margin: 0 0 var(--space-2);
+}
+.pr-eq {
+  font-family: "Cambria Math", "STIX Two Math", Cambria, Georgia, serif;
+  font-size: 16px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--superficie-2);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.pr-teo {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+}
+.pr-edit {
+  display: grid;
+  gap: var(--space-3);
+}
+.pr-edit__acciones {
+  display: flex;
+  gap: var(--space-2);
+}
+.pr-error {
+  color: var(--coral-texto);
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .pr-ev {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px;
+  }
+  .pr-ev select {
+    grid-column: 1 / -1;
+  }
+}
+.pr-sueldo {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--verde-suave);
+}
+.pr-pago {
+  display: flex;
+  gap: var(--space-2);
+}
+.pr-pago select,
+.pr-pago input {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.pr-pago select {
+  flex: 1;
+}
+.pr-pago input {
+  width: 72px;
+}
+.pr-sugerencia {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  color: var(--verde);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pr-ev__reinicia input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+  accent-color: var(--verde);
+}
