@@ -23,6 +23,7 @@ import type { GroupInfo, GroupMember, IncomingMessage, MessagingConnector, Sessi
 import { contestarEliminar, esEliminar } from './eliminar.js';
 import {
   CUENTA_CON_MISTER_LUKS,
+  cuentaDicha,
   esAgradecimiento,
   GASTO_PRIVADO,
   leerEleccion,
@@ -606,6 +607,9 @@ export class Ingestor {
         this.#cuentasAbiertas(m),
         m.media ? this.store.porPagar(m.chatId, m.sender).catch(() => null) : Promise.resolve(null),
       ]);
+      // «Casa: pagué 86.000 en Éxito»: ya dice dónde va (un atajo del celular lo manda así), sin preguntar
+      const dicho = !m.media ? cuentaDicha(m.text, cuentas) : null;
+      if (dicho) return this.#anotarDicho(m, dicho.cuenta, dicho.resto, idioma);
       const pagos: Opcion[] = (deudas?.pendientes ?? []).slice(0, 3).map((t) => ({
         tipo: 'pago',
         transferId: t.id,
@@ -634,6 +638,33 @@ export class Ingestor {
       'Un gasto por privado: ¿dónde lo anoto?',
     );
     return 'gasto_privado:pregunta';
+  }
+
+  /** Un gasto por privado que ya dijo en qué cuenta va («Casa: …»): se anota ahí, sin preguntar */
+  async #anotarDicho(m: IncomingMessage, cuenta: { id: string; name: string }, texto: string, idioma: Idioma): Promise<Outcome> {
+    const r = await this.store.ingestPrivado({
+      chatJid: m.chatId,
+      accountId: cuenta.id,
+      waMessageId: m.messageId,
+      sender: m.sender,
+      kind: 'text',
+      text: texto,
+      mediaPath: null,
+      fileName: null,
+      mimeType: null,
+      sentAt: m.sentAt,
+    });
+    const ok = r.ingest || r.reason === 'repetido';
+    await this.#encolar([
+      {
+        chat_jid: m.chatId,
+        reason: 'answer',
+        body: ok ? GASTO_PRIVADO.anotando(idioma, cuenta.name, 1) : GASTO_PRIVADO.noPude(idioma, cuenta.name, r.reason),
+        dedupe_key: `answer:${m.chatId}:${m.messageId}`,
+      },
+    ]);
+    this.log.info({ chat: maskWaId(m.chatId), ok, razon: r.reason }, 'Un gasto por privado con su cuenta dicha');
+    return ok ? 'gasto_privado:anotado' : `gasto_privado:${r.reason ?? 'no_pude'}`;
   }
 
   /** Sus cuentas abiertas para anotar por privado (sin la 640 en la base, las de la 480 que siguen abiertas) */

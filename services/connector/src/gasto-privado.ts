@@ -226,3 +226,17 @@ export function esAgradecimiento(texto: string | null | undefined): boolean {
     t,
   );
 }
+
+/**
+ * «Casa: pagué $86.000 en Éxito» o «Casa - …»: el mensaje empieza con el nombre de una de sus
+ * cuentas abiertas (sin tildes ni mayúsculas). La cuenta y lo demás; null si no empieza así.
+ */
+export function cuentaDicha(
+  texto: string | null | undefined,
+  cuentas: { id: string; name: string }[],
+): { cuenta: { id: string; name: string }; resto: string } | null {
+  const m = /^\s*([^:\n]{2,40}?)\s*[:\-–]\s*(\S[\s\S]*)$/.exec(texto ?? '');
+  if (!m) return null;
+  const cuenta = cuentas.find((c) => plano(c.name) === plano(m[1]));
+  return cuenta ? { cuenta, resto: m[2].trim() } : null;
+}

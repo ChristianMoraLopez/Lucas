@@ -231,3 +231,12 @@ def test_lo_que_pidieron_escrito_con_cantidades():
     h = analyze_message("pedimos 8 pizzas por 160 lucas y 4 pony malta 12 mil", HOY)
     assert h.amount == 172_000
     assert [(i.name, i.quantity, i.total_cop) for i in h.items] == [("Pizzas", 8, 160_000), ("Pony malta", 4, 12_000)]
+
+
+def test_el_mensaje_del_atajo_de_apple_pay():
+    # «Pagué [Comercio] en [Cantidad]»: el comercio sin el «en» ni la moneda
+    from lucas_worker.extract.rules import analyze_message
+
+    h = analyze_message("Pagué EXITO CALLE 80 en COP 86.000,00", HOY)
+    assert h.amount == 86_000
+    assert h.merchant_guess == "EXITO CALLE"

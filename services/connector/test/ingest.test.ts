@@ -1271,3 +1271,17 @@ describe('por privado, lo de cada quien (migración 480)', () => {
     for (const o of bandeja(PRIVADO).slice(-2)) expect(esMensajeDeLuks(o.body)).toBe(true);
   });
 });
+
+describe('por privado, con la cuenta dicha («Casa: …»)', () => {
+  it('un atajo del celular manda «Casa: Pagué $86.000 en Éxito»: se anota en la Casa sin preguntar', async () => {
+    store.cuentasAbiertasDe.set('573016667788', [
+      { id: 'casa', name: 'Casa', type: 'hogar' },
+      { id: 'moritas', name: 'Moritas', type: 'evento' },
+    ]);
+    await ing.onMessage(contador, wa, privado({ text: 'gracias' }));
+    expect(await ing.onMessage(contador, wa, privado({ text: 'casa: Pagué $86.000 en Éxito' }))).toBe('gasto_privado:anotado');
+    expect(store.anotadosPorPrivado.at(-1)).toMatchObject({ accountId: 'casa', kind: 'text', text: 'Pagué $86.000 en Éxito' });
+    // Sin el nombre de una cuenta al principio, pregunta como siempre
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Pagué $20.000 en Uber' }))).toBe('gasto_privado:pregunta');
+  });
+});

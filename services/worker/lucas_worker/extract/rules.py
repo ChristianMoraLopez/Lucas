@@ -214,8 +214,11 @@ def merchant_from_text(text: str | None) -> str:
     # Lo que no es el comercio: «entre Vale y Santi», «pagado por Laura», «ayer»
     t = re.sub(r"\b(entre|pagad[oa]s?\s+por)\b.*$", " ", t, flags=re.IGNORECASE)
     t = re.sub(r"\b(ayer|hoy|anoche|antier|anteayer|antenoche)\b", " ", t, flags=re.IGNORECASE)
+    t = re.sub(r"\b(?:cop|usd|clp|bob|pesos)\b", " ", t, flags=re.IGNORECASE)
     t = re.sub(r"\s+([,.;:])", r"\1", re.sub(r"\s+", " ", t))
     t = _INICIO.sub("", t).strip(" :;,.-·")
+    # «Pagué Éxito en $86.000» (un atajo del celular): el «en» se queda colgando al quitar el monto
+    t = re.sub(r"\s+(?:en|de|del|por|a|al|y|con)$", "", t, flags=re.IGNORECASE).strip(" :;,.-·")
     if not t:
         return "Gasto sin nombre"
     if len(t) > 40:  # se corta en una palabra completa
