@@ -1281,6 +1281,9 @@ describe('por privado, con la cuenta dicha («Casa: …»)', () => {
     await ing.onMessage(contador, wa, privado({ text: 'gracias' }));
     expect(await ing.onMessage(contador, wa, privado({ text: 'casa: Pagué $86.000 en Éxito' }))).toBe('gasto_privado:anotado');
     expect(store.anotadosPorPrivado.at(-1)).toMatchObject({ accountId: 'casa', kind: 'text', text: 'Pagué $86.000 en Éxito' });
+    // «Guardar en la cuenta de la casa: …» también
+    expect(await ing.onMessage(contador, wa, privado({ text: 'Guardar en la cuenta de la Casa: Pagué Rappi en $32.900' }))).toBe('gasto_privado:anotado');
+    expect(store.anotadosPorPrivado.at(-1)).toMatchObject({ accountId: 'casa', text: 'Pagué Rappi en $32.900' });
     // Sin el nombre de una cuenta al principio, pregunta como siempre
     expect(await ing.onMessage(contador, wa, privado({ text: 'Pagué $20.000 en Uber' }))).toBe('gasto_privado:pregunta');
   });
